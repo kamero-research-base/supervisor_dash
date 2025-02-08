@@ -6,7 +6,7 @@ import { useState } from "react";
 
 export default function Researches(){
   const [showAddResearch, setShowAddResearch] = useState(false);
-  const [setupResearchId, setSetupResearchId] = useState<number | null>(null);
+  const [setupResearchId, setSetupResearchId] = useState<string | null>(null);
 
 
   const toggleAddResearch = () => {
@@ -16,7 +16,7 @@ export default function Researches(){
     setShowAddResearch(false);
   }
 
-  const handleResearchViewClick = (ResearchId: number) => {
+  const handleResearchViewClick = (ResearchId: string) => {
     setSetupResearchId(ResearchId); // Set the ID for the setup form
   };
 
