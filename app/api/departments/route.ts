@@ -21,9 +21,9 @@ export async function GET(req: Request) {
       c.name AS college,
       s.name AS school
       FROM departments d
-      JOIN schools s ON CAST(s.id AS TEXT) = $1
-      JOIN colleges c ON c.id = s.id
-      JOIN institutions i ON i.id = c.id 
+      JOIN schools s ON CAST(s.id AS TEXT) = d.school
+      JOIN colleges c ON CAST(c.id AS TEXT) = s.college
+      JOIN institutions i ON CAST(i.id AS TEXT) = c.institution 
       WHERE d.school = $1 ORDER BY id ASC
       
       `;
