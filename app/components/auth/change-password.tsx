@@ -74,8 +74,8 @@ const ChangePassword = ({hashed}: Props) => {
         });
        
       } else {
-        const error = await response.text();
-        setError(error);
+        const error = await response.json();
+        setError(error.message);
       }
     } catch (error) {
       setError(`Changing password failed! ${(error as Error).message}`);
