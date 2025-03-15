@@ -18,14 +18,14 @@ const Profile = ({ menuCollapsed, toggleMenu }: ProfileProps) => {
     <>
       <div className={`flex items-center justify-between  ${menuCollapsed ? 'flex-col py-1 mb-1 mx-1' : 'py-1 mb-2 mx-2'}`}>
         <div className="flex items-center">
-          <div className="w-[30px] h-[30px] rounded-full mx-1 transition-all duration-300 ease-in-out hover:scale-110">
+          <div className="w-[40px] h-[40px] rounded-full mx-1 transition-all duration-300 ease-in-out hover:scale-110">
             <img src="/logo.svg" alt="Logo" className="w-full h-full object-cover" />
           </div>
-          <h4 className={`text-teal-200  ml-1 text-base font-medium transition-all duration-300 ${menuCollapsed ? 'hidden' : ''}`}>
-            KRB SUPERVISOR
+          <h4 className={`text-teal-400 uppercase  ml-1 text-lg font-medium transition-all duration-300 ${menuCollapsed ? 'hidden' : ''}`}>
+            Supervisor
           </h4>
         </div>
-        <i className="bi bi-list text-xl cursor-pointer text-gray-500 hover:text-gray-300" onClick={toggleMenu}></i>
+        <i className={`bi bi-${menuCollapsed ? 'arrows-fullscreen' : 'arrows-angle-contract'} text-xl cursor-pointer text-gray-200 hover:text-gray-100`} onClick={toggleMenu}></i>
       </div>
     </>
   );

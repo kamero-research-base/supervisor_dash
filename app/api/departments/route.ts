@@ -7,9 +7,6 @@ import client from "../utils/db"; // Adjust the path as needed
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-
-    const school_id = searchParams.get("school_id");
 
     let query = `SELECT 
       d.id,
@@ -24,11 +21,10 @@ export async function GET(req: Request) {
       JOIN schools s ON CAST(s.id AS TEXT) = d.school
       JOIN colleges c ON CAST(c.id AS TEXT) = s.college
       JOIN institutions i ON CAST(i.id AS TEXT) = c.institution 
-      WHERE d.school = $1 ORDER BY id ASC
       
       `;
 
-    const result = await client.query(query, [school_id]);
+    const result = await client.query(query);
 
     return NextResponse.json(result.rows, { status: 200 });
   } catch (error) {

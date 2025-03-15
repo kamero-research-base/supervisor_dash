@@ -37,7 +37,7 @@ const hideNav = (url: string): any => {
 export default function RootLayout({ children }: RootLayoutProps) {
   const path = usePathname();
   const pathTitle = manipulateUrl(path);
-  const [menuCollapsed, setMenuCollapsed] = useState<boolean>(false);
+  const [menuCollapsed, setMenuCollapsed] = useState<boolean>(true);
   const [pageTitle, setPageTitle] = useState<string>(pathTitle); // State for dynamic page title
 
   const router = useRouter();

@@ -40,7 +40,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // Query user by email or phone
         const sql = `
             SELECT 
-                id, first_name, last_name, password, hashed_id, email, profile_picture, school, status 
+                id, first_name, last_name, password, hashed_id, email, profile_picture, department, status 
             FROM supervisors 
             WHERE email = $1 OR phone = $1
         `;
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 name: `${user.first_name} ${user.last_name}`,
                 session_id: user.hashed_id,
                 profile: user.profile_picture,
-                school_id: user.school,
+                department_id: user.department,
             }
         }, { status: 200 });
 

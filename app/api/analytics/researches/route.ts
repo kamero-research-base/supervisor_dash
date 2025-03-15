@@ -6,9 +6,9 @@ import client from "@/app/api/utils/db"; // Adjust the path as needed
 export async function POST(req: Request) {
   try {
     const formData = await req.json();
-    const { school_id } = formData;
+    const { department_id } = formData;
 
-    if (!school_id) {
+    if (!department_id) {
       return NextResponse.json({ message: "Unauthorized access" }, { status: 401 });
     }
 
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
     // Query for total uploads for this user
-    const queryTotalUploads = `SELECT COUNT(*) AS total_uploads FROM researches WHERE school = $1;`;
+    const queryTotalUploads = `SELECT COUNT(*) AS total_uploads FROM researches WHERE department = $1;`;
 
     // Query for current and last month statistics
     const query = `
@@ -31,8 +31,8 @@ export async function POST(req: Request) {
         SUM(CASE WHEN r.status = 'Published' OR r.status ='Approved' THEN 1 ELSE 0 END) AS total_published,
         SUM(r.downloads) AS total_downloads
       FROM researches r
-      WHERE r.school = $1 AND EXTRACT(MONTH FROM CAST(r.created_at AS DATE)) = $2 
-        AND EXTRACT(YEAR FROM CAST(r.created_at AS DATE)) = $3
+      WHERE r.department = $1 AND EXTRACT(MONTH FROM CAST(r.created_at AS DATE)) = $2 
+      AND EXTRACT(YEAR FROM CAST(r.created_at AS DATE)) = $3
     `;
 
     const lastMonthQuery = `
@@ -44,14 +44,14 @@ export async function POST(req: Request) {
         SUM(CASE WHEN r.status = 'Published' OR r.status ='Approved' THEN 1 ELSE 0 END) AS total_published,
         SUM(r.downloads) AS total_downloads
       FROM researches r
-      WHERE r.school = $1 AND EXTRACT(MONTH FROM CAST(r.created_at AS DATE)) = $2 
+      WHERE r.department = $1 AND EXTRACT(MONTH FROM CAST(r.created_at AS DATE)) = $2 
         AND EXTRACT(YEAR FROM CAST(r.created_at AS DATE)) = $3
     `;
 
     // Execute queries
-    const totalUploadsData = await client.query(queryTotalUploads, [school_id]);
-    const currentResult = await client.query(query, [school_id, currentMonth, currentYear]);
-    const lastMonthResult = await client.query(lastMonthQuery, [school_id, lastMonth, lastMonthYear]);
+    const totalUploadsData = await client.query(queryTotalUploads, [department_id]);
+    const currentResult = await client.query(query, [department_id, currentMonth, currentYear]);
+    const lastMonthResult = await client.query(lastMonthQuery, [department_id, lastMonth, lastMonthYear]);
 
     const totalUploads = totalUploadsData.rows[0]?.total_uploads || 1;
     const current = currentResult.rows[0];

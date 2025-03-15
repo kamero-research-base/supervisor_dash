@@ -10,8 +10,8 @@ const client = new Client({
 });
 
 client.connect();
-*/
 
+*/
 let client: any;
 
 try {

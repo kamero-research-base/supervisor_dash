@@ -51,9 +51,9 @@ const Header = ({onAddResearchClick}: ResearchHeaderProps) => {
   // Fetch Researches
   useEffect(() => {
     const userSession = JSON.parse(localStorage.getItem('supervisorSession') || '{}');
-    let school_id = "";
-    if(userSession && userSession.school_id){
-      school_id = userSession.school_id;
+    let department_id = "";
+    if(userSession && userSession.department_id){
+      department_id = userSession.department_id;
     }
     const fetchResearches = async () => {
       try {
@@ -63,7 +63,7 @@ const Header = ({onAddResearchClick}: ResearchHeaderProps) => {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ school_id: school_id }),});
+          body: JSON.stringify({ department_id: department_id }),});
         if (!response.ok) throw new Error("Failed to fetch researches");
         const data = await response.json();
         setAnalytics(data);
@@ -255,45 +255,17 @@ const handleFilter = (text: string) => {
   };
 
 
-const handleDelete = async (id: string) => {
-  const response = await fetch(`/api/research/delete`, {
-      method: 'DELETE',
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ id: id }),
-  });
-
-  if (!response.ok) {
-      let errorData;
-      try {
-          errorData = await response.json();
-      } catch (err) {
-          setError("Failed to delete Server returned an error without JSON.");
-          return;
-      }
-      
-      setError(errorData.message || "Failed to delete Order");
-      return;
-  }
-
-  // Update the Orders list to remove the deleted Order
-  setResearches((prevResearches) => 
-      prevResearches.filter(Research => Research.hashed_id !== id)
-  );
-};
 
   // Fetch Researches
   useEffect(() => {
     const userSession = JSON.parse(localStorage.getItem('supervisorSession') || '{}');
-    let school_id = "";
-    if(userSession && userSession.school_id){
-      school_id = userSession.school_id;
+    let department_id = "";
+    if(userSession && userSession.department_id){
+      department_id = userSession.department_id;
     }
     const fetchResearches = async () => {
       try {
-        const response = await fetch(`/api/research?sort=${sort}&search=${search}&filter=${filter}&school_id=${school_id}`);
+        const response = await fetch(`/api/research?sort=${sort}&search=${search}&filter=${filter}&department_id=${department_id}`);
         if (!response.ok) throw new Error("Failed to fetch researches");
         const data = await response.json();
         setResearches(data);
@@ -383,16 +355,7 @@ const handleDelete = async (id: string) => {
                     >
                       <i className="bi bi-eye mr-2 text-teal-500 hover:bg-slate-100"></i> Review
                     </li>
-                                             
-                    <li
-                      className="px-4 py-2 cursor-pointer hover:bg-gray-100 flex items-center"
-                      onClick={() => {
-                        handleDelete(research.hashed_id); // Delete the Order
-                        toggleDropdown(research.id); // Close the dropdown
-                      }}
-                    >
-                      <i className="bi bi-trash mr-2 text-red-500 hover:bg-slate-100"></i> Delete
-                    </li>
+                   
                   </ul>
                 </div>
               )}

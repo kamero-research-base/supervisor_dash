@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import client from "../utils/db"; // Adjust the path as needed
-import { Cipher } from "crypto";
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +11,7 @@ export async function GET(req: Request) {
     const filter = searchParams.get("filter");
     const search = searchParams.get("search");
     const sort = searchParams.get("sort");
-    const sessionId = searchParams.get("school_id"); // Get session_id
+    const sessionId = searchParams.get("department_id"); // Get session_id
     console.log(sessionId)
     if (!sessionId) {
       return NextResponse.json({ message: "Unauthorized access" }, { status: 401 });
@@ -37,7 +36,7 @@ export async function GET(req: Request) {
       FROM researches r
       JOIN institutions i ON CAST(i.id AS TEXT) = r.institution
       JOIN schools s ON CAST(s.id AS TEXT) = r.school
-      WHERE r.school = $1`; // Filter by school_id (session_id)
+      WHERE r.department = $1`; // Filter by school_id (session_id)
 
     const params: any[] = [sessionId];
     const conditions = [];

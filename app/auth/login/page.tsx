@@ -5,7 +5,7 @@ const Join = () => {
   return(
     <>
     <head>
-      <title>Login - Kamero Research Base</title>
+      <title>Login - Supervisor | Kamero Research Base</title>
     </head>
     <LoginForm />
     </>

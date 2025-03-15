@@ -34,7 +34,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     try {
          const hashedPassword = await hashPassword(password);
-        const results = await client.query(`UPDATE supervisors SET password = $1 WHERE hashed_id = $2 RETURNING *`, [
+        const results = await client.query(`UPDATE supervisors SET password = $1, status = 'Active' WHERE hashed_id = $2 RETURNING *`, [
          hashedPassword,
          hashed_id,
         ]);

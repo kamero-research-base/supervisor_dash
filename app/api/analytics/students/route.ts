@@ -6,9 +6,9 @@ import client from "../../utils/db"; // Adjust the path as needed
 export async function POST(req: Request) {
   try {
     const formData = await req.json();
-    const { school_id } = formData;
+    const { department_id } = formData;
 
-    if (!school_id) {
+    if (!department_id) {
       return NextResponse.json({ message: "Unauthorized access" }, { status: 401 });
     }
 
@@ -21,12 +21,11 @@ export async function POST(req: Request) {
         SUM(CASE WHEN s.status = 'Unverified' THEN 1 ELSE 0 END) AS total_unverified,
         SUM(CASE WHEN s.status IN ('Locked', 'Inactive') THEN 1 ELSE 0 END) AS total_inactive
       FROM students s
-      JOIN schools sc ON CAST(sc.id AS TEXT) = CAST(s.department AS TEXT)
-      WHERE CAST(sc.id AS TEXT) = $1
+      WHERE s.department = $1
     `;
 
     // Execute the query
-    const result = await client.query(query, [school_id]);
+    const result = await client.query(query, [department_id]);
 
     // Extract data
     const data = result.rows[0] || {};

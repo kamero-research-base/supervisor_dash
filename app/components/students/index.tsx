@@ -16,9 +16,9 @@ const Header = ({onAddStudentClick}: StudentHeaderProps) => {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   useEffect(() => {
     const userSession = JSON.parse(localStorage.getItem('supervisorSession') || '{}');
-    let school_id = "";
-    if(userSession && userSession.school_id){
-      school_id = userSession.school_id;
+    let department_id = "";
+    if(userSession && userSession.department_id){
+      department_id = userSession.department_id;
     }
     const fetchStudents = async () => {
       try {
@@ -28,7 +28,7 @@ const Header = ({onAddStudentClick}: StudentHeaderProps) => {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ school_id: school_id }),});
+          body: JSON.stringify({ department_id: department_id }),});
                 if (!response.ok) throw new Error("Failed to fetch Institutions");
                 const data = await response.json();
                 setAnalytics(data);
@@ -63,7 +63,7 @@ const Header = ({onAddStudentClick}: StudentHeaderProps) => {
             </h4>
             <i className="bi bi-three-dots"></i>
           </div>
-          <div className="p-4 flex items-center">
+          <div className="p-4 flex items-center justify-center">
             <div className="text-3xl text-slate-600"> {analytics?.total_students} </div>
             
           </div>
@@ -77,7 +77,7 @@ const Header = ({onAddStudentClick}: StudentHeaderProps) => {
             </h4>
             <i className="bi bi-three-dots"></i>
           </div>
-          <div className="p-4 flex items-center">
+          <div className="p-4 flex items-center justify-center">
             <div className="text-3xl text-slate-600"> {analytics?.total_active} </div>
             
           </div>
@@ -90,7 +90,7 @@ const Header = ({onAddStudentClick}: StudentHeaderProps) => {
             </h4>
             <i className="bi bi-three-dots"></i>
           </div>
-          <div className="p-4 flex items-center">
+          <div className="p-4 flex items-center justify-center">
             <div className="text-3xl text-slate-600"> {analytics?.total_unverified} </div>
             
           </div>
@@ -104,7 +104,7 @@ const Header = ({onAddStudentClick}: StudentHeaderProps) => {
             </h4>
             <i className="bi bi-three-dots"></i>
           </div>
-          <div className="p-4 flex items-center">
+          <div className="p-4 flex items-center justify-center">
             <div className="text-3xl text-slate-600"> {analytics?.total_inactive} </div>
             
           </div>
@@ -118,7 +118,7 @@ const Header = ({onAddStudentClick}: StudentHeaderProps) => {
             </h4>
             <i className="bi bi-three-dots"></i>
           </div>
-          <div className="p-4 flex items-center">
+          <div className="p-4 flex items-center justify-center">
             <div className="text-3xl text-slate-600"> {analytics?.total_pending}</div>
           </div>
         </div>
@@ -279,45 +279,17 @@ const StudentList = () => {
         )
     );
   };
-  const handleDelete = async (id: number) => {
-    const response = await fetch(`/api/students/delete`, {
-        method: 'DELETE',
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ id: id }),
-    });
-  
-    if (!response.ok) {
-        let errorData;
-        try {
-            errorData = await response.json();
-        } catch (err) {
-            setError("Failed to delete Order: Server returned an error without JSON.");
-            return;
-        }
-        
-        setError(errorData.message || "Failed to delete Order");
-        return;
-    }
-  
-    // Update the Student list to remove the deleted Order
-    setStudents((prevStudents) => 
-        prevStudents.filter(Student => Student.id !== id)
-    );
-  };
     // Fetch Students
     // Fetch Researches
   useEffect(() => {
     const userSession = JSON.parse(localStorage.getItem('supervisorSession') || '{}');
-    let school_id = "";
-    if(userSession && userSession.school_id){
-      school_id = userSession.school_id;
+    let department_id = "";
+    if(userSession && userSession.department_id){
+      department_id = userSession.department_id;
     }
     const fetchResearches = async () => {
       try {
-        const response = await fetch(`/api/students?sort=${sort}&search=${search}&filter=${filter}&school_id=${school_id}`);
+        const response = await fetch(`/api/students?sort=${sort}&search=${search}&filter=${filter}&department_id=${department_id}`);
         if (!response.ok) throw new Error("Failed to fetch researches");
         const data = await response.json();
         setStudents(data);
@@ -412,15 +384,7 @@ const StudentList = () => {
                     >
                       <i className="bi bi-check-circle-fill mr-2 text-orange-500 hover:bg-slate-100"></i> Lock
                     </li>
-                    <li
-                      className="px-4 py-2 cursor-pointer hover:bg-gray-100 flex items-center"
-                      onClick={() => {
-                        handleDelete(Student.id); // Delete the Order
-                        toggleDropdown(Student.id); // Close the dropdown
-                      }}
-                    >
-                      <i className="bi bi-trash mr-2 text-red-500 hover:bg-slate-100"></i> Delete
-                    </li>
+                   
                   </ul>
                 </div>
               )}

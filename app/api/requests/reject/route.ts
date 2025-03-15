@@ -17,7 +17,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       }
 
     try {
-      let query = `UPDATE researches SET status = 'Approved' WHERE hashed_id = $1 RETURNING id`;
+      let query = `UPDATE research_changes SET status = 'Rejected' WHERE id = $1 RETURNING *`;
    
         // Fetch Research details
         const researchResult = await client.query(query, [id]);

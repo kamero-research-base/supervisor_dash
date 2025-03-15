@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const filter = searchParams.get("filter");
     const search = searchParams.get("search");
     const sort = searchParams.get("sort");
-    const school_id = searchParams.get("school_id");
+    const school_id = searchParams.get("department_id");
 
     if (!school_id) {
       return NextResponse.json({ message: "No authorized access" }, { status: 400 });
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
       JOIN schools sc ON CAST(sc.id AS TEXT) = CAST(d.school AS TEXT)
       JOIN colleges c ON CAST(c.id AS TEXT) = CAST(sc.college AS TEXT)
       JOIN institutions i ON CAST(i.id AS TEXT) = CAST(c.institution AS TEXT)
-      WHERE CAST(sc.id AS TEXT) = $1
+      WHERE s.department = $1
     `;
 
     const params: any[] = [school_id];

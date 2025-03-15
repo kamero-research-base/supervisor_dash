@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import VerifyForm from "./forgot-password";
+import Preloader from "../app/buttonPreloader";
+import AlertNotification from "../app/notify";
 
 
 interface FormData {
@@ -20,7 +22,18 @@ const LoginForm = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+        useEffect(() => {
+          if (error || success) {
+            const timer = setTimeout(() => {
+              setError(null);
+              setSuccess(null);
+            }, 10000); // Hide after 4 seconds
+            return () => clearTimeout(timer);
+          }
+        }, [error, success]);
 
   const handleFocus = (field: string) =>
     setFocus((prev) => ({ ...prev, [field]: true }));
@@ -37,7 +50,7 @@ const LoginForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    setLoading(true);
     
   
     try {
@@ -51,17 +64,19 @@ const LoginForm = () => {
       });
     
       if (!response.ok) {
+        setLoading(false);
         const errorText = await response.json();
         throw new Error(`${errorText.message}`);
       }
     
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
+        setLoading(false);
         throw new Error(`Unexpected response format: ${(await response.json()).message}`);
       }
     
       const data = await response.json();
-    
+       setLoading(false);
       setSuccess("Login successful");
       setFormData({ login: "", password: "" });
       // Update localStorage with the new session
@@ -69,11 +84,12 @@ const LoginForm = () => {
         id: data.user.id,
         name: data.user.name,
         session_id: data.user.session_id,
-        school_id: data.user.school_id,
+        department_id: data.user.department_id,
         profile: data.user.profile
     }));
 
     } catch (error: any) {
+      setLoading(false);
       setError(error.message);
     }
     
@@ -91,6 +107,9 @@ const LoginForm = () => {
 
   return (
     <div className="min-h-screen py-5 flex items-center justify-center bg-gradient-to-r from-blue-50 to-indigo-50">
+       {error && <AlertNotification message={error} type="error" />}
+      {success && <AlertNotification message={success} type="success" />}
+    
       <div className="w-full max-w-lg bg-white shadow-xl rounded-lg py-4">
         {/* Logo */}
         <div className="flex justify-center mb-4">
@@ -101,18 +120,11 @@ const LoginForm = () => {
 
         {/* Welcome Message */}
         <h2 className="text-center text-xl font-medium text-teal-600 mb-8 px-2">
-          Welcome back, Login here
+          Welcome back
         </h2>
 
         {/* Form */}
         <form className="space-y-6 px-8" onSubmit={handleSubmit}>
-        {(success || error) && (
-          <div
-          className={`${success?.includes('success') ? 'bg-green-100 text-green-500 border-green-300 ' : ' bg-red-100 text-red-500 border-red-300 '} font-medium px-4 py-2 rounded-md `}
-          >
-            {success ? success : error ? error : ""}
-          </div>
-        )}
    
             {[
               { id: "login", label: "Email or phone", type: "text" },
@@ -144,13 +156,16 @@ const LoginForm = () => {
             ))}
           
              {/* Submit Button */}
-            <div className="text-center">
-             <button
-              type="submit"
-              className="w-[150px] border border-teal-400 text-teal-600 py-2 rounded-md hover:bg-teal-100 transition-all duration-300"
-             >
-              Login
-             </button>
+
+           <div className="text-center flex justify-center">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full sm:w-[150px] flex items-center justify-center space-x-2 border border-teal-400 text-teal-500 py-2 rounded-md hover:bg-teal-100 transition-all duration-300"
+              >
+                {loading && <Preloader />}
+                Login
+              </button>
             </div>
             <div className="relative flex flex-col justify-center space-y-1 text-center">
               <Link href={"/auth/forgot-password"} className="text-sm text-teal-600">Forgot password?</Link>

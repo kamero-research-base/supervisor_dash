@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import client from "../../utils/db"; // Adjust the path to your database client
 
-export async function PUT(req: NextRequest): Promise<NextResponse> {
+export async function POST(req: NextRequest): Promise<NextResponse> {
     let requestBody;
       
       // Safe JSON parsing
@@ -17,13 +17,40 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       }
 
     try {
-      let query = `UPDATE researches SET status = 'Approved' WHERE hashed_id = $1 RETURNING id`;
+      let query = `SELECT 
+   r.id,
+      r.title,
+      r.researcher,
+      r.status,
+      r.progress_status,
+      r.year,
+      r.abstract,
+      r.document,
+      r.document_type,
+      r.category,
+      rs.hashed_id,
+      r.created_at,
+      r.content,
+      rs.approval_requested,
+      i.name AS institute,
+      i.id AS institute_if,
+      s.id AS school_id,
+      s.name AS school,
+      st.first_name,
+      st.last_name
+      FROM research_changes r
+      JOIN researches rs ON rs.id = r.research_id
+      JOIN institutions i ON CAST(i.id AS TEXT) = rs.institution
+      JOIN schools s ON CAST(s.id AS TEXT) = rs.school
+      JOIN students st ON st.id = r.changed_by
+      WHERE r.id = $1 
+      `;
    
         // Fetch Research details
         const researchResult = await client.query(query, [id]);
 
         if (researchResult.rows.length === 0) {
-            return NextResponse.json({ message: "Research not found." }, { status: 404 });
+            return NextResponse.json({ message: "Research not found." }, { status: 401 });
         }
 
         return NextResponse.json(researchResult.rows[0], { status: 200 });

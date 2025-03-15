@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
+import AlertNotification from "../app/notify";
 
 interface FormData {
   title: string;
@@ -16,6 +17,8 @@ interface FormData {
   document: string;
   document_type: string;
   hashed_id: string;
+  first_name: string;
+  last_name: string;
   created_at: string;
 }
   const buttons = [
@@ -25,7 +28,7 @@ interface FormData {
   ];
 
 interface ViewResearchProps{
-  ResearchId: string;
+  RequestId: string;
   onClose: () => void;
 }
 
@@ -55,7 +58,7 @@ function truncateText(text: string, maxLength: number) {
   return text; // Return the original text if it's within the limit
 }
 
-const ViewResearch: React.FC<ViewResearchProps> = ({ResearchId, onClose }) => { 
+const ViewRequest: React.FC<ViewResearchProps> = ({RequestId, onClose }) => { 
 
   const [activeId, setActiveId] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +69,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ResearchId, onClose }) => {
    const handleActive = (id: number) => {
     setActiveId(id);
    }
+
    
     // Function to clear messages after a few seconds
     useEffect(() => {
@@ -82,13 +86,13 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ResearchId, onClose }) => {
   useEffect(() => {
     const fetchResearch = async () => {
       try {
-        const response = await fetch(`/api/research/view`, {
+        const response = await fetch(`/api/requests/view`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ id: ResearchId }), // Use resolved ID
+          body: JSON.stringify({ id: RequestId }), // Use resolved ID
         });
         if (!response.ok) throw new Error("Failed to fetch researches");
         const data = await response.json();
@@ -156,89 +160,15 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ResearchId, onClose }) => {
         setError(errorData.message || "Failed to reject");
         return;
     }
-
+    setSuccess("Changes rejected!")
   };
 
 
-  const handleReview = async (id: any) => {
-    const response = await fetch(`/api/research/review`, {
-        method: 'PUT',
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ id: id }),
-    });
-  
-    if (!response.ok) {
-        let errorData;
-        try {
-            errorData = await response.json();
-        } catch (err) {
-            setError("Failed to reject. Server returned an error without JSON.");
-            return;
-        }
-        
-        setError(errorData.message || "Failed to reject");
-        return;
-    }
 
-  };
-
-  const handleHold = async (id: any) => {
-    const response = await fetch(`/api/research/hold`, {
-        method: 'PUT',
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ id: id }),
-    });
-  
-    if (!response.ok) {
-        let errorData;
-        try {
-            errorData = await response.json();
-        } catch (err) {
-            setError("Failed to hold. Server returned an error without JSON.");
-            return;
-        }
-        
-        setError(errorData.message || "Failed to hold");
-        return;
-    }
-
-  };
-
-  const handleDelete = async (id: any) => {
-    const response = await fetch(`/api/research/delete`, {
-        method: 'DELETE',
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ id: id }),
-    });
-  
-    if (!response.ok) {
-        let errorData;
-        try {
-            errorData = await response.json();
-        } catch (err) {
-            setError("Failed to delete Server returned an error without JSON.");
-            return;
-        }
-        
-        setError(errorData.message || "Failed to delete Order");
-        return;
-    }
-
-  };
-  if(research?.status === "Pending" || research?.status === "Draft"){
-    handleReview(ResearchId);
-  }
   return (
     <div className="fixed flex justify-center items-center bg-slate-400 w-full h-full top-0 left-0 z-30 backdrop-blur-sm bg-opacity-40">
+       {error && <AlertNotification message={error} type="error" />}
+       {success && <AlertNotification message={success} type="success" />}
       <i
         onClick={onClose}
         className="bi bi-x absolute right-4 px-[6px] py-[2px] border top-7 text-2xl font-bold cursor-pointer text-teal-50 bg-teal-500 border-teal-300 hover:bg-teal-200 hover:border rounded-full"
@@ -252,7 +182,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ResearchId, onClose }) => {
           <div className="space-x-3">
             <button className="border border-orange-800 py-[6px] px-6 rounded-md text-sm bg-orange-500 text-white text-center" onClick={() => {handleApprove(research?.hashed_id);}}>Approve</button>
             <button className="border border-amber-800 py-[6px] px-6 rounded-md text-sm bg-amber-900 text-white text-center" onClick={() => {handleReject(research?.hashed_id);}}>Reject</button>
-            <button className="border border-orange-300 py-[6px] px-6 rounded-md text-sm text-orange-500 text-center" onClick={() => {handleHold(research?.hashed_id);}}>Hold</button>
+            
           </div>
         </h4>
         <div className="flex space-x-4 px-3">
@@ -261,13 +191,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ResearchId, onClose }) => {
           ))}
 
         </div>
-        {success || error && (
-          <div
-          className={`${success ? 'bg-green-100 text-green-500 border-green-300' : 'bg-red-100 text-red-500 border-red-300'} p-4 rounded-md`}
-          >
-            {success ? success : error ? error : ""}
-          </div>
-        )}
+       
         <form className="space-y-2 max-h-[70vh] overflow-hidden overflow-y-visible">
         
         <div className="flex justify-between p-2 space-x-3">
@@ -299,7 +223,12 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ResearchId, onClose }) => {
            </div>
           </div>
           <div className="w-2/6 bg-white rounded-lg p-5 space-y-2 h-max">
-           <h1 className="text-lg text-slate-600 font-semibold">Research Details</h1>
+           <h1 className="text-lg text-slate-600 font-semibold">Research Changes Details</h1>
+           
+           <div className="space-y-1">
+            <h4 className="text-xs text-slate-500">Changed by</h4>
+            <div className="text-sm tex-slate-600">{research?.first_name +" "+ research?.last_name}</div>
+           </div>
 
            <div className="space-y-1">
             <h4 className="text-xs text-slate-500">Status</h4>
@@ -349,4 +278,4 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ResearchId, onClose }) => {
     </div>
   )
 }
-export default ViewResearch;
+export default ViewRequest;
