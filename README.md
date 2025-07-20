@@ -16,7 +16,7 @@ yarn dev
 pnpm dev
 # or
 bun dev
-Set environment variables:
+#Set environment variables:
 
 DATABASE_URL=postgres://neondb_owner:npg_pM4T7kIVDRtf@ep-icy-cherry-a4rnw6g0-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require
 SUPABASE_URL=https://umyxfvopukggkdrykiig.supabase.co
