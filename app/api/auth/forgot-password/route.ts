@@ -34,23 +34,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         const verificationCode = generateVerificationCode();
 
-        if(result.rowCount > 0){
-        await client.query(`UPDATE supervisors SET verification_code = $1 WHERE hashed_id = $2`, [
-         verificationCode,
-         user.hashed_id,
-        ]); 
-        }else{
-            return NextResponse.json({ message: "Email not found "}, { status: 500 });
+        
+         if(result.rowCount > 0){
+            await client.query(`UPDATE supervisors SET verification_code = $1 WHERE hashed_id = $2`, [
+             verificationCode,
+             user.hashed_id,
+            ]); 
+            }else{
+                return NextResponse.json({ message: "Email not found "}, { status: 500 });
+            }
+    
+            await sendChangePasswordVerificationEmail(email, verificationCode);
+            // Send response with user data
+            return NextResponse.json({
+                message: "Email checked successful!",
+                user: {hashed_id: user.hashed_id}
+            }, { status: 200 });
+    
+        } catch (error) {
+            return NextResponse.json({ message: "Server error: " + (error instanceof Error ? "Connection failed" : "Unknown error occurred.") }, { status: 500 });
         }
-
-        await sendChangePasswordVerificationEmail(email, verificationCode);
-        // Send response with user data
-        return NextResponse.json({
-            message: "Email checked successful!",
-            user: {hashed_id: user.hashed_id}
-        }, { status: 200 });
-
-    } catch (error) {
-        return NextResponse.json({ message: "Server error: " + (error instanceof Error ? "Connection failed" : "Unknown error occurred.") }, { status: 500 });
     }
-}
+    

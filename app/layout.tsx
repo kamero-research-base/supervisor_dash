@@ -9,97 +9,115 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 interface RootLayoutProps {
   children: ReactNode;
 }
+
 const manipulateUrl = (url: string) => {
   // Remove the '/i/' prefix
-  if (url.startsWith('/i/')) {
-      url = url.replace('/i/', '');
-  }else if(url.startsWith('/w-page/')){
-    url = url.replace('/w-page/', '');
-  }else{
-    url = "dashboard"; 
+  if (url.startsWith('/auth/')) {
+    url = url.replace('/auth/', '');
+  } else if (url.startsWith('/users/')) {
+    url = url.replace('/users/', '');
+  } else if (url.startsWith('/')){
+    url = url.replace('/', '');
+  } else {
+    url = "Dashboard";
   }
 
+  if(url === "") {
+    url = "Dashboard";
+  }
+  url += "";
   // Capitalize the first letter of the remaining word
   const capitalized = url.charAt(0).toUpperCase() + url.slice(1);
-
   return capitalized;
 };
-const hideNav = (url: string): any => {
-  if(url.startsWith('/auth')){
-    return true;
-  }else{
-    return false;
-  }
-}
 
-
+const hideNav = (url: string): boolean => {
+  return url.startsWith('/auth');
+};
 
 export default function RootLayout({ children }: RootLayoutProps) {
   const path = usePathname();
-  const pathTitle = manipulateUrl(path);
-  const [menuCollapsed, setMenuCollapsed] = useState<boolean>(true);
-  const [pageTitle, setPageTitle] = useState<string>(pathTitle); // State for dynamic page title
-
+  const [pageTitle, setPageTitle] = useState<string>("");
   const router = useRouter();
-
-  const toggleMenu = () => {
-    setMenuCollapsed((prev) => !prev);
-  };
-
-  const sidebarWidth = menuCollapsed ? '80px' : '260px';
-  const mainMarginLeft = menuCollapsed ? '80px' : '270px';
 
   // Function to update page title when navigating
   const handlePageChange = (newPage: string) => {
     setPageTitle(newPage);
   };
- const hide = hideNav(path);
+
+  // Update page title when path changes
+  useEffect(() => {
+    const title = manipulateUrl(path);
+    setPageTitle(title);
+    
+    // Update document title
+    document.title = `${title}`;
+  }, [path]);
+
+  const hide = hideNav(path);
+
   return (
     <html lang="en">
       <head>
-        <title>{pageTitle}</title>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="shortcut icon" href="/logo.svg" type="image/x-icon" />
       </head>
-      
-      {!hide && (
-      <body className="bg-slate-50 transition-all duration-300 ease-in-out">
-        {/* Sidebar - Fixed */}
-       
-        <nav
-          className={`fixed top-0 h-full bg-teal-900 border border-slate-200 shadow ${menuCollapsed ? 'p-1':'p-3'} z-10 transition-all duration-300`}
-          style={{ width: sidebarWidth }}
-        >
-          <NavBar menuCollapsed={menuCollapsed} toggleMenu={toggleMenu} onNavigate={handlePageChange} />
-        </nav>
-       
-        {/* Main Content */}
-        <main
-          className="min-h-screen py-2 transition-all duration-300"
-          style={{ marginLeft: mainMarginLeft }}
-        >
-          {/* TopBar - Fixed */}
-          <div
-            className="fixed top-0 z-20 p-4 flex justify-between bg-white shadow-sm"
-            style={{
-              left: sidebarWidth,
-              width: `calc(100% - ${sidebarWidth})`,
-            }}
-          >
-            <TopBar page={pageTitle} />
+      <body className="bg-gray-50">
+        {!hide ? (
+          // Main app layout with proper structure
+          <div className="min-h-screen flex">
+            {/* Sidebar Navigation - Fixed Position */}
+            <NavBar onNavigate={handlePageChange} />
+            
+            {/* Main Content Wrapper - Accounts for sidebar width */}
+            <div className="flex-1 lg:ml-80 transition-all duration-300">
+              {/* TopBar - Fixed at top of content area */}
+              <TopBar pageTitle={pageTitle} />
+              
+              {/* Scrollable Content Area - Below TopBar */}
+              <main className="min-h-[calc(100vh-73px)]">
+                <div className="p-6">
+                  {/* Content Container with max width for better readability */}
+                  <div className="max-w-7xl mx-auto">
+                    {children}
+                  </div>
+                </div>
+              </main>
+              
+              {/* Optional Footer */}
+              <footer className="bg-white border-t border-gray-200 py-4 px-6">
+                <div className="max-w-7xl mx-auto">
+                  <div className="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-500">
+                    <p>&copy; {new Date().getFullYear()} Kamero Research Base. All rights reserved.</p>
+                    <div className="flex items-center space-x-4 mt-2 sm:mt-0">
+                      <a href="/terms" className="hover:text-teal-600 transition-colors">Terms</a>
+                      <a href="/privacy" className="hover:text-teal-600 transition-colors">Privacy</a>
+                      <a href="/support" className="hover:text-teal-600 transition-colors">Support</a>
+                    </div>
+                  </div>
+                </div>
+              </footer>
+            </div>
           </div>
-
-          {/* Main Content */}
-          <div className="mt-[80px] mr-2 py-2 px-2 rounded-lg">
-            {children}
+        ) : (
+          // Auth pages layout (no navigation)
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="w-full">
+              {children}
+            </div>
           </div>
-        </main>
+        )}
+        
+        {/* Mobile Overlay Background - Only visible when sidebar is open on mobile */}
+        <style jsx global>{`
+          @media (max-width: 1023px) {
+            body {
+              overflow-x: hidden;
+            }
+          }
+        `}</style>
       </body>
-    )}
-    {hide && (
-      <body className="bg-slate-50 transition-all duration-300 ease-in-out">
-        {children}
-      </body>
-    )}
     </html>
   );
 }

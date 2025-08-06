@@ -15,12 +15,12 @@ client.connect();
 let client: any;
 
 try {
-    if (!process.env.POSTGRES_URL) {
+    if (!process.env.DATABASE_URL) {
         console.error('Error: DATABASE_URL is not defined in the environment variables.');
         throw new Error('DATABASE_URL is required but not set.');
     }
 
-    const connectionString = process.env.POSTGRES_URL;
+    const connectionString = process.env.DATABASE_URL;
 
     // Initialize the pg client
     client = new Client({
