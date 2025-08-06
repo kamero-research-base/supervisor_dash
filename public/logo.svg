@@ -1,39 +1,73 @@
-<svg width="800" height="800" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
-  <!-- Outer teal ring with C-shaped opening for handle -->
-  <circle cx="400" cy="400" r="360" fill="none" stroke="#00796b" stroke-width="69"/>
+<svg width="920" height="920" viewBox="-60 -60 920 920" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="subtleGlow" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="white" stop-opacity="0.03" />
+      <stop offset="100%" stop-color="white" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="hatGlow" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="white" stop-opacity="0.025" />
+      <stop offset="100%" stop-color="white" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="lensDepth" cx="50%" cy="50%" r="100%">
+      <stop offset="0%" stop-color="#00796b" stop-opacity="0" />
+      <stop offset="75%" stop-color="#00796b" stop-opacity="0" />
+      <stop offset="100%" stop-color="#004d40" stop-opacity="0.6" />
+    </radialGradient>
+    <clipPath id="lensClip">
+      <circle cx="400" cy="400" r="295"/>
+    </clipPath>
+  </defs>
   
-  <!-- C-shaped opening extending to 800x800px canvas boundaries -->
-  <path d="M 601 568 L 800 664 L 800 800 L 601 608 Z" fill="transparent"/>
+  <!-- Teal outer ring covering the entire area including handle -->
+  <circle cx="400" cy="400" r="430" fill="#00796b"/>
   
-  <!-- Magnifying lens with teal fill and black border -->
-  <circle cx="400" cy="400" r="317" fill="#00796b" stroke="#000000" stroke-width="11"/>
+  <!-- Black circle on the border of teal at radius 430px -->
+  <circle cx="400" cy="400" r="430" fill="none" stroke="#000000" stroke-width="4"/>
   
-  <!-- Mortarboard graduation cap lines -->
+  <!-- Magnifying glass lens -->
+  <circle cx="400" cy="400" r="295" fill="#00796b" stroke="#000000" stroke-width="11"/>
+  
+  <!-- 3D depth effect on the inner lens area -->
+  <circle cx="400" cy="400" r="285" fill="url(#lensDepth)" clip-path="url(#lensClip)" />
+  
+  <!-- Uniform cleaning effect only on teal background -->
+  <circle cx="300" cy="300" r="400" fill="url(#subtleGlow)" />
+  <circle cx="350" cy="350" r="380" fill="url(#hatGlow)" />
+  <circle cx="250" cy="350" r="360" fill="url(#subtleGlow)" />
+  <circle cx="320" cy="280" r="340" fill="url(#hatGlow)" />
+  <circle cx="280" cy="320" r="350" fill="url(#subtleGlow)" />
+  
+  <!-- Additional clearing towards top-left of hat and lens - more intense -->
+  <circle cx="350" cy="280" r="200" fill="url(#subtleGlow)" />
+  <circle cx="320" cy="250" r="180" fill="url(#hatGlow)" />
+  <circle cx="280" cy="220" r="160" fill="url(#subtleGlow)" />
+  <circle cx="360" cy="320" r="140" fill="url(#hatGlow)" />
+  
+  <!-- Enhanced top-left cleanliness -->
+  <circle cx="300" cy="230" r="120" fill="url(#subtleGlow)" />
+  <circle cx="270" cy="200" r="100" fill="url(#hatGlow)" />
+  <circle cx="240" cy="180" r="80" fill="url(#subtleGlow)" />
+  
+  <!-- Magnifying glass handle -->
+  <rect x="608" y="593" width="87" height="30" rx="15" fill="#00796b" stroke="#000000" stroke-width="11" transform="rotate(45 608 608)"/>
+  <circle cx="680" cy="680" r="20" fill="#00796b" stroke="#000000" stroke-width="11"/>
+  
+  <!-- Graduation cap lines -->
   <rect x="180" y="315" width="440" height="33" rx="14" fill="#ffffff"/>
   <rect x="180" y="361" width="440" height="33" rx="14" fill="#ffffff"/>
   <rect x="234" y="407" width="332" height="33" rx="14" fill="#ffffff"/>
   <rect x="209" y="452" width="383" height="33" rx="14" fill="#ffffff"/>
   
-  <!-- Central graduation button -->
+  <!-- Graduation cap elements -->
   <circle cx="400" cy="313" r="14" fill="#000000"/>
-  
-  <!-- Tassel string -->
   <rect x="393" y="328" width="14" height="82" fill="#000000"/>
-  
-  <!-- Tassel cap -->
   <rect x="353" y="408" width="94" height="35" rx="14" fill="#000000"/>
-  
-  <!-- Tassel bundle -->
   <rect x="359" y="443" width="82" height="62" rx="8" fill="#000000"/>
   
-  <!-- Tassel individual strands -->
+  <!-- Tassel strands -->
   <rect x="366" y="505" width="9" height="74" fill="#000000"/>
   <rect x="382" y="511" width="9" height="62" fill="#000000"/>
   <rect x="400" y="505" width="9" height="66" fill="#000000"/>
   <rect x="418" y="516" width="9" height="55" fill="#000000"/>
   <rect x="434" y="511" width="9" height="46" fill="#000000"/>
-  
-  <!-- Handle pointing to 22-minute position, ending at C-shape outer tangent -->
-  <line x1="631" y1="608" x2="693" y2="664" stroke="#000000" stroke-width="60" stroke-linecap="butt"/>
-  <circle cx="693" cy="664" r="30" fill="#000000"/>
 </svg>
