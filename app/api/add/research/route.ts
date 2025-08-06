@@ -1,44 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import client from "../../utils/db";
-const cloudinary = require('../../utils/cloudinary');
-const fs = require('fs');
-const path = require('path');
-const os = require('os'); // Import os to get the temporary directory
+import uploadDocumentToSupabase from "../../utils/supabase";
 
 // Define types for the Institution request
 type InstitutionRequest = {
   title: string;
   researcher: string;
   category: string;
-  institution: string;
   status: string;
-  school: string;
   year: string;
   abstract: string;
+  institution: string;
+  department: string;
+  school: string;
   document: File;
 };
-
-// Helper to upload document to Cloudinary
-async function uploadDocumentToCloudinary(file: File, title: string): Promise<string> {
-  const tempDir = os.tmpdir(); // Use OS temporary directory
-  const documentPath = path.join(tempDir, file.name); // Save the file with its original title
-  const buffer = await file.arrayBuffer(); // Get the file's buffer
-  fs.writeFileSync(documentPath, Buffer.from(buffer)); // Write the buffer to a file
-
-  // Convert title to a valid Cloudinary public_id format
-  const publicId = title.replace(/\s+/g, "_").toLowerCase();// Replace spaces with underscores
-
-  // Upload the document to Cloudinary
-  const uploadResult = await cloudinary.uploader.upload(documentPath, {
-    use_filename: true, // Use the specified public_id as the file name
-    folder: "institutions/researches/documents",
-    public_id: publicId, // Assign custom public_id
-    resource_type: "raw", // Ensure it's uploaded as a document, not an image
-  });
-
-  fs.unlinkSync(documentPath); // Remove the temporary file after upload
-  return uploadResult.secure_url; // Return the uploaded document's URL
-}
 
 // Helper function to hash the Institution ID
 async function hashId(id: number): Promise<string> {
@@ -49,58 +25,145 @@ async function hashId(id: number): Promise<string> {
   const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   return hashHex;
 }
-// Handle POST request for adding a Institution
+
+// Handle POST request for adding a Research at Institution level
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const formData = await req.formData();
-  const researchData: InstitutionRequest = {
-    title: formData.get('title')?.toString() || '',
-    researcher: formData.get('researcher')?.toString() || '',
-    category: formData.get('category')?.toString() || '',
-    institution: formData.get('institution')?.toString() || '',
-    status: formData.get('status')?.toString() || '',
-    school: formData.get('school')?.toString() || '',
-    year: formData.get('year')?.toString() || '',
-    abstract: formData.get('abstract')?.toString() || '',
-    document: formData.get('document') as File, // Get the document file directly
-  };
-
-
-  // Validate required fields
-  if (!researchData.title || !researchData.category || !researchData.researcher || !researchData.status || !researchData.school || !researchData.institution  || !researchData.year) {
-    return NextResponse.json({ error: "All fields are required" }, { status: 400 });
-  }
-
   try {
-    // Upload the document to Cloudinary
-    const document = await uploadDocumentToCloudinary(researchData.document, researchData.title);
-    const doc_type = researchData.document.type;
-    const status = "Draft";
-    const progress_status = researchData.status;
+    const formData = await req.formData();
+    
+    // Extract data from FormData
+    const researchData: InstitutionRequest = {
+      title: formData.get('title')?.toString() || '',
+      researcher: formData.get('researcher')?.toString() || '',
+      category: formData.get('category')?.toString() || '',
+      status: formData.get('status')?.toString() || '',
+      year: formData.get('year')?.toString() || '',
+      abstract: formData.get('abstract')?.toString() || '',
+      institution: formData.get('institution')?.toString() || '',
+      department: formData.get('department')?.toString() || '',
+      school: formData.get('school')?.toString() || '',
+      document: formData.get('document') as File,
+    };
 
-    // Insert researches into the database
-    const result = await client.query(
-      `INSERT INTO researches (title, researcher, category, status, progress_status, document, year, school, institution, abstract, document_type, hashed_id, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()) RETURNING *`,
-      [researchData.title, researchData.researcher, researchData.category, status, progress_status, document, researchData.year, researchData.school, researchData.institution, researchData.abstract, doc_type, hashId]
+    // Validate required fields
+    if (!researchData.title || !researchData.category || !researchData.researcher || 
+        !researchData.status || !researchData.year || !researchData.institution || 
+        !researchData.department || !researchData.school || 
+        !researchData.document || !researchData.abstract) {
+      return NextResponse.json(
+        { error: "All fields are required" }, 
+        { status: 400 }
+      );
+    }
+
+    // Get institution, school, and department information
+    const institutionInfoResult = await client.query(
+      `SELECT 
+        i.name as institution,
+        s.name as school,
+        d.name as department
+      FROM institutions i
+      JOIN colleges c ON c.institution::integer = i.id
+      JOIN schools s ON s.college::integer = c.id
+      JOIN departments d ON d.school::integer = s.id
+      WHERE i.id = $1::integer 
+        AND s.id = $2::integer 
+        AND d.id = $3::integer`,
+      [
+        parseInt(researchData.institution),
+        parseInt(researchData.school),
+        parseInt(researchData.department)
+      ]
     );
-    const ResearchId = result.rows[0].id;
+
+    if (institutionInfoResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: "Institution, school, or department information not found" }, 
+        { status: 404 }
+      );
+    }
+
+    const institutionInfo = institutionInfoResult.rows[0];
+
+    // Upload the document to Supabase
+    const documentUrl = await uploadDocumentToSupabase(researchData.document, researchData.title);
+    const doc_type = researchData.document.type;
+    const approval_status = "Pending"; // Initial approval status
+    const progress_status = researchData.status; // This is the research progress status (ongoing/completed/pending)
+    const upload_level = "institution"; // Set upload level to institution
+
+    // Insert research into the database (with institution, school, and department)
+    const result = await client.query(
+      `INSERT INTO researches (
+        title, 
+        researcher, 
+        category, 
+        status, 
+        progress_status, 
+        document, 
+        year, 
+        abstract, 
+        document_type, 
+        department,
+        school,
+        institution,
+        user_id,
+        upload_level,
+        created_at, 
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW()) 
+      RETURNING *`,
+      [
+        researchData.title, 
+        researchData.researcher, 
+        researchData.category, 
+        approval_status, 
+        progress_status, 
+        documentUrl, 
+        researchData.year, 
+        researchData.abstract, 
+        doc_type, 
+        researchData.department,
+        researchData.school,
+        researchData.institution,
+        researchData.institution,
+        upload_level
+      ]
+    );
+    
+    const researchId = result.rows[0].id;
 
     // Hash the Research ID
-    const hashedResearchId = await hashId(ResearchId);
+    const hashedResearchId = await hashId(researchId);
 
-    // Update the Research with the hashed ID (for additional usage in the response)
+    // Update the Research with the hashed ID
     await client.query(
       `UPDATE researches SET hashed_id = $1 WHERE id = $2`,
-      [hashedResearchId, ResearchId]
+      [hashedResearchId, researchId]
+    );
+
+    // Get the updated research record
+    const updatedResult = await client.query(
+      `SELECT * FROM researches WHERE id = $1`,
+      [researchId]
     );
   
-    return NextResponse.json({ message: "Research added successfully", Research: result.rows[0] }, { status: 201 });
-  } catch (error) {
-    console.error("Error during Research addition:", error); // Log only the message
     return NextResponse.json(
-        { message: "Research addition failed", error: error }, 
-        { status: 500 }
+      { 
+        message: "Research added successfully", 
+        research: updatedResult.rows[0] 
+      }, 
+      { status: 201 }
     );
-}
-
+  } catch (error) {
+    console.error("Error during Research addition:", error);
+    return NextResponse.json(
+      { 
+        message: "Research addition failed",
+        error: error instanceof Error ? error.message : "Unknown error occurred"
+      },
+      { status: 500 }
+    );
+  }
 }

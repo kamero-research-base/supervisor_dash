@@ -87,31 +87,26 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
       name: "Dashboard", 
       url: "/", 
       icon: "bi bi-speedometer2",
-      description: "Overview & Analytics"
     },
     { 
       name: "Assignments", 
       url: "/assignments", 
       icon: "bi bi-clipboard-check",
-      description: "Manage Assignments"
     },
     { 
       name: "Researches", 
       url: "/researches", 
       icon: "bi bi-journal-text",
-      description: "Research Projects"
     },
     { 
       name: "Attendances", 
       url: "/attendances", 
       icon: "bi bi-calendar-check",
-      description: "Track Attendance"
     },
     { 
       name: "Messages", 
       url: "/messages", 
       icon: "bi bi-envelope",
-      description: "Communication Hub"
     },
   ];
 
@@ -247,9 +242,6 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
                       }`}></i>
                       <div className="flex-1">
                         <span className="block text-sm font-medium">{item.name}</span>
-                        {item.description && (
-                          <span className="block text-xs text-gray-400 mt-0.5">{item.description}</span>
-                        )}
                       </div>
                       {pathname === item.url && (
                         <div className="w-1 h-6 bg-teal-600 rounded-full"></div>

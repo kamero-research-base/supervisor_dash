@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 interface TopBarProps {
   pageTitle: string;
@@ -308,27 +309,27 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
                   </div>
                   
                   <div className="py-2">
-                    <a href="/supervisor/profile" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <Link href="/profile" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                       <i className="bi bi-person-circle text-gray-400"></i>
                       <span>My Profile</span>
-                    </a>
-                    <a href="/supervisor/settings" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    </Link>
+                    <Link href="/settings" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                       <i className="bi bi-gear text-gray-400"></i>
                       <span>Settings</span>
-                    </a>
-                    <a href="/supervisor/activity" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    </Link>
+                    <Link href="/activity" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                       <i className="bi bi-activity text-gray-400"></i>
                       <span>Activity Log</span>
-                    </a>
+                    </Link>
                     <div className="border-t border-gray-200 my-2"></div>
-                    <a href="/supervisor/help" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <Link href="/help" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                       <i className="bi bi-question-circle text-gray-400"></i>
                       <span>Help & Support</span>
-                    </a>
-                    <a href="/auth/logout" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                    </Link>
+                    <Link href="/auth/logout" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
                       <i className="bi bi-box-arrow-right text-red-500"></i>
                       <span>Sign Out</span>
-                    </a>
+                    </Link>
                   </div>
                 </div>
               )}
@@ -336,17 +337,6 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
           </div>
         </div>
       </div>
-
-      {/* Click outside to close dropdowns */}
-      {(showUserMenu || showNotifications) && (
-        <div
-          className="fixed inset-0 z-20"
-          onClick={() => {
-            setShowUserMenu(false);
-            setShowNotifications(false);
-          }}
-        />
-      )}
     </header>
   );
 };
