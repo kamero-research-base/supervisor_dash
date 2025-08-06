@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import AddResearch from "../components/toggles/addResearch";
 
 interface DashboardStats {
   totalStudents: number;
@@ -38,7 +39,7 @@ export default function App() {
     researchProjects: 0,
     unreadMessages: 0
   });
-
+  const [showAddResearch, setShowAddResearch] = useState(false);
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<UpcomingDeadline[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,8 +70,20 @@ export default function App() {
     }
   };
 
+    const toggleAddResearch = () => {
+    setShowAddResearch(true);
+  }
+  const closeAddResearch = () => {
+    setShowAddResearch(false);
+  }
+
   return (
     <div className="space-y-6">
+      
+       {showAddResearch && (
+        <AddResearch onClose={closeAddResearch} />
+      )}
+
       {/* Welcome Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -79,7 +92,7 @@ export default function App() {
             <p className="text-gray-600 mt-1">Here's an overview of your institution's activities</p>
           </div>
           <div className="mt-4 md:mt-0 flex items-center space-x-3">
-            <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2">
+            <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2" onClick={toggleAddResearch}>
               <i className="bi bi-plus-lg"></i>
               New Assignment
             </button>
@@ -91,8 +104,10 @@ export default function App() {
         </div>
       </div>
 
+     
+
       {/* Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
         {/* Total Students */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -309,7 +324,7 @@ export default function App() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/supervisor/assignments/new" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
+        <Link href="/assignments/new" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-200 transition-colors">
               <i className="bi bi-plus-lg text-teal-600 text-xl"></i>
@@ -321,7 +336,7 @@ export default function App() {
           </div>
         </Link>
 
-        <Link href="/supervisor/students" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
+        <Link href="/students" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
               <i className="bi bi-person-plus text-blue-600 text-xl"></i>
@@ -333,7 +348,7 @@ export default function App() {
           </div>
         </Link>
 
-        <Link href="/supervisor/reports" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
+        <Link href="/reports" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
               <i className="bi bi-graph-up text-purple-600 text-xl"></i>
@@ -345,7 +360,7 @@ export default function App() {
           </div>
         </Link>
 
-        <Link href="/supervisor/messages" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
+        <Link href="/messages" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
               <i className="bi bi-chat-dots text-green-600 text-xl"></i>

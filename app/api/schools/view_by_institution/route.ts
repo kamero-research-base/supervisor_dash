@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 
 import { NextResponse } from "next/server";
-import client from "../utils/db"; // Adjust the path as needed
+import client from "../../utils/db"; // Adjust the path as needed
 
 export async function GET(req: Request) {
   try {
@@ -13,33 +13,33 @@ export async function GET(req: Request) {
     const filter = searchParams.get("filter");
     const search = searchParams.get("search");
     const sort = searchParams.get("sort");
-    const session_id = searchParams.get("school_id")
+    const session_id = searchParams.get("institution_id")
 
     let query = `SELECT 
-      d.id,
-      d.name,
-      d.label,
-      d.status,
-      d.created_at,
+     s.id,
+      s.name,
+      s.address,
+      s.status,
+      s.contact,
+      s.created_at,
+      s.logo,
       i.name AS institute,
-      c.name AS college,
-      s.name AS school
-      FROM departments d
-      JOIN schools s ON CAST(s.id AS TEXT) = d.school
+      c.name AS college
+      FROM schools s
       JOIN colleges c ON CAST(c.id AS TEXT) = s.college
-      JOIN institutions i ON CAST(i.id AS TEXT) = c.institution
-      WHERE d.school = $1
+      JOIN institutions i ON i.id = CAST(c.institution AS INTEGER) 
+      WHERE i.id = $1
       `;
    
     const params: any[] = [session_id];
 
     const conditions = [];
     if (filter) {
-      conditions.push(`d.status = $${params.length + 1}`);
+      conditions.push(`s.status = $${params.length + 1}`);
       params.push(filter);
     }
     if (search) {
-      conditions.push(`(d.name ILIKE $${params.length + 1} OR d.label ILIKE $${params.length + 1} OR d.hashed_id ILIKE $${params.length + 1})`);
+      conditions.push(`(s.name ILIKE $${params.length + 1} OR s.address ILIKE $${params.length + 1} OR s.label ILIKE $${params.length + 1} OR s.contact ILIKE $${params.length + 1} OR s.hashed_id ILIKE $${params.length + 1})`);
       params.push(`%${search}%`);
     }
 
@@ -50,21 +50,21 @@ export async function GET(req: Request) {
     // Sorting
     if (sort) {
       if (sort === "new") {
-        query += " ORDER BY CAST(d.created_at AS DATE) DESC";
+        query += " ORDER BY CAST(s.created_at AS DATE) DESC";
       } else if (sort === "old") {
-        query += " ORDER BY CAST(d.created_at AS DATE) ASC";
+        query += " ORDER BY CAST(s.created_at AS DATE) ASC";
       }else if (sort === "name") {
-        query += " ORDER BY d.name ASC";
+        query += " ORDER BY s.name ASC";
       }
     } else {
-      query += " ORDER BY d.id DESC";
+      query += " ORDER BY s.id DESC";
     }
 
     const result = await client.query(query, params);
 
     return NextResponse.json(result.rows, { status: 200 });
   } catch (error) {
-    console.error("Error retrieving departments:", error);
+    console.error("Error retrieving colleges:", error);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }
