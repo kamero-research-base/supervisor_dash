@@ -79,7 +79,7 @@ export default function App() {
 
   return (
     <div className="space-y-6">
-      
+
        {showAddResearch && (
         <AddResearch onClose={closeAddResearch} />
       )}
@@ -92,11 +92,12 @@ export default function App() {
             <p className="text-gray-600 mt-1">Here's an overview of your institution's activities</p>
           </div>
           <div className="mt-4 md:mt-0 flex items-center space-x-3">
-            <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2" onClick={toggleAddResearch}>
+            {/** <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2" >
               <i className="bi bi-plus-lg"></i>
               New Assignment
             </button>
-            <button className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+            */}
+            <button className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2" onClick={toggleAddResearch}>
               <i className="bi bi-plus-circle text-lg"></i>
               New Research
             </button>
