@@ -1,15 +1,13 @@
-
+// app/auth/login/page.tsx or pages/auth/login.tsx
 import LoginForm from "@/app/components/auth/login";
+import Head from "next/head";
 
-const Join = () => {
-  return(
+export default function LoginPage() {
+  return (
     <>
-    <head>
-      <title>Login - Supervisor | Kamero Research Base</title>
-    </head>
-    <LoginForm />
-    </>
-    
-  );
+      <Head>
+        <title>Login - Kamero Research Base</title>
+      </Head>
+      <LoginForm />
+    </>);
 }
-export default Join;
