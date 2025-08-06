@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface TopBarProps {
@@ -35,7 +35,7 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const pathname = usePathname();
-
+  const router = useRouter();
   // Get current time and date
   useEffect(() => {
     const updateTimeAndDate = () => {
@@ -71,6 +71,8 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
         } catch (error) {
           console.error('Error parsing supervisor info:', error);
         }
+      } else {
+        router.push('/auth/login');
       }
     }
   }, []);
