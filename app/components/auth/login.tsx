@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import VerifyOtpForm from "./otp";
 import Preloader from "../app/buttonPreloader";
 import AlertNotification from "../app/notify";
+import { ins } from "framer-motion/client";
 
 interface FormData {
   login: string;
@@ -14,7 +15,10 @@ interface FormData {
 interface UserSession {
   id: string;
   name: string;
-  department_id: string;
+  department: string;
+  institution: string;
+  school: string;
+  college: string;
   profile: string;
   email: string;
   session_id?: string;
@@ -112,10 +116,16 @@ const LoginForm = () => {
       setSuccess(data.message);
       
       // Create session object with all necessary data
-      const sessionData: UserSession = {
+      const sessionData = {
         id: data.user.id,
         name: data.user.name,
-        department_id: data.user.department_id,
+        department: data.user.department,
+        school_id: data.user.school.id,
+        school: data.user.school.name,
+        college_id: data.user.college.id,
+        college: data.user.college.name,
+        institution_id: data.user.institution.id,
+        institution: data.user.institution.name,
         profile: data.user.profile,
         email: data.user.email,
         session_id: "",

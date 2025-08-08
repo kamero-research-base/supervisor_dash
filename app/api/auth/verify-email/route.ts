@@ -18,7 +18,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Validate required fields
     if (!verifyData.code || !verifyData.hashed_id) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+      return NextResponse.json({ message: "All fields are required" }, { status: 400 });
     }
 
     // Check if the code exists in the database
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const checkResult = await client.query(checkQuery, [verifyData.hashed_id, verifyData.code]);
 
     if (checkResult.rowCount === 0) {
-      return NextResponse.json({ error: "Invalid verification code" }, { status: 401 });
+      return NextResponse.json({ message: "Invalid verification code" }, { status: 401 });
     }
 
     // Add 10 minutes to the updated_at timestamp

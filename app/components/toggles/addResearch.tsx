@@ -97,19 +97,20 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
   // Get institution ID from localStorage
   useEffect(() => {
     const userSession = JSON.parse(localStorage.getItem('supervisorSession') || '{}');
-    if (userSession && userSession.institution) {
-      setInstitution(userSession.institution);
+    if (userSession && userSession.institution_id) {
+      setInstitution(userSession.institution_id);
     }
   }, []);
 
   // Fetch schools
   useEffect(() => {
     const fetchSchools = async () => {
-      if (!institution) return;
+      const userSession = JSON.parse(localStorage.getItem('supervisorSession') || '{}');
+    if (!userSession) return;
       
       setLoading(true);
       try {
-        const response = await fetch(`/itapi/schools/view_by_institution?instution_id=${institution}`);
+        const response = await fetch(`/api/schools/view_by_institution?instution_id=${userSession.institution_id}`);
         if (!response.ok) throw new Error("Failed to fetch schools.");
         const data = await response.json();
         setSchools(data);
@@ -123,13 +124,13 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
     if (institution) {
       fetchSchools();
     }
-  }, [institution]);
+  }, []);
 
   // Fetch departments
   useEffect(() => {
     const selectedSchoolId = formData.school;
     const fetchDepartments = async () => {
-      if (!institution || !selectedSchoolId) return;
+      if ( !selectedSchoolId) return;
       
       setLoading(true);
       try {

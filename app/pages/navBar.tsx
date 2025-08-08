@@ -11,6 +11,7 @@ interface UserInfo {
   username: string;
   name: string;
   email: string;
+  institution: string;
 }
 
 const NavBar = ({ onNavigate }: NavBarProps) => {
@@ -208,7 +209,7 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
                 {userInfo?.name || 'Supervisor'}
               </p>
               <p className="text-xs text-gray-500 truncate">
-                {userInfo?.email ? maskEmail(userInfo.email) : 'supervisor@institution.edu'}
+                {userInfo?.institution ? userInfo.institution : 'Unknown Institution'}
               </p>
             </div>
           </div>
