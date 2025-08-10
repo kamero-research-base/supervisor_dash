@@ -98,16 +98,11 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
       url: "/researches", 
       icon: "bi bi-journal-text",
     },
-    { 
-      name: "Attendances", 
-      url: "/attendances", 
-      icon: "bi bi-calendar-check",
-    },
-    { 
-      name: "Messages", 
-      url: "/messages", 
-      icon: "bi bi-envelope",
-    },
+  {
+    name: "Notifications", 
+      url: "/notifications", 
+      icon: "bi bi-bell",
+    }
   ];
 
   const management = [
@@ -115,11 +110,6 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
       name: "Students", 
       url: "/students", 
       icon: "bi bi-people"
-    },
-    { 
-      name: "Reports", 
-      url: "/reports", 
-      icon: "bi bi-graph-up"
     },
     { 
       name: "Schedule", 
