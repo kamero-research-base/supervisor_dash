@@ -14,6 +14,7 @@ type InstitutionRequest = {
   department: string;
   school: string;
   document: File;
+  is_public: boolean; // NEW: Add visibility field
 };
 
 // Helper function to hash the Institution ID
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const formData = await req.formData();
     
-    // Extract data from FormData
+    // MODIFIED: Extract data from FormData including the new field
     const researchData: InstitutionRequest = {
       title: formData.get('title')?.toString() || '',
       researcher: formData.get('researcher')?.toString() || '',
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       department: formData.get('department')?.toString() || '',
       school: formData.get('school')?.toString() || '',
       document: formData.get('document') as File,
+      is_public: formData.get('is_public')?.toString() === 'true', // NEW: Parse boolean from form data
     };
 
     // Validate required fields
@@ -85,34 +87,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const institutionInfo = institutionInfoResult.rows[0];
 
-    // Upload the document to Supabase
     const documentUrl = await uploadDocumentToSupabase(researchData.document, researchData.title);
     const doc_type = researchData.document.type;
-    const approval_status = "Pending"; // Initial approval status
-    const progress_status = researchData.status; // This is the research progress status (ongoing/completed/pending)
-    const upload_level = "institution"; // Set upload level to institution
+    const approval_status = "Pending";
+    const progress_status = researchData.status;
+    const upload_level = "institution";
 
-    // Insert research into the database (with institution, school, and department)
+    // MODIFIED: Added 'is_public' to the INSERT query
     const result = await client.query(
       `INSERT INTO researches (
-        title, 
-        researcher, 
-        category, 
-        status, 
-        progress_status, 
-        document, 
-        year, 
-        abstract, 
-        document_type, 
-        department,
-        school,
-        institution,
-        user_id,
-        upload_level,
-        created_at, 
-        updated_at
+        title, researcher, category, status, progress_status, 
+        document, year, abstract, document_type, department,
+        school, institution, user_id, upload_level, is_public, -- NEW
+        created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW()) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW()) -- MODIFIED
       RETURNING *`,
       [
         researchData.title, 
@@ -127,23 +116,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         researchData.department,
         researchData.school,
         researchData.institution,
-        researchData.institution,
-        upload_level
+        researchData.institution, // Assuming user_id is the institution id here based on original code
+        upload_level,
+        researchData.is_public // NEW: Pass the value to the query
       ]
     );
     
     const researchId = result.rows[0].id;
 
-    // Hash the Research ID
     const hashedResearchId = await hashId(researchId);
 
-    // Update the Research with the hashed ID
     await client.query(
       `UPDATE researches SET hashed_id = $1 WHERE id = $2`,
       [hashedResearchId, researchId]
     );
 
-    // Get the updated research record
     const updatedResult = await client.query(
       `SELECT * FROM researches WHERE id = $1`,
       [researchId]
