@@ -44,7 +44,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       department: formData.get('department')?.toString() || '',
       school: formData.get('school')?.toString() || '',
       document: formData.get('document') as File,
-      is_public: formData.get('is_public')?.toString() === 'true', // NEW: Parse boolean from form data
+      is_public: formData.get('is_public')?.toString() === 'true', 
     };
 
     // Validate required fields
@@ -98,10 +98,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       `INSERT INTO researches (
         title, researcher, category, status, progress_status, 
         document, year, abstract, document_type, department,
-        school, institution, user_id, upload_level, is_public, -- NEW
+        school, institution, user_id, upload_level, is_public,
         created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW()) -- MODIFIED
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW()) 
       RETURNING *`,
       [
         researchData.title, 

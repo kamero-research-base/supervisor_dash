@@ -28,6 +28,7 @@ export async function GET(req: Request) {
       r.document,
       r.document_type,
       r.url,
+      r.is_public,
       r.category,
       r.hashed_id,
       r.created_at,
