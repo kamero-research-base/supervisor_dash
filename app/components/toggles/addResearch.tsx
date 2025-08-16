@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
-// IMPROVEMENT: Removed unused imports (FileText, AlertCircle) for cleaner code.
-import { X, Upload, CheckCircle, Sparkles, BookOpen, Building, Calendar, School, FileUp } from "lucide-react";
+// MODIFIED: Added Eye and EyeOff for the new visibility field
+import { X, Upload, CheckCircle, Sparkles, BookOpen, Building, Calendar, School, FileUp, Eye, EyeOff } from "lucide-react";
 import AlertNotification from "../app/notify";
 
 const researchTopics = [
@@ -61,6 +61,7 @@ interface FormData {
   department: string | number;
   year: string;
   abstract: string;
+  isPublic: boolean; // NEW: Add visibility state
 }
 
 interface AddResearchProps {
@@ -77,6 +78,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
     department: "",
     year: "",
     abstract: "",
+    isPublic: true, // NEW: Initialize visibility state, default to public
   });
   
   const [departments, setDepartments] = useState<Departments[]>([]);
@@ -85,7 +87,6 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  // IMPROVEMENT: Consolidated `loading` and `submitting` into a single state for simplicity.
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState("");
   const [showModal, setShowModal] = useState(true);
@@ -110,7 +111,6 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
       
       setIsSubmitting(true);
       try {
-        // BUG FIX: Corrected typo from `instution_id` to `institution_id`.
         const response = await fetch(`/itapi/schools/view_by_institution?institution_id=${institution}`);
         if (!response.ok) throw new Error("Failed to fetch schools.");
         const data = await response.json();
@@ -164,13 +164,17 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
-    // Reset department if school changes
     if (id === 'school') {
       setFormData(prev => ({ ...prev, [id]: value, department: '' }));
       setDepartmentSearchTerm('');
     } else {
       setFormData(prev => ({ ...prev, [id]: value }));
     }
+  };
+
+  // NEW: Handler for visibility radio buttons
+  const handleVisibilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, isPublic: e.target.value === 'true' }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,7 +199,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
         return;
       }
       setFile(selectedFile);
-      setError(null); // Clear previous errors on new valid file
+      setError(null);
     }
   };
 
@@ -211,7 +215,6 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
     setError(null);
     
     try {
-      // IMPROVEMENT: Retrieve full session to get user ID.
       const userSession = JSON.parse(localStorage.getItem('supervisorSession') || '{}');
       if (!userSession.id || !institution) {
         setError("Your session has expired. Please log in again.");
@@ -220,13 +223,15 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
       }
 
       const payload = new FormData();
+      // MODIFIED: Loop through formData but exclude isPublic since we handle it separately.
       Object.entries(formData).forEach(([key, value]) => {
-        if (value) payload.append(key, value as string);
+        if (value && key !== 'isPublic') payload.append(key, value as string);
       });
       
       payload.append("document", file);
       payload.append("institution", institution);
-      payload.append("user_id", userSession.id); // IMPROVEMENT: Ensure user_id is sent to the backend.
+      payload.append("user_id", userSession.id);
+      payload.append("is_public", formData.isPublic.toString()); // NEW: Add visibility status to the payload
 
       const response = await fetch("/api/add/research", {
         method: "POST",
@@ -235,8 +240,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
 
       if (response.ok) {
         setSuccess("Research added successfully! 🎉");
-        // Reset form state completely
-        setFormData({ title: "", researcher: "", category: "", status: "", school: "", department: "", year: "", abstract: "" });
+        setFormData({ title: "", researcher: "", category: "", status: "", school: "", department: "", year: "", abstract: "", isPublic: true }); // MODIFIED: Reset form state
         setSchoolSearchTerm("");
         setDepartmentSearchTerm("");
         setFile(null);
@@ -247,7 +251,6 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
         setTimeout(onClose, 2000);
       } else {
         const errorData = await response.json();
-        // IMPROVEMENT: More robust error handling.
         setError(errorData.error || "An unknown error occurred during submission.");
       }
     } catch (error) {
@@ -262,6 +265,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
       case 1:
         return formData.title.trim() !== "" && formData.researcher.trim() !== "" && formData.category !== "";
       case 2:
+        // MODIFIED: isPublic has a default, so no extra validation is needed here.
         return formData.status !== "" && /^\d{4}$/.test(formData.year) && formData.school !== "" && formData.department !== "";
       case 3:
         return formData.abstract.trim() !== "" && file !== null;
@@ -272,7 +276,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
 
   const maskFileName = (filename: string): string => {
     if (!filename) return "";
-    const maxLength = 25; // Define a max length for the visible part
+    const maxLength = 25;
     if (filename.length <= maxLength) return filename;
   
     const lastDotIndex = filename.lastIndexOf('.');
@@ -336,7 +340,6 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="relative group">
                       <input id="title" type="text" value={formData.title} onChange={handleChange} onFocus={() => setFocusedField('title')} onBlur={() => setFocusedField('')} className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer" placeholder=" " required />
-                      {/* BUG FIX: Added `pointer-events-none` to allow clicks and `htmlFor` for accessibility. */}
                       <label htmlFor="title" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 pointer-events-none peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
                         Research Title <span className="text-red-500">*</span>
                       </label>
@@ -366,7 +369,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
               {/* Step 2: Research Details */}
               {currentStep === 2 && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="grid md:grid-cols-2 gap-6">
+                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="relative group">
                       <select id="status" value={formData.status} onChange={handleChange} onFocus={() => setFocusedField('status')} onBlur={() => setFocusedField('')} className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 appearance-none peer" required>
                         <option value=""></option>
@@ -387,8 +390,8 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                       {focusedField === 'year' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
                     </div>
                   </div>
-
-                  {/* School Selection */}
+                  {/* School Selection, Department Selection ... */}
+                  {/* ... (existing school and department fields are unchanged) */}
                   <div className="relative group">
                     <input type="text" id="school-search" className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer" onFocus={() => setFocusedField('school')} onBlur={() => setTimeout(() => setFocusedField(''), 200)} value={schoolSearchTerm} onChange={(e) => setSchoolSearchTerm(e.target.value)} placeholder=" " autoComplete="off" required />
                     <label htmlFor="school-search" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 pointer-events-none peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
@@ -407,8 +410,6 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                       </div>
                     )}
                   </div>
-
-                  {/* Department Selection */}
                   <div className="relative group">
                     <input type="text" id="department-search" className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer" onFocus={() => setFocusedField('department')} onBlur={() => setTimeout(() => setFocusedField(''), 200)} value={departmentSearchTerm} onChange={(e) => setDepartmentSearchTerm(e.target.value)} placeholder=" " autoComplete="off" required disabled={!formData.school} />
                     <label htmlFor="department-search" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 pointer-events-none peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
@@ -426,6 +427,47 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                         </ul>
                       </div>
                     )}
+                  </div>
+
+                   {/* NEW: Visibility selection field added to Step 2 */}
+                   <div className="relative group">
+                    <label className="block text-gray-700 font-medium mb-2">Visibility</label>
+                    <div className="flex gap-4">
+                      <label className={`flex-1 p-4 border-2 rounded-lg cursor-pointer transition-all duration-300 ${formData.isPublic ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input
+                          type="radio"
+                          name="visibility"
+                          value="true"
+                          checked={formData.isPublic}
+                          onChange={handleVisibilityChange}
+                          className="sr-only"
+                        />
+                        <div className="flex items-center gap-3">
+                          <Eye size={20} className="text-teal-600" />
+                          <div>
+                            <p className="font-semibold text-gray-800">Public</p>
+                            <p className="text-sm text-gray-500">Description and file are visible to everyone.</p>
+                          </div>
+                        </div>
+                      </label>
+                      <label className={`flex-1 p-4 border-2 rounded-lg cursor-pointer transition-all duration-300 ${!formData.isPublic ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input
+                          type="radio"
+                          name="visibility"
+                          value="false"
+                          checked={!formData.isPublic}
+                          onChange={handleVisibilityChange}
+                          className="sr-only"
+                        />
+                        <div className="flex items-center gap-3">
+                          <EyeOff size={20} className="text-indigo-600" />
+                          <div>
+                            <p className="font-semibold text-gray-800">Private</p>
+                            <p className="text-sm text-gray-500">Only the description is visible to viewers.</p>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
                   </div>
                 </div>
               )}
