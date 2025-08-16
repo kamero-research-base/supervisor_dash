@@ -13,7 +13,8 @@ interface Research {
   title: string;
   researcher: string;
   year: string;
-  progress_status: string;//ie. ongoing, completed
+  material_status: string;//ie. ongoing, completed
+  visibility: string; // New property for visibility mode
   created_at: string;
   hashed_id: string;
 }
@@ -46,7 +47,7 @@ const Header = ({onAddResearchClick}: ResearchHeaderProps) => {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
 
 
-  
+
 
   // Fetch Researches
   useEffect(() => {
@@ -57,7 +58,7 @@ const Header = ({onAddResearchClick}: ResearchHeaderProps) => {
     }
     const fetchResearches = async () => {
       try {
-        const response = await fetch(`/api/analytics/researches`, { 
+        const response = await fetch(`/api/analytics/researches`, {
           method: 'POST',
           headers: {
             "Content-Type": "application/json",
@@ -317,6 +318,7 @@ const handleFilter = (text: string) => {
           <th className="py-2 px-2 font-normal">Researcher</th>
           <th className="py-2 px-2 font-normal">Year</th>
           <th className="py-2 px-2 font-normal">Material Status</th>
+          <th className="py-2 px-2 font-normal">Visibility</th>
           <th className="py-2 px-2 font-normal">Uploaded at</th>
           <th className="py-2 px-2 font-normal">Actions</th>
         </thead>
@@ -327,16 +329,22 @@ const handleFilter = (text: string) => {
             <td className="py-2 px-2 text-nowrap">
               <span className={`
                 ${research.status === 'Published' || research.status === 'Approved' ? 'bg-green-100 text-green-600 border-green-300 '
-                : research.status === 'Under review' || research.status === 'On hold' 
-                ? 'bg-yellow-100 text-yellow-600 border-yellow-300' 
-                : research.status === 'Rejected' 
+                : research.status === 'Under review' || research.status === 'On hold'
+                ? 'bg-yellow-100 text-yellow-600 border-yellow-300'
+                : research.status === 'Rejected'
                 ? 'bg-amber-800 bg-opacity-30 text-amber-900 border-amber-800'
                 : 'bg-slate-100 text-slate-600 border-slate-300 '
                 } rounded px-1 border`}>{research.status}</span></td>
             <td className="py-2 px-2">{research.title}</td>
             <td className="py-2 px-2">{research.researcher}</td>
             <td className="py-2 px-2">{research.year}</td>
-            <td className="py-2 px-2">{research.progress_status}</td>
+            <td className="py-2 px-2">{research.material_status}</td>
+            <td className="py-2 px-2 capitalize">
+              <span className={`
+                ${research.visibility === 'Public' ? 'bg-cyan-100 text-cyan-600 border-cyan-300 '
+                : 'bg-slate-100 text-slate-600 border-slate-300 '
+                } rounded px-1 border capitalize`}>{research.visibility}</span>
+            </td>
             <td className="py-2 px-2">{timeAgo(research.created_at)}</td>
             <td className="py-2 px-6 text-center relative">
               <i
@@ -346,7 +354,7 @@ const handleFilter = (text: string) => {
               {dropdownOpen === research.id && (
                 <div className="absolute right-0 mt-1 mr-1 w-36 bg-white border rounded-md shadow-lg z-10">
                   <ul className="py-1 text-gray-700">
-                    <li 
+                    <li
                       className="px-4 py-2 cursor-pointer hover:bg-gray-100 flex items-center"
                       onClick={() => {
                         onResearchView(research.hashed_id); // Assign the Order
@@ -360,7 +368,7 @@ const handleFilter = (text: string) => {
                 </div>
               )}
             </td>
-           </tr> 
+           </tr>
           ))}
           
         </tbody>
