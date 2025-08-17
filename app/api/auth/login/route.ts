@@ -82,30 +82,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // Query user by email or phone with optimized query
         const sql = `
             SELECT 
-                s.id, 
-                s.first_name, 
-                s.last_name, 
-                s.password, 
-                s.hashed_id, 
-                s.email, 
-                s.profile_picture, 
-                s.status, 
-                s.department, 
-                s.school,
-                sc.name AS school_name,
-                c.id AS college_id,
-                c.name AS college_name,
-                i.id AS institution_id,
-                i.name AS institution_name
-            FROM supervisors s
-            LEFT JOIN schools sc ON CAST(sc.id AS TEXT) = s.school
-            LEFT JOIN colleges c ON CAST(c.id AS TEXT) = sc.college
-            LEFT JOIN institutions i ON CAST(i.id AS TEXT) = c.institution
-            WHERE LOWER(s.email) = $1 OR s.phone = $1
-            LIMIT 1
+                id, first_name, last_name, password, hashed_id, email, profile_picture, status 
+            FROM supervisors 
+            WHERE email = $1 OR phone = $1
         `;
-
-        const result = await client.query(sql, [trimmedLogin]);
+        const result = await client.query(sql, [login]);
         const user = result.rows[0];
 
         // Check if user exists
@@ -179,53 +160,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             INSERT INTO logs (user_id, session_id, content, created_at, expires_at) 
             VALUES ($1, $2, $3, $4, $5)
         `;
-        
-        try {
-            await client.query(insertLogSql, [user.id, user.hashed_id, logContent, created_at, expires_at]);
-        } catch (logError) {
-            console.error("Failed to create log entry:", logError);
-            // Continue execution - logging failure shouldn't break login
-        }
+        await client.query(insertSql, [user.id, user.hashed_id, content, created_at, expires_at]);
 
-        // Prepare clean user data for response
-        const userData = {
-            id: user.id,
-            name: `${user.first_name} ${user.last_name}`.trim(),
-            firstName: user.first_name,
-            lastName: user.last_name,
-            email: user.email,
-            profile: user.profile_picture,
-            sessionId: user.hashed_id,
-            hashed_id: user.hashed_id,
-            department: user.department,
-            school: {
-                id: user.school,
-                name: user.school_name || null
+        // Send response indicating OTP has been sent
+        return NextResponse.json({
+            message: "Login credentials verified. OTP has been sent to your email.",
+            user: {
+                id: user.id,
+                name: `${user.first_name} ${user.last_name}`,
+                session_id: user.hashed_id,
+                profile: user.profile_picture,
+                email: user.email
             },
-            college: {
-                id: user.college_id || null,
-                name: user.college_name || null
-            },
-            institution: {
-                id: user.institution_id || null,
-                name: user.institution_name || null
-            }
-        };
-
-        console.log(`Login process completed successfully for user: ${user.email}`);
-
-        // Return success response with structured data
-        return createResponse(
-            true,
-            "Login credentials verified successfully. A verification code has been sent to your email address.",
-            200,
-            {
-                user: userData,
-                requiresOTP: true,
-                nextStep: "Please enter the 6-digit verification code sent to your email to complete the login process.",
-                otpValidityMinutes: 10
-            }
-        );
+            requiresOTP: true
+        }, { status: 200 });
 
     } catch (error) {
         // Enhanced error logging

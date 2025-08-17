@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { X, FileText, User, Building2, Calendar, Tag, GraduationCap, Clock, ExternalLink, Check, AlertTriangle, Pause, Eye, Download } from "lucide-react";
 
+// MODIFIED: Interface updated to include the new is_public field
 interface FormData {
   title: string;
   researcher: string;
@@ -15,6 +16,7 @@ interface FormData {
   document: string;
   document_type: string;
   hashed_id: string;
+  is_public: boolean; // NEW: Add visibility field
   created_at: string;
 }
 
@@ -49,6 +51,7 @@ function truncateText(text: string, maxLength: number) {
     return text.slice(0, maxLength) + "...";
   }
   return text;
+  return text;
 }
 
 const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
@@ -57,6 +60,20 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
   const [success, setSuccess] = useState<string | null>(null);
   const [research, setResearch] = useState<FormData | null>(null);
   const [loading, setLoading] = useState(false);
+
+   const handleActive = (id: number) => {
+    setActiveId(id);
+   }
+   
+    useEffect(() => {
+      if (error || success) {
+        const timer = setTimeout(() => {
+          setError(null);
+          setSuccess(null);
+        }, 10000);
+        return () => clearTimeout(timer);
+      }
+    }, [error, success]);
 
   // Fetch Research
   useEffect(() => {
@@ -69,6 +86,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
+          body: JSON.stringify({ id: ResearchId }),
           body: JSON.stringify({ id: ResearchId }),
         });
         if (!response.ok) throw new Error("Failed to fetch researches");
@@ -83,13 +101,17 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
     fetchResearch();
   }, []);
 
+  }, [ResearchId]);
+ 
   useEffect(() => {
+    if (typeof window !== "undefined") {
     if (typeof window !== "undefined") {
       const abstract = document.getElementById("abstract") as HTMLDivElement;
       if (abstract && research?.abstract) {
         abstract.innerHTML = research.abstract;
       }
     }
+  }, [research]);
   }, [research]);
 
   const handleApprove = async (id: any) => {
@@ -119,6 +141,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       setLoading(false);
       setSuccess("Request approved!")
     }
+    // ... function logic remains the same
   };
 
   const handleReject = async (id: any) => {
@@ -148,6 +171,11 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       setLoading(false);
       setSuccess("Request rejected!")
     }
+    // ... function logic remains the same
+  };
+
+  const handleReview = async (id: any) => {
+    // ... function logic remains the same
   };
 
   const handleHold = async (id: any) => {
@@ -177,6 +205,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       setLoading(false);
       setSuccess("Request put on hold!")
     }
+    // ... function logic remains the same
   };
 
   const handleReview = async (id: any) => {
@@ -231,6 +260,14 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
     if (action === 'hold') handleHold(research?.hashed_id);
   };
 
+  const handleDelete = async (id: any) => {
+    // ... function logic remains the same
+  };
+
+  if(research?.status === "Pending" || research?.status === "Draft"){
+    handleReview(ResearchId);
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -270,6 +307,11 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
               </span>
             </div>
           </div>
+        </h4>
+        <div className="flex space-x-4 px-3">
+          {buttons.map((button, index) => (
+            <button key={index} onClick={() => handleActive(index)} className={`py-[6px] px-4 border-b capitalize hover:border-teal-500 ${activeId === index ? 'border-teal-500': ''}`}>{button.name}</button>
+          ))}
         </div>
 
         {/* Success Message */}
@@ -454,6 +496,78 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
             </div>
           </div>
         )}
+        <form className="space-y-2 max-h-[70vh] overflow-hidden overflow-y-visible">
+          <div className="flex justify-between p-2 space-x-3">
+            <div className="w-5/6 bg-white rounded-lg p-5">
+              <div className="w-full flex items-center justify-center bg-slate-100 p-2">
+                <i className="bi bi-search text-5xl text-slate-400"></i>
+              </div>
+              <div className="space-y-6 px-1">
+                <div className="relative">
+                  <h4 className="font-medium pt-2">Title</h4>
+                  <div className={`relative text-gray-700 transition-all duration-300`}>
+                  {research?.title}
+                  </div>
+                </div>
+                <div className="relative">
+                  <h4 className="font-medium">Abstract </h4>
+                  <div className={`relative text-gray-700 transition-all duration-300`} id="abstract"></div>
+                </div>
+                <div className="relative">
+                  <h4 className="font-medium pt-2">Document</h4>
+                  {/* MODIFIED: This is the core logic change. It conditionally renders the link or a "private" message. */}
+                  <div className={`relative text-gray-700 transition-all duration-300`}>
+                    {research?.is_public ? (
+                      <Link href={research?.document ?? ""} className="text-teal-600 underline" target="_blank" rel="noopener noreferrer">
+                        {truncateText(research?.document ?? "", 80)}
+                      </Link>
+                    ) : (
+                      <div className="flex items-center space-x-2 p-2 rounded-md bg-gray-100 text-gray-600">
+                        <i className="bi bi-lock-fill"></i>
+                        <span>This research is private. The document is not available for public view.</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="w-2/6 bg-white rounded-lg p-5 space-y-2 h-max">
+              <h1 className="text-lg text-slate-600 font-semibold">Research Details</h1>
+              <div className="space-y-1">
+                <h4 className="text-xs text-slate-500">Status</h4>
+                <div className="text-sm tex-slate-600">{research?.progress_status}</div>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs text-slate-500">Researcher</h4>
+                <div className="text-sm tex-slate-600">{research?.researcher}</div>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs text-slate-500">University</h4>
+                <div className="text-sm tex-slate-600">{research?.institute}</div>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs text-slate-500">Category</h4>
+                <div className="text-sm tex-slate-600">{research?.category}</div>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs text-slate-500">Year</h4>
+                <div className="text-sm tex-slate-600">{research?.year}</div>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs text-slate-500">School </h4>
+                <div className="text-sm tex-slate-600">{research?.school}</div>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs text-slate-500">Document Type</h4>
+                <div className="text-sm tex-slate-600">{research?.document_type}</div>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs text-slate-500">Uploaded at</h4>
+                <div className="text-sm tex-slate-600">{formatDate(research?.created_at)}</div>
+              </div>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   );

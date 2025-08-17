@@ -4,7 +4,6 @@ import client from "../../utils/db"; // Adjust the path to your database client
 export async function POST(req: NextRequest): Promise<NextResponse> {
     let requestBody;
       
-      // Safe JSON parsing
       try {
           requestBody = await req.json();
       } catch (error) {
@@ -19,6 +18,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
     try {
+      // MODIFIED: Added r.is_public to the SELECT statement
       let query = `SELECT 
       r.id,
       r.title,
@@ -32,6 +32,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       r.url,
       r.category,
       r.hashed_id,
+      r.is_public,
       r.created_at,
       i.name AS institute,
       s.name AS school
@@ -41,7 +42,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       WHERE CAST(r.id AS TEXT) = $1 
       `;
    
-        // Fetch Research details
         const researchResult = await client.query(query, [id]);
 
         if (researchResult.rows.length === 0) {

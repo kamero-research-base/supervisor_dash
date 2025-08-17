@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+// app/api/students/add/route.ts
 
-import client from "../../utils/db";
+import { NextRequest, NextResponse } from "next/server";
+import client from "../../utils/db"; // Adjust the import path based on your project structure
 
 // Define types for the student request
 type StudentRequest = {
@@ -10,9 +11,8 @@ type StudentRequest = {
   phone: string;
   uniqueid: string;
   department: string;
+  institute: string;
 };
-
-
 
 // Helper function to hash the student ID
 async function hashId(id: number): Promise<string> {
@@ -34,9 +34,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       phone: formData.get("phone")?.toString() || "",
       uniqueid: formData.get("uniqueid")?.toString() || "",
       department: formData.get("department")?.toString() || "",
+      institute: formData.get("institute")?.toString() || "",
     };
 
-
+    // Validate required fields
     if (
       !studentData.first_name ||
       !studentData.last_name ||
@@ -46,17 +47,49 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       !studentData.phone
     ) {
       return NextResponse.json(
-        { error: "All fields are required" },
+        { message: "All fields are required" },
+        { status: 400 }
+      );
+    }
+
+    // Check if email already exists
+    const emailCheck = await client.query(
+      `SELECT id FROM students WHERE email = $1`,
+      [studentData.email]
+    );
+
+    if (emailCheck.rows.length > 0) {
+      return NextResponse.json(
+        { message: "A student with this email already exists" },
+        { status: 400 }
+      );
+    }
+
+    // Check if unique_id already exists
+    const uniqueIdCheck = await client.query(
+      `SELECT id FROM students WHERE unique_id = $1`,
+      [studentData.uniqueid]
+    );
+
+    if (uniqueIdCheck.rows.length > 0) {
+      return NextResponse.json(
+        { message: "A student with this unique ID already exists" },
         { status: 400 }
       );
     }
 
     const status = "Pending";
+    const defaultProfilePic = "/default-avatar.png"; 
 
-
+    // Insert student into the database
     const result = await client.query(
-      `INSERT INTO students (first_name, last_name, email, status, phone, department, unique_id, profile_picture, password, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) RETURNING id`,
+      `INSERT INTO students (
+        first_name, last_name, email, status, phone, 
+        department, unique_id, institute, profile_picture, password, 
+        created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()) 
+      RETURNING id, email, first_name, last_name`,
       [
         studentData.first_name,
         studentData.last_name,
@@ -65,27 +98,40 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         studentData.phone,
         studentData.department,
         studentData.uniqueid,
-        "",
-        ""
+        studentData.institute || "",
+        defaultProfilePic,
+        "", // Empty password
       ]
     );
 
     const studentId = result.rows[0].id;
     const hashedStudentId = await hashId(studentId);
 
-    await client.query(`UPDATE students SET hashed_id = $1 WHERE id = $2`, [
-      hashedStudentId,
-      studentId,
-    ]);
+    // Update the student with the hashed ID
+    await client.query(
+      `UPDATE students SET hashed_id = $1 WHERE id = $2`,
+      [hashedStudentId, studentId]
+    );
 
     return NextResponse.json(
-      { message: "Student added successfully", student: { id: studentId, hashed_id: hashedStudentId, email: studentData.email } },
+      { 
+        message: "Student added successfully", 
+        student: { 
+          id: studentId, 
+          hashed_id: hashedStudentId, 
+          email: studentData.email,
+          name: `${result.rows[0].first_name} ${result.rows[0].last_name}`
+        } 
+      },
       { status: 201 }
     );
   } catch (error) {
     console.error("Error during student addition:", error);
     return NextResponse.json(
-      { message: "Student addition failed", error: (error as Error).message },
+      { 
+        message: "Student addition failed", 
+        error: error instanceof Error ? error.message : "Unknown error occurred" 
+      },
       { status: 500 }
     );
   }

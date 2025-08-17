@@ -1,72 +1,60 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, ChangeEvent, FormEvent } from "react";
 import { X, Upload, FileText, CheckCircle, AlertCircle, Sparkles, BookOpen, Building, Calendar, School, FileUp } from "lucide-react";
 import AlertNotification from "../app/notify";
 
-const researchTopics = [
-  "Pest surveillance and management",
-  "Sustainable farming practices",
-  "Crop diversification",
-  "Food systems",
-  "Biofortification",
-  "HIV/AIDS and other sexually transmitted infections",
-  "Reproductive health and family planning",
-  "Infectious diseases (e.g., malaria, Ebola, Marburg virus)",
-  "Occupational safety and health in agriculture",
-  "Advanced surgical techniques",
-  "Higher education development",
-  "Access to education in rural areas",
-  "Educational technology integration",
-  "Curriculum development",
-  "Electronic case management systems",
-  "Digital transformation in public services",
-  "Artificial intelligence applications",
-  "Post-genocide reconciliation and justice",
-  "Social equity in healthcare",
-  "Gender studies",
-  "Community development",
-  "Climate change adaptation",
-  "Biodiversity conservation",
-  "Sustainable urban planning",
-  "Water resource management",
-  "Trade and market dynamics",
-  "Infrastructure development",
-  "Social protection programs",
-  "Energy sector growth",
-  "Policy strengthening in labor sectors",
-  "Public administration reforms",
-  "Legal system effectiveness"
-];
-
-interface Departments {
-  id: number;
-  name: string;
-  institute: string;
-  school: string;
-}
-
-interface Schools {
-  id: number;
-  name: string;
-  institute: string;
-}
-
+// Type definitions
 interface FormData {
   title: string;
   researcher: string;
   category: string;
   status: string;
-  school: string | number;
-  department: string | number;
+  school: string;
+  department: string;
   year: string;
   abstract: string;
 }
 
-interface AddResearchProps {
-  onClose: () => void;
+interface School {
+  id: string;
+  name: string;
+  institute: string;
 }
 
-const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
+interface Department {
+  id: string;
+  name: string;
+  school: string;
+  institute: string;
+}
+
+interface UserSession {
+  id: string;
+  [key: string]: any;
+}
+
+interface AddResearchProps {
+  onClose?: () => void;
+}
+
+interface ApiError {
+  error: string;
+}
+
+const researchTopics: string[] = [
+  "Health Research",
+  "Agriculture and Environmental Research",
+  "Education and Social Sciences",
+  "Energy and Infrastructure",
+  "Information and Communication Technology (ICT)",
+  "Industry and Manufacturing",
+  "Natural and Basic Sciences",
+  "Tourism and Cultural Heritage",
+  "Policy and Governance",
+  "Innovation and Technology Transfer"
+];
+
+const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
   const [formData, setFormData] = useState<FormData>({
     title: "",
     researcher: "",
@@ -78,44 +66,56 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
     abstract: "",
   });
   
-  const [departments, setDepartments] = useState<Departments[]>([]);
-  const [schools, setSchools] = useState<Schools[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [institution, setInstitution] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [focusedField, setFocusedField] = useState("");
-  const [showModal, setShowModal] = useState(true);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [focusedField, setFocusedField] = useState<string>("");
+  const [showModal, setShowModal] = useState<boolean>(true);
+  const [currentStep, setCurrentStep] = useState<number>(1);
   const [schoolSearchTerm, setSchoolSearchTerm] = useState<string>("");
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState<string>("");
+  const [showSchoolDropdown, setShowSchoolDropdown] = useState<boolean>(false);
+  const [showDepartmentDropdown, setShowDepartmentDropdown] = useState<boolean>(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const schoolDropdownRef = useRef<HTMLDivElement>(null);
+  const departmentDropdownRef = useRef<HTMLDivElement>(null);
 
   // Get institution ID from localStorage
   useEffect(() => {
-    const userSession = JSON.parse(localStorage.getItem('supervisorSession') || '{}');
-    if (userSession && userSession.institution_id) {
-      setInstitution(userSession.institution_id);
+    const userSessionData = localStorage.getItem('institutionSession');
+    if (userSessionData) {
+      try {
+        const userSession: UserSession = JSON.parse(userSessionData);
+        if (userSession && userSession.id) {
+          setInstitution(userSession.id);
+        }
+      } catch (error) {
+        console.error('Error parsing user session:', error);
+      }
     }
   }, []);
 
   // Fetch schools
   useEffect(() => {
-    const fetchSchools = async () => {
-      const userSession = JSON.parse(localStorage.getItem('supervisorSession') || '{}');
-    if (!userSession) return;
+    const fetchSchools = async (): Promise<void> => {
+      if (!institution) return;
       
       setLoading(true);
       try {
-        const response = await fetch(`/api/schools/view_by_institution?instution_id=${userSession.institution_id}`);
+        const response = await fetch(`/api/schools/view_by_institution?institution_id=${institution}`);
         if (!response.ok) throw new Error("Failed to fetch schools.");
-        const data = await response.json();
+        const data: School[] = await response.json();
         setSchools(data);
       } catch (error) {
         setError("Failed to load schools.");
+        console.error('Error fetching schools:', error);
       } finally {
         setLoading(false);
       }
@@ -124,22 +124,26 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
     if (institution) {
       fetchSchools();
     }
-  }, []);
+  }, [institution]);
 
   // Fetch departments
   useEffect(() => {
     const selectedSchoolId = formData.school;
-    const fetchDepartments = async () => {
-      if ( !selectedSchoolId) return;
+    const fetchDepartments = async (): Promise<void> => {
+      if (!institution || !selectedSchoolId) {
+        setDepartments([]);
+        return;
+      }
       
       setLoading(true);
       try {
         const response = await fetch(`/api/departments?school_id=${selectedSchoolId}`);
         if (!response.ok) throw new Error("Failed to fetch departments.");
-        const data = await response.json();
+        const data: Department[] = await response.json();
         setDepartments(data);
       } catch (error) {
         setError("Failed to load departments.");
+        console.error('Error fetching departments:', error);
       } finally {
         setLoading(false);
       }
@@ -161,20 +165,34 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
     }
   }, [error, success]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  // Handle clicks outside dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent): void => {
+      const target = event.target as Node;
+      if (schoolDropdownRef.current && !schoolDropdownRef.current.contains(target)) {
+        setShowSchoolDropdown(false);
+      }
+      if (departmentDropdownRef.current && !departmentDropdownRef.current.contains(target)) {
+        setShowDepartmentDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void => {
     const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>): void => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      // Validate file size (10MB max)
       if (selectedFile.size > 10 * 1024 * 1024) {
         setError("File size must be less than 10MB");
         return;
       }
-      // Validate file type
       const allowedTypes = [
         'application/pdf', 
         'application/msword', 
@@ -193,7 +211,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>): Promise<void> => {
     e.preventDefault();
     
     if (!file) {
@@ -208,7 +226,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
     try {
       const payload = new FormData();
       Object.entries(formData).forEach(([key, value]) => {
-        if (value) payload.append(key, value as string);
+        if (value) payload.append(key, value);
       });
       
       if (file) {
@@ -247,11 +265,12 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
           onClose();
         }, 2000);
       } else {
-        const error = await response.json();
-        setError(`${error.error}`);
+        const errorData: ApiError = await response.json();
+        setError(`${errorData.error}`);
       }
     } catch (error) {
-      setError(`${(error as Error).message}`);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setError(`${errorMessage}`);
     } finally {
       setSubmitting(false);
       setLoading(false);
@@ -271,12 +290,12 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
     }
   };
 
-  const maskFileName = (filename: string) => {
+  const maskFileName = (filename: string): string => {
     if (!filename || filename.length <= 10) {
       return filename;
     }
     
-    const extension = filename.split('.').pop();
+    const extension = filename.split('.').pop() || '';
     const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'));
     
     if (nameWithoutExt.length <= 6) {
@@ -286,6 +305,32 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
     const firstPart = nameWithoutExt.substring(0, 3);
     const lastPart = nameWithoutExt.substring(nameWithoutExt.length - 3);
     return `${firstPart}***${lastPart}.${extension}`;
+  };
+
+  const filteredSchools = schools.filter((school: School) =>
+    school.name.toLowerCase().includes(schoolSearchTerm.toLowerCase())
+  );
+
+  const filteredDepartments = departments.filter((department: Department) =>
+    `${department.name} ${department.school} ${department.institute}`
+      .toLowerCase()
+      .includes(departmentSearchTerm.toLowerCase())
+  );
+
+  const handleSchoolSelect = (school: School) => (e: React.MouseEvent): void => {
+    e.preventDefault();
+    setSchoolSearchTerm(school.name);
+    setDepartmentSearchTerm("");
+    setFormData({ ...formData, school: school.id, department: "" });
+    setDepartments([]);
+    setShowSchoolDropdown(false);
+  };
+
+  const handleDepartmentSelect = (department: Department) => (e: React.MouseEvent): void => {
+    e.preventDefault();
+    setDepartmentSearchTerm(department.name);
+    setFormData({ ...formData, department: department.id });
+    setShowDepartmentDropdown(false);
   };
 
   return (
@@ -378,7 +423,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
       {error && <AlertNotification message={error} type="error" />}
       {success && <AlertNotification message={success} type="success" />}
       
-      <div className={`fixed inset-0 backdrop-blur-sm z-40 flex items-center justify-center p-4 ${showModal ? 'animate-fade-in' : ''}`}>
+      <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4 ${showModal ? 'animate-fade-in' : ''}`}>
         <div ref={modalRef} className="gradient-border w-full max-w-4xl max-h-[90vh] animate-scale-in">
           <div className="glass-effect rounded-2xl overflow-hidden">
             {/* Header */}
@@ -386,6 +431,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
               <button
                 onClick={onClose}
                 className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-300 hover:scale-110"
+                type="button"
               >
                 <X size={20} />
               </button>
@@ -402,7 +448,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
               
               {/* Progress Steps */}
               <div className="flex items-center justify-center gap-2 mt-6">
-                {[1, 2, 3].map((step) => (
+                {[1, 2, 3].map((step: number) => (
                   <div key={step} className="flex items-center">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all duration-300 ${
                       currentStep >= step ? 'bg-white text-teal-600 scale-110' : 'bg-white/20 text-white/60'
@@ -437,7 +483,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                         placeholder=" "
                         required
                       />
-                      <label className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
+                      <label htmlFor="title" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
                         Research Title <span className="text-red-500">*</span>
                       </label>
                       {focusedField === 'title' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
@@ -455,7 +501,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                         placeholder=" "
                         required
                       />
-                      <label className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
+                      <label htmlFor="researcher" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
                         Researcher Name <span className="text-red-500">*</span>
                       </label>
                       {focusedField === 'researcher' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
@@ -473,11 +519,11 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                       required
                     >
                       <option value=""></option>
-                      {researchTopics.map((topic, i) => (
+                      {researchTopics.map((topic: string, i: number) => (
                         <option key={i} value={topic}>{topic}</option>
                       ))}
                     </select>
-                    <label className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
+                    <label htmlFor="category" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
                       Research Category <span className="text-red-500">*</span>
                     </label>
                     {focusedField === 'category' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
@@ -504,7 +550,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                         <option value="completed">✅ Completed</option>
                         <option value="pending">🔶 Pending</option>
                       </select>
-                      <label className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
+                      <label htmlFor="status" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
                         Progress Status <span className="text-red-500">*</span>
                       </label>
                       {focusedField === 'status' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
@@ -524,7 +570,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                         maxLength={4}
                         required
                       />
-                      <label className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
+                      <label htmlFor="year" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
                         <Calendar size={16} className="inline mr-1" />
                         Year <span className="text-red-500">*</span>
                       </label>
@@ -533,88 +579,99 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                   </div>
 
                   {/* School Selection */}
-                  <div className="relative group">
+                  <div ref={schoolDropdownRef} className="relative group">
                     <input
                       type="text"
                       id="school"
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer"
-                      onFocus={() => setFocusedField('school')}
+                      onFocus={() => {
+                        setFocusedField('school');
+                        setShowSchoolDropdown(true);
+                      }}
                       onBlur={() => setFocusedField('')}
                       value={schoolSearchTerm}
-                      onChange={(e) => setSchoolSearchTerm(e.target.value)}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        setSchoolSearchTerm(e.target.value);
+                        setShowSchoolDropdown(true);
+                      }}
                       placeholder=" "
                       required
                     />
-                    <label className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
+                    <label htmlFor="school" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
                       <School size={16} className="inline mr-1" />
                       School <span className="text-red-500">*</span>
                     </label>
-                    {schoolSearchTerm && (
+                    {showSchoolDropdown && (
                       <div className="absolute w-full bg-white border border-gray-300 rounded-md mt-1 shadow-lg z-20 max-h-48 overflow-y-auto">
-                        <ul>
-                          {schools
-                            .filter((school) =>
-                              school.name.toLowerCase().includes(schoolSearchTerm.toLowerCase())
-                            )
-                            .map((school) => (
+                        {filteredSchools.length > 0 ? (
+                          <ul>
+                            {filteredSchools.map((school: School) => (
                               <li
                                 key={school.id}
-                                className={`${schoolSearchTerm === school.name ? 'hidden' : ''} px-3 py-2 hover:bg-gray-200 cursor-pointer border-b border-gray-100 last:border-b-0`}
-                                onClick={() => {
-                                  setSchoolSearchTerm(school.name);
-                                  setFormData({ ...formData, school: school.id });
-                                }}
+                                className="px-3 py-2 hover:bg-gray-200 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                onMouseDown={handleSchoolSelect(school)}
                               >
                                 <div className="font-medium">{school.name}</div>
                                 <div className="text-sm text-gray-500">{school.institute}</div>
                               </li>
                             ))}
-                        </ul>
+                          </ul>
+                        ) : (
+                          <div className="px-4 py-3 text-gray-500 text-center">
+                            No schools found
+                          </div>
+                        )}
                       </div>
                     )}
                     {focusedField === 'school' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
                   </div>
 
                   {/* Department Selection */}
-                  <div className="relative group">
+                  <div ref={departmentDropdownRef} className="relative group">
                     <input
                       type="text"
                       id="department"
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer"
-                      onFocus={() => setFocusedField('department')}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      onFocus={() => {
+                        if (formData.school) {
+                          setFocusedField('department');
+                          setShowDepartmentDropdown(true);
+                        }
+                      }}
                       onBlur={() => setFocusedField('')}
                       value={departmentSearchTerm}
-                      onChange={(e) => setDepartmentSearchTerm(e.target.value)}
-                      placeholder=" "
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        setDepartmentSearchTerm(e.target.value);
+                        setShowDepartmentDropdown(true);
+                      }}
+                      placeholder={!formData.school ? "Select a school first" : " "}
+                      disabled={!formData.school}
                       required
                     />
-                    <label className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
+                    <label htmlFor="department" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none peer-disabled:text-gray-400">
                       <Building size={16} className="inline mr-1" />
                       Department <span className="text-red-500">*</span>
                     </label>
-                    {departmentSearchTerm && (
+                    {showDepartmentDropdown && formData.school && (
                       <div className="absolute w-full bg-white border border-gray-300 rounded-md mt-1 shadow-lg z-10 max-h-48 overflow-y-auto">
-                        <ul>
-                          {departments
-                            .filter((department) =>
-                              `${department.name} ${department.school} ${department.institute}`
-                                .toLowerCase()
-                                .includes(departmentSearchTerm.toLowerCase())
-                            )
-                            .map((department) => (
+                        {filteredDepartments.length > 0 ? (
+                          <ul>
+                            {filteredDepartments.map((department: Department) => (
                               <li
                                 key={department.id}
-                                className={`${departmentSearchTerm === department.name ? 'hidden' : ''} px-3 py-2 hover:bg-gray-200 cursor-pointer border-b border-gray-100 last:border-b-0`}
-                                onClick={() => {
-                                  setDepartmentSearchTerm(department.name);
-                                  setFormData({ ...formData, department: department.id });
-                                }}
+                                className="px-3 py-2 hover:bg-gray-200 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                onMouseDown={handleDepartmentSelect(department)}
                               >
                                 <div className="font-medium">{department.name}</div>
                                 <div className="text-sm text-gray-500">{department.school} - {department.institute}</div>
                               </li>
                             ))}
-                        </ul>
+                          </ul>
+                        ) : (
+                          <div className="px-4 py-3 text-gray-500 text-center">
+                            No departments found
+                          </div>
+                        )}
                       </div>
                     )}
                     {focusedField === 'department' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
@@ -668,7 +725,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                       placeholder=" "
                       required
                     />
-                    <label className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm">
+                    <label htmlFor="abstract" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
                       Abstract <span className="text-red-500">*</span>
                     </label>
                     {focusedField === 'abstract' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
@@ -703,7 +760,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose }) => {
                     </button>
                   ) : (
                     <button
-                      type="submit"
+                      type="button"
                       disabled={!isStepValid(3) || loading || submitting}
                       onClick={handleSubmit}
                       className={`px-8 py-3 rounded-lg font-medium transition-all duration-300 flex items-center gap-2 ${

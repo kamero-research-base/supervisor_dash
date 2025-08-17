@@ -3,8 +3,12 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 ## Getting Started
 
 First, run the development server:
-
 ```bash
+#install dependencies
+npm run install
+# or
+yarn install
+#local run
 npm run dev
 # or
 yarn dev
@@ -12,9 +16,14 @@ yarn dev
 pnpm dev
 # or
 bun dev
-```
+#Set environment variables:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+DATABASE_URL=postgres://neondb_owner:npg_pM4T7kIVDRtf@ep-icy-cherry-a4rnw6g0-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require
+SUPABASE_URL=https://umyxfvopukggkdrykiig.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVteXhmdm9wdWtnZ2tkcnlraWlnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MTM3ODI2NiwiZXhwIjoyMDU2OTU0MjY2fQ.vA3GnVrqea2te-r2Y1MsQJAqNZFHs_DAgeJVi7nWDho
+BREVO_API_KEY=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
+```
+Open http://localhost:3000 with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
