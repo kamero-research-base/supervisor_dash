@@ -6,13 +6,13 @@ import client from "../../utils/db"; // Adjust the path as needed
 export async function POST(req: Request) {
   try {
     const formData = await req.json();
-    const { department_id } = formData;
+    const { supervisor_id } = formData;
 
-    if (!department_id) {
+    if (!supervisor_id) {
       return NextResponse.json({ message: "Unauthorized access" }, { status: 401 });
     }
 
-    // Query to fetch institution statistics
+    // Query to fetch supervisor statistics
     const query = `
       SELECT 
         COUNT(*) AS total_students,
@@ -21,11 +21,11 @@ export async function POST(req: Request) {
         SUM(CASE WHEN s.status = 'Unverified' THEN 1 ELSE 0 END) AS total_unverified,
         SUM(CASE WHEN s.status IN ('Locked', 'Inactive') THEN 1 ELSE 0 END) AS total_inactive
       FROM students s
-      WHERE s.department = $1
+      WHERE s.supervisor_id = $1
     `;
 
     // Execute the query
-    const result = await client.query(query, [department_id]);
+    const result = await client.query(query, [supervisor_id]);
 
     // Extract data
     const data = result.rows[0] || {};

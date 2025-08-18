@@ -119,7 +119,8 @@ const LoginForm = () => {
       const sessionData = {
         id: data.user.id,
         name: data.user.name,
-        department: data.user.department,
+        department: data.user.department.id,
+        department_name: data.user.department.name,
         school_id: data.user.school.id,
         school: data.user.school.name,
         college_id: data.user.college.id,
