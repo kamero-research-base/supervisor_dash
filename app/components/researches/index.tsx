@@ -35,7 +35,7 @@ interface Research {
   title: string;
   researcher: string;
   year: string;
-  progress_status: string;
+
   created_at: string;
   hashed_id: string;
   department?: string;
@@ -45,11 +45,10 @@ interface Research {
 
 const Header = ({ onAddResearchClick }: ResearchHeaderProps) => {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  
+
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const userSession = JSON.parse(localStorage.getItem("supervisorSession") || "{}");
 
         const response = await fetch(`/api/analytics/researches`, {
           method: 'POST',
@@ -532,6 +531,7 @@ const ResearchList = () => {
         <div className="col-span-full text-center text-gray-500 py-8">
           No researches found
         </div>
+
       ) : (
         paginatedResearches.map((research) => (
           <div key={research.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -706,6 +706,78 @@ const ResearchList = () => {
               </tr>
             ))
           )}
+      </div>
+      {Researches.length <= 0 ? (
+<div className="w-full min-h-[30vh] flex items-center justify-center">
+ <div className="flex flex-col justify-center items-center opacity-65">
+   <div className="img w-[150px] h-[150px]">
+    <img src="/delete.png" alt="" className="w-full h-full object-contain"/>
+   </div>
+   <i>No researches yet.</i>
+ </div>
+</div>
+) : ( <>
+      <table className="w-full mt-5">
+        <thead className="space-x-2 border-t-2 border-b-2 border-slate-100 text-sm text-slate-400 p-2 text-left">
+          <th className="py-2 px-2 font-normal"><input type="checkbox" name="" id="" /></th>
+          <th className="py-2 px-2 font-normal">Status</th>
+          <th className="py-2 px-2 font-normal">Title</th>
+          <th className="py-2 px-2 font-normal">Researcher</th>
+          <th className="py-2 px-2 font-normal">Year</th>
+          <th className="py-2 px-2 font-normal">Material Status</th>
+          <th className="py-2 px-2 font-normal">Visibility</th>
+          <th className="py-2 px-2 font-normal">Uploaded at</th>
+          <th className="py-2 px-2 font-normal">Actions</th>
+        </thead>
+        <tbody className="odd odd:bg-slate-500">
+         {Researches.map((research) => (
+           <tr key={research.id} className="text-sm text-slate-800 border-b ">
+            <td className="py-2 px-2"><input type="checkbox" name="selected" id="selected" value={research.id} className="text-slate-500"/></td>
+            <td className="py-2 px-2 text-nowrap">
+              <span className={`
+                ${research.status === 'Published' || research.status === 'Approved' ? 'bg-green-100 text-green-600 border-green-300 '
+                : research.status === 'Under review' || research.status === 'On hold'
+                ? 'bg-yellow-100 text-yellow-600 border-yellow-300'
+                : research.status === 'Rejected'
+                ? 'bg-amber-800 bg-opacity-30 text-amber-900 border-amber-800'
+                : 'bg-slate-100 text-slate-600 border-slate-300 '
+                } rounded px-1 border`}>{research.status}</span></td>
+            <td className="py-2 px-2">{research.title}</td>
+            <td className="py-2 px-2">{research.researcher}</td>
+            <td className="py-2 px-2">{research.year}</td>
+            <td className="py-2 px-2">{research.material_status}</td>
+            <td className="py-2 px-2 capitalize">
+              <span className={`
+                ${research.visibility === 'Public' ? 'bg-cyan-100 text-cyan-600 border-cyan-300 '
+                : 'bg-slate-100 text-slate-600 border-slate-300 '
+                } rounded px-1 border capitalize`}>{research.visibility}</span>
+            </td>
+            <td className="py-2 px-2">{timeAgo(research.created_at)}</td>
+            <td className="py-2 px-6 text-center relative">
+              <i
+                className="bi bi-three-dots cursor-pointer text-xl"
+                onClick={() => toggleDropdown(research.id)}
+              ></i>
+              {dropdownOpen === research.id && (
+                <div className="absolute right-0 mt-1 mr-1 w-36 bg-white border rounded-md shadow-lg z-10">
+                  <ul className="py-1 text-gray-700">
+                    <li
+                      className="px-4 py-2 cursor-pointer hover:bg-gray-100 flex items-center"
+                      onClick={() => {
+                        onResearchView(research.hashed_id); // Assign the Order
+                        toggleDropdown(research.id); // Close the dropdown
+                      }}
+                    >
+                      <i className="bi bi-eye mr-2 text-teal-500 hover:bg-slate-100"></i> Review
+                    </li>
+                   
+                  </ul>
+                </div>
+              )}
+            </td>
+           </tr>
+          ))}
+          
         </tbody>
       </table>
     </div>
