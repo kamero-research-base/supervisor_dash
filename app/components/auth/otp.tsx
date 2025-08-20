@@ -25,8 +25,10 @@ const VerifyOtpForm = ({ hashed, email, type }: Props) => {
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isVerified, setIsVerified] = useState(false); // Add this state to track verification
   const [timer, setTimer] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(120); // Make timeLeft a state variable
   const router = useRouter();
 
   useEffect(() => {
@@ -39,25 +41,31 @@ const VerifyOtpForm = ({ hashed, email, type }: Props) => {
     }
   }, [error, success]);
 
-  let timeLeft = 120; // 2 minutes in seconds
+  // Fixed timer logic
   useEffect(() => {
     const holder = document.getElementById('counter') as HTMLDivElement;
+    if (!holder) return;
 
-    const timer = setInterval(() => {
-      const minutes = Math.floor(timeLeft / 60);
-      const seconds = timeLeft % 60;
-      console.log(`${minutes}:${seconds < 10 ? "0" : ""}${seconds}`);
-      holder.textContent = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-
-      if (timeLeft <= 0) {
-        clearInterval(timer);
-        setTimer(true);
-        timeLeft == 0;
-        holder.textContent = "";
-      }
-      timeLeft--;
+    const timerInterval = setInterval(() => {
+      setTimeLeft((prevTime) => {
+        const newTime = prevTime - 1;
+        const minutes = Math.floor(newTime / 60);
+        const seconds = newTime % 60;
+        
+        holder.textContent = newTime > 0 ? `${minutes}:${seconds < 10 ? "0" : ""}${seconds}` : "";
+        
+        if (newTime <= 0) {
+          clearInterval(timerInterval);
+          setTimer(true);
+          return 0;
+        }
+        
+        return newTime;
+      });
     }, 1000);
-  }, [timeLeft]);
+
+    return () => clearInterval(timerInterval);
+  }, []);
 
   const handleFocus = (field: string) =>
     setFocus((prev) => ({ ...prev, [field]: true }));
@@ -98,14 +106,22 @@ const VerifyOtpForm = ({ hashed, email, type }: Props) => {
 
       if (response.ok) {
         setSuccess("OTP verified! ✅");
+        setIsVerified(true); // Set verification state to true
         setLoading(false);
+        
         // Update localStorage with the new session
-        const existingSession = localStorage.getItem('supervisorSession');
+        const existingSession = localStorage.getItem('userSession');
         if (existingSession) {
           const sessionData = JSON.parse(existingSession);
-          // Update session_id without removing other data
           sessionData.session_id = hashed;
-          localStorage.setItem('supervisorSession', JSON.stringify(sessionData));
+          localStorage.setItem('userSession', JSON.stringify(sessionData));
+        }
+        
+        // If not forgotten password, redirect after a short delay
+        if (type !== 'forgotten-password') {
+          setTimeout(() => {
+            router.push("/");
+          }, 2000);
         }
       } else {
         const error = await response.json();
@@ -120,6 +136,9 @@ const VerifyOtpForm = ({ hashed, email, type }: Props) => {
 
   const handleResendCode = async () => {
     setLoading(true);
+    setTimer(false);
+    setTimeLeft(120); // Reset timer
+    
     try {
       const response = await fetch("/api/auth/resend-code", {
         method: "POST",
@@ -133,7 +152,7 @@ const VerifyOtpForm = ({ hashed, email, type }: Props) => {
       if (response.ok) {
         setLoading(false);
         setSuccess("OTP sent successfully ✅");
-        setFormData(prev => ({ ...prev, code: "" })); // Clear the code
+        setFormData(prev => ({ ...prev, code: "" }));
       } else {
         const error = await response.json();
         setError(error.message);
@@ -145,10 +164,9 @@ const VerifyOtpForm = ({ hashed, email, type }: Props) => {
     }
   };
 
-  if (success?.includes("verified") && hashed !== "" && type === 'forgotten-password') {
+  // Updated conditional rendering using isVerified state instead of success message
+  if (isVerified && hashed !== "" && type === 'forgotten-password') {
     return <ChangePassword hashed={hashed} />;
-  } else if (success?.includes("verified") && hashed !== "" && type != 'forgotten-password') {
-    router.push("/");
   }
 
   return (
