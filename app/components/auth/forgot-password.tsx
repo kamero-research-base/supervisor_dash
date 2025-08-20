@@ -82,7 +82,7 @@ const VerifyForm = () => {
     return <VerifyOtpForm 
       hashed={hashedId}
       email={formData.email}
-      type=""
+      type="forgotten-password"
     />;
   }
 
