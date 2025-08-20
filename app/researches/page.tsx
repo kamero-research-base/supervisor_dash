@@ -1,5 +1,5 @@
 "use client";
-import Header, { ResearchesList } from "@/app/components/researches";
+import Header, { ResearchList } from "@/app/components/researches";
 import AddResearch from "@/app/components/toggles/addResearch";
 import ViewResearch from "@/app/components/toggles/viewResearch";
 import { useState } from "react";
@@ -27,7 +27,7 @@ export default function Researches(){
   return (
     <>
     <Header onAddResearchClick={toggleAddResearch}/>
-    <ResearchesList onResearchView={handleResearchViewClick}/>
+    <ResearchList />
     {showAddResearch && (
       <AddResearch onClose={closeAddResearch} />
     )}

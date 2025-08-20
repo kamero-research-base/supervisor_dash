@@ -9,12 +9,20 @@ interface TopBarProps {
 
 interface SupervisorInfo {
   id: number;
-  username: string;
   name: string;
   email: string;
-  department?: string;
-  role?: string;
-  institution?: string;
+  department: number; // This is an ID
+  department_name: string; // The actual department name
+  school_id: number;
+  school: string;
+  college_id: number;
+  college: string;
+  institution_id: number;
+  institution: string;
+  profile?: string;
+  session_id: string;
+  hashed_id: string;
+  loginTime: string;
 }
 
 interface Notification {
@@ -36,6 +44,7 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const pathname = usePathname();
   const router = useRouter();
+  
   // Get current time and date
   useEffect(() => {
     const updateTimeAndDate = () => {
@@ -173,10 +182,6 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <button className="p-2.5 text-gray-500 hover:text-teal-600 hover:bg-gray-50 rounded-lg transition-all">
-              <i className="bi bi-search text-lg"></i>
-            </button>
 
             {/* Notifications */}
             <div className="relative">
@@ -268,17 +273,24 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-50 rounded-lg transition-all"
               >
-                <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">
-                    {supervisorInfo?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'SU'}
-                  </span>
-                </div>
+                {supervisorInfo?.profile ? (
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center">
+                    <img src={supervisorInfo.profile} alt="Profile" className="w-full h-full object-cover rounded-lg" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-semibold text-sm">
+                      {supervisorInfo?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'SU'}
+                    </span>
+                  </div>
+                )}
+
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-900">
                     {supervisorInfo?.name || 'Supervisor'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {supervisorInfo?.role || 'Supervisor'}
+                    {supervisorInfo?.department_name || 'Supervisor'}
                   </p>
                 </div>
                 <i className="bi bi-chevron-down text-gray-400 text-xs hidden md:block"></i>
@@ -289,11 +301,17 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
                   <div className="bg-teal-600 px-4 py-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">
-                          {supervisorInfo?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'SU'}
-                        </span>
-                      </div>
+                      {supervisorInfo?.profile ? (
+                        <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center">
+                          <img src={supervisorInfo.profile} alt="Profile" className="w-full h-full object-cover rounded-lg" />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">
+                            {supervisorInfo?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'SU'}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0 text-white">
                         <p className="text-base font-semibold truncate">
                           {supervisorInfo?.name || 'Supervisor'}
@@ -301,11 +319,11 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
                         <p className="text-sm opacity-90 truncate">
                           {supervisorInfo?.email || 'supervisor@institution.edu'}
                         </p>
-                        {supervisorInfo?.department && (
-                          <p className="text-xs opacity-80 mt-0.5 truncate">
-                            {supervisorInfo.department}
-                          </p>
-                        )}
+                        <p className="text-xs opacity-80 mt-0.5 truncate">
+                          {[supervisorInfo?.department_name, supervisorInfo?.school, supervisorInfo?.institution]
+                            .filter(Boolean)
+                            .join(' • ')}
+                        </p>
                       </div>
                     </div>
                   </div>

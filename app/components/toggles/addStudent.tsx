@@ -1,17 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Preloader from "../app/buttonPreloader";
-
-// The interfaces define the shape of your data
-interface Departments {
-  id: number;
-  name: string;
-  school: string;
-  institute: string;
-  college?: string;
-  label?: string;
-  status?: string;
-}
+import AlertNotification from "../app/notify";
 
 interface FormData {
   first_name: string;
@@ -19,7 +9,10 @@ interface FormData {
   email: string;
   phone: string;
   department: string;
+  institute?: string;
   uniqueid: string;
+  year_of_study: string;
+  course: string;
 }
 
 const AddStudent: React.FC<{ onClose: () => void; onStudentAdded?: () => void }> = ({
@@ -33,68 +26,14 @@ const AddStudent: React.FC<{ onClose: () => void; onStudentAdded?: () => void }>
     email: "",
     phone: "",
     department: "",
+    institute: "",
     uniqueid: "",
+    year_of_study: "",
+    course: "",
   });
-  const [departments, setDepartments] = useState<Departments[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        setIsLoadingDepartments(true);
-        setError(null);
-
-        let school_id = "";
-        try {
-          const sessionData =
-            localStorage.getItem("supervisorSession") ||
-            sessionStorage.getItem("supervisorSession");
-          if (sessionData) {
-            const userSession = JSON.parse(sessionData);
-            if (userSession && userSession.school_id) {
-              school_id = userSession.school_id;
-            }
-          }
-        } catch (parseError) {
-          console.error("Error parsing session data:", parseError);
-        }
-
-        const url = school_id
-          ? `/api/departments?school_id=${school_id}`
-          : `/api/departments`;
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({
-            message: "Failed to fetch departments.",
-          }));
-          throw new Error(errorData.message);
-        }
-
-        const data = await response.json();
-
-        if (Array.isArray(data)) {
-          setDepartments(data);
-          if (data.length === 0) {
-            setError("No departments found. Please add departments first.");
-          }
-        } else {
-          setError("Received invalid data format for departments from server.");
-        }
-      } catch (error) {
-        console.error("Error fetching departments:", error);
-        setError(error instanceof Error ? error.message : "An unknown error occurred.");
-      } finally {
-        setIsLoadingDepartments(false);
-      }
-    };
-
-    fetchDepartments();
-  }, []);
 
   const handleFocus = (field: string) => setFocus((prev) => ({ ...prev, [field]: true }));
 
@@ -106,261 +45,340 @@ const AddStudent: React.FC<{ onClose: () => void; onStudentAdded?: () => void }>
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError(null);
+  setSuccess(null);
+  setLoading(true);
 
-    if (
-      !formData.first_name ||
-      !formData.last_name ||
-      !formData.email ||
-      !formData.phone ||
-      !formData.department ||
-      !formData.uniqueid
-    ) {
-      setError("All fields are required");
+  try {
+    // Mock localStorage for demo
+    const userSession = JSON.parse(localStorage.getItem("supervisorSession") || "{}");
+    const departmentId = userSession.department;
+    const instituteId = userSession.institution_id;
+
+  if (!userSession || !departmentId || !instituteId) {
+    setError("You must have an access.");
+    setLoading(false);
+    return;
+  } else {
+    setFormData((prev) => ({ ...prev, department: departmentId, institute: instituteId }));
+  }
+
+ // Clear any previous errors first
+setError("");
+
+// Check each field individually and set specific error messages
+if (!formData.first_name) {
+  setError("First name is required");
+  setLoading(false);
+  return;
+}
+
+if (!formData.last_name) {
+  setError("Last name is required");
+  setLoading(false);
+  return;
+}
+
+if (!formData.email) {
+  setError("Email is required");
+  setLoading(false);
+  return;
+}
+
+if (!formData.phone) {
+  setError("Phone number is required");
+  setLoading(false);
+  return;
+}
+
+if (!formData.uniqueid) {
+  setError("Unique ID is required");
+  setLoading(false);
+  return;
+}
+
+if (!formData.course) {
+  setError("Course is required");
+  setLoading(false);
+  return;
+}
+
+if (!formData.year_of_study) {
+  setError("Year of study is required");
+  setLoading(false);
+  return;
+}
+
+  // Create FormData instead of JSON
+  const submitFormData = new FormData();
+  submitFormData.append('first_name', formData.first_name);
+  submitFormData.append('last_name', formData.last_name);
+  submitFormData.append('email', formData.email);
+  submitFormData.append('phone', formData.phone);
+  submitFormData.append('department', formData.department);
+  submitFormData.append('institute', formData.institute || '');
+  submitFormData.append('uniqueid', formData.uniqueid);
+  submitFormData.append('supervisor_id', userSession.id);
+  submitFormData.append('year_of_study', formData.year_of_study);
+  submitFormData.append('course', formData.course);
+
+  // Simulate API call
+  
+    
+  const response = await fetch("/api/add/student", {
+      method: "POST",
+      // Remove Content-Type header - browser will set it automatically for FormData
+      body: submitFormData,  // Send FormData instead of JSON
+    });
+    
+    const data = await response.json(); 
+    if (!response.ok) {
+      setError(data.message || response.statusText);
       setLoading(false);
-      return;
+      return
     }
 
-    const selectedDept = departments.find((d) => d.id.toString() === formData.department);
-    if (!selectedDept) {
-      setError("Please select a valid department");
-      setLoading(false);
-      return;
-    }
-
-    const payload = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      payload.append(key, value);
+    setSuccess("Student added successfully!");
+    setFormData({
+      first_name: "",
+      last_name: "",
+      email: "",
+      phone: "",
+      uniqueid: "",
+      department: "",
+      institute: "",
+      year_of_study: "",
+      course: "",
     });
 
-    payload.append("institute", selectedDept.institute || "");
-
-    try {
-      const response = await fetch("/api/add/student", {
-        method: "POST",
-        body: payload,
-      });
-
-      const responseText = await response.text();
-      let responseData;
-
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (err) {
-        console.error("Failed to parse JSON response:", responseText);
-        setError(`Submission failed. The server returned an unexpected response.`);
-        setLoading(false);
-        return;
-      }
-
-      if (response.ok) {
-        setSuccess("Student added successfully!");
-        setFormData({
-          first_name: "",
-          last_name: "",
-          email: "",
-          phone: "",
-          department: "",
-          uniqueid: "",
-        });
-
-        if (onStudentAdded) {
-          setTimeout(() => {
-            onStudentAdded();
-          }, 1500);
-        }
-        setLoading(false);
-      } else {
-        setError(responseData.message || responseData.error || "Submission failed due to a server error.");
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error("Submission error:", error);
-      setError(`Submission failed: ${(error as Error).message}`);
-      setLoading(false);
+    if (onStudentAdded) {
+      setTimeout(() => {
+        onStudentAdded();
+      }, 1500);
     }
-  };
+  } catch (error) {
+    setError(error instanceof Error ? error.message : "Unknown error");
+    setLoading(false);
+    return;
+  }
+  setLoading(false);
+};
 
   return (
-    <div className="fixed inset-0 flex justify-center items-center bg-slate-400 z-50 backdrop-blur-sm bg-opacity-40">
-      {/* Modal container with adjusted positioning */}
-      <div className="relative w-full h-full flex items-center justify-center">
-        {/* Close button */}
-        <i
-          onClick={onClose}
-          className="bi bi-x absolute right-8 top-8 px-[6px] py-[2px] border text-2xl font-bold cursor-pointer text-teal-50 bg-teal-500 border-teal-300 hover:bg-teal-200 hover:border rounded-full z-10"
-        ></i>
-        
-        {/* Form container - adjusted to avoid sidebar overlap */}
-        <div className="w-full max-w-3xl mx-auto bg-white rounded-lg p-5 max-h-[90vh] overflow-y-auto ml-64 mr-8">
-          <h4 className="text-center text-3xl my-3 pb-5 font-semibold text-teal-500">Add Student</h4>
+    <div className="fixed inset-0 flex justify-center items-center z-50">
+      {/* Enhanced backdrop */}
+      <div className="absolute inset-0 backdrop-blur-sm" />
+      
+      {/* Modal container - centered and compact */}
+      <div className="relative w-full max-w-lg mx-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        {/* Modal content */}
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+          {/* Header with gradient line */}
+          <div className="relative">
+            <div className="h-1 bg-gradient-to-r from-teal-400 via-teal-500 to-teal-400" />
+            
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-all duration-200"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            <h4 className="text-2xl font-bold text-center pt-6 pb-4 text-teal-600">
+              Add New Student
+            </h4>
+          </div>
 
-          <form className="space-y-6 px-8" onSubmit={handleSubmit}>
-            {(success || error) && (
-              <div
-                className={`${
-                  success
-                    ? "bg-green-100 text-green-600 border border-green-300"
-                    : "bg-red-100 text-red-600 border border-red-300"
-                } font-semibold p-4 rounded-md`}
-              >
-                {success || error}
+          {/* Form container */}
+          <div className="px-6 pb-6">
+            <div className="space-y-4">
+              {success && (<AlertNotification message={success} type="success" />)}
+              {error && (<AlertNotification message={error} type="error" />)}
+
+              {/* Name fields */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { id: "first_name", label: "First Name", type: "text" },
+                  { id: "last_name", label: "Other Names", type: "text" },
+                ].map((field) => (
+                  <div key={field.id} className="relative">
+                    <label
+                      htmlFor={field.id}
+                      className={`absolute left-3 text-gray-500 transition-all duration-200 pointer-events-none ${
+                        focus[field.id] || formData[field.id as keyof FormData]
+                          ? "top-[-8px] text-xs bg-white px-1 text-teal-500"
+                          : "top-2.5 text-sm"
+                      }`}
+                    >
+                      {field.label}
+                      <span className="text-red-400 ml-0.5">*</span>
+                    </label>
+                    <input
+                      id={field.id}
+                      type={field.type}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-1 focus:ring-teal-100 outline-none transition-all"
+                      onFocus={() => handleFocus(field.id)}
+                      onBlur={(e) => handleBlur(field.id, e.target.value)}
+                      value={formData[field.id as keyof FormData]}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                ))}
               </div>
-            )}
 
-            {isLoadingDepartments && (
-              <div className="bg-blue-100 text-blue-600 border border-blue-300 p-4 rounded-md">
-                <i className="bi bi-arrow-clockwise animate-spin mr-2"></i>
-                Loading departments...
+              {/* Email field */}
+              <div className="relative">
+                <label
+                  htmlFor="email"
+                  className={`absolute left-3 text-gray-500 transition-all duration-200 pointer-events-none ${
+                    focus["email"] || formData.email
+                      ? "top-[-8px] text-xs bg-white px-1 text-teal-500"
+                      : "top-2.5 text-sm"
+                  }`}
+                >
+                  Email<span className="text-red-400 ml-0.5">*</span>
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-1 focus:ring-teal-100 outline-none transition-all"
+                  onFocus={() => handleFocus("email")}
+                  onBlur={(e) => handleBlur("email", e.target.value)}
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                />
               </div>
-            )}
 
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { id: "first_name", label: "First Name", type: "text" },
-                { id: "last_name", label: "Other Names", type: "text" },
-              ].map((field) => (
-                <div key={field.id} className="relative">
+              {/* Course and Year of Study fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="relative">
                   <label
-                    htmlFor={field.id}
-                    className={`absolute left-3 text-gray-500 transition-all duration-300 ${
-                      focus[field.id] || formData[field.id as keyof FormData]
-                        ? "top-[-10px] text-sm bg-white px-1"
-                        : "top-2 text-base"
+                    htmlFor="course"
+                    className={`absolute left-3 text-gray-500 transition-all duration-200 pointer-events-none ${
+                      focus["course"] || formData.course
+                        ? "top-[-8px] text-xs bg-white px-1 text-teal-500"
+                        : "top-2.5 text-sm"
                     }`}
                   >
-                    {field.label}
-                    <span className="text-red-500"> *</span>
+                    Course  <span className={`${focus["course"] ? "hidden" : "text-gray-400 text-xs"}`}>e.g., Computer Science</span><span className="text-red-400 ml-0.5">*</span>
                   </label>
                   <input
-                    id={field.id}
-                    type={field.type}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-teal-400 focus:outline-none transition-colors"
-                    onFocus={() => handleFocus(field.id)}
-                    onBlur={(e) => handleBlur(field.id, e.target.value)}
-                    value={formData[field.id as keyof FormData]}
+                    id="course"
+                    type="text"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-1 focus:ring-teal-100 outline-none transition-all"
+                    onFocus={() => handleFocus("course")}
+                    onBlur={(e) => handleBlur("course", e.target.value)}
+                    value={formData.course}
                     onChange={handleChange}
                     required
                   />
                 </div>
-              ))}
-            </div>
 
-            <div className="relative">
-              <label
-                htmlFor="email"
-                className={`absolute left-3 text-gray-500 transition-all duration-300 ${
-                  focus["email"] || formData.email
-                    ? "top-[-10px] text-sm bg-white px-1"
-                    : "top-2 text-base"
-                }`}
-              >
-                Email<span className="text-red-500"> *</span>
-              </label>
-              <input
-                id="email"
-                type="email"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-teal-400 focus:outline-none transition-colors"
-                onFocus={() => handleFocus("email")}
-                onBlur={(e) => handleBlur("email", e.target.value)}
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="relative">
-                <label
-                  htmlFor="phone"
-                  className={`absolute left-3 text-gray-500 transition-all duration-300 ${
-                    focus["phone"] || formData.phone
-                      ? "top-[-10px] text-sm bg-white px-1"
-                      : "top-2 text-base"
-                  }`}
-                >
-                  Phone Number<span className="text-red-500"> *</span>
-                </label>
-                <input
-                  id="phone"
-                  type="text"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-teal-400 focus:outline-none transition-colors"
-                  onFocus={() => handleFocus("phone")}
-                  onBlur={(e) => handleBlur("phone", e.target.value)}
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
-                />
+                <div className="relative">
+                  <label
+                    htmlFor="year_of_study"
+                    className={`absolute left-3 text-gray-500 transition-all duration-200 pointer-events-none ${
+                      focus["year_of_study"] || formData.year_of_study
+                        ? "top-[-8px] text-xs bg-white px-1 text-teal-500"
+                        : "top-2.5 text-sm"
+                    }`}
+                  >
+                    {focus["year_of_study"] && <><span>Year of Study</span><span className="text-red-400 ml-0.5">*</span></>}
+                    
+                  </label>
+                  <select
+                    id="year_of_study"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-1 focus:ring-teal-100 outline-none transition-all bg-white"
+                    onFocus={() => handleFocus("year_of_study")}
+                    onBlur={(e) => handleBlur("year_of_study", e.target.value)}
+                    value={formData.year_of_study}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select Year</option>
+                    <option value="1">Year 1</option>
+                    <option value="2">Year 2</option>
+                    <option value="3">Year 3</option>
+                    <option value="4">Year 4</option>
+                    <option value="5">Year 5</option>
+                    <option value="6">Year 6</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="relative">
-                <label
-                  htmlFor="uniqueid"
-                  className={`absolute left-3 text-gray-500 transition-all duration-300 ${
-                    focus["uniqueid"] || formData.uniqueid
-                      ? "top-[-10px] text-sm bg-white px-1"
-                      : "top-2 text-base"
-                  }`}
+              {/* Phone and ID fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="relative">
+                  <label
+                    htmlFor="phone"
+                    className={`absolute left-3 text-gray-500 transition-all duration-200 pointer-events-none ${
+                      focus["phone"] || formData.phone
+                        ? "top-[-8px] text-xs bg-white px-1 text-teal-500"
+                        : "top-2.5 text-sm"
+                    }`}
+                  >
+                    Phone<span className="text-red-400 ml-0.5">*</span>
+                  </label>
+                  <input
+                    id="phone"
+                    type="text"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-1 focus:ring-teal-100 outline-none transition-all"
+                    onFocus={() => handleFocus("phone")}
+                    onBlur={(e) => handleBlur("phone", e.target.value)}
+                    value={formData.phone}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div className="relative">
+                  <label
+                    htmlFor="uniqueid"
+                    className={`absolute left-3 text-gray-500 transition-all duration-200 pointer-events-none ${
+                      focus["uniqueid"] || formData.uniqueid
+                        ? "top-[-8px] text-xs bg-white px-1 text-teal-500"
+                        : "top-2.5 text-sm"
+                    }`}
+                  >
+                    Student ID<span className="text-red-400 ml-0.5">*</span>
+                  </label>
+                  <input
+                    id="uniqueid"
+                    type="text"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-1 focus:ring-teal-100 outline-none transition-all"
+                    onFocus={() => handleFocus("uniqueid")}
+                    onBlur={(e) => handleBlur("uniqueid", e.target.value)}
+                    value={formData.uniqueid}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Submit button */}
+              <div className="pt-2">
+                <button
+                  onClick={handleSubmit}
+                  className="w-full py-2.5 rounded-lg bg-gradient-to-r from-teal-500 to-teal-600 text-white font-medium 
+                           hover:from-teal-600 hover:to-teal-700 focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 
+                           transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]
+                           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+                           flex items-center justify-center gap-2 text-sm shadow-lg shadow-teal-500/20"
+                  disabled={loading}
                 >
-                  Student unique ID<span className="text-red-500"> *</span>
-                </label>
-                <input
-                  id="uniqueid"
-                  type="text"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-teal-400 focus:outline-none transition-colors"
-                  onFocus={() => handleFocus("uniqueid")}
-                  onBlur={(e) => handleBlur("uniqueid", e.target.value)}
-                  value={formData.uniqueid}
-                  onChange={handleChange}
-                  required
-                />
+                  {loading && <Preloader />}
+                  {loading ? 'Adding Student...' : 'Add Student'}
+                </button>
               </div>
             </div>
-
-            {/* Department field with label above and dynamic placeholder option */}
-            <div className="relative">
-              <label
-                htmlFor="department"
-                className="block mb-1 text-gray-700 font-medium"
-              >
-                Department <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="department"
-                className="w-full border rounded-md border-gray-300 px-3 py-2 bg-transparent focus:border-teal-500 focus:outline-none appearance-none transition-colors"
-                onFocus={() => handleFocus("department")}
-                onBlur={(e) => handleBlur("department", e.target.value)}
-                value={formData.department}
-                onChange={handleChange}
-                required
-                disabled={isLoadingDepartments || departments.length === 0}
-              >
-                <option value="">
-                  {focus["department"] ? "Select a department" : "Select a Department"}
-                </option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name || department.label} - {department.school}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="text-center flex justify-center items-center">
-              <button
-                type="submit"
-                className="w-[150px] flex items-center justify-center gap-2 border border-teal-400 text-teal-500 py-2 rounded-md hover:bg-teal-100 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoadingDepartments || loading}
-              >
-               {loading && <Preloader/>}
-                Add Student 
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>

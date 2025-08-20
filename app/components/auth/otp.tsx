@@ -179,17 +179,6 @@ const VerifyOtpForm = ({ hashed, email, type }: Props) => {
 
         <div className="p-8">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {(success || error) && (
-              <div
-                className={`${
-                  success?.includes('verified') 
-                    ? 'bg-green-100 text-green-700 border-green-300' 
-                    : 'bg-red-100 text-red-700 border-red-300'
-                } font-medium p-4 rounded-lg border text-sm`}
-              >
-                {success ? success : error ? error : ""}
-              </div>
-            )}
 
             {/* OTP Input Field */}
             <div className="relative">

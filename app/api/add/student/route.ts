@@ -12,6 +12,9 @@ type StudentRequest = {
   uniqueid: string;
   department: string;
   institute: string;
+  supervisor_id: string;
+  year_of_study: string;
+  course: string;
 };
 
 // Helper function to hash the student ID
@@ -35,8 +38,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       uniqueid: formData.get("uniqueid")?.toString() || "",
       department: formData.get("department")?.toString() || "",
       institute: formData.get("institute")?.toString() || "",
+      supervisor_id: formData.get("supervisor_id")?.toString() || "",
+      year_of_study: formData.get("year_of_study")?.toString() || "",
+      course: formData.get("course")?.toString() || "",
     };
 
+    console.log("Received student data:", studentData);
     // Validate required fields
     if (
       !studentData.first_name ||
@@ -44,7 +51,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       !studentData.email ||
       !studentData.uniqueid ||
       !studentData.department ||
-      !studentData.phone
+      !studentData.phone ||
+      !studentData.course ||
+      !studentData.year_of_study
     ) {
       return NextResponse.json(
         { message: "All fields are required" },
@@ -61,6 +70,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (emailCheck.rows.length > 0) {
       return NextResponse.json(
         { message: "A student with this email already exists" },
+        { status: 400 }
+      );
+    }
+
+    // Check if phone already exists
+    const phoneCheck = await client.query(
+      `SELECT id FROM students WHERE phone = $1`,
+      [studentData.phone]
+    );
+
+    if (phoneCheck.rows.length > 0) {
+      return NextResponse.json(
+        { message: "A student with this phone already exists" },
         { status: 400 }
       );
     }
@@ -86,10 +108,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       `INSERT INTO students (
         first_name, last_name, email, status, phone, 
         department, unique_id, institute, profile_picture, password, 
-        created_at, updated_at
+        created_at, updated_at, supervisor_id, year_of_study, course
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()) 
-      RETURNING id, email, first_name, last_name`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), $11, $12, $13) 
+      RETURNING id, email, first_name, last_name, year_of_study, course`,
       [
         studentData.first_name,
         studentData.last_name,
@@ -101,6 +123,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         studentData.institute || "",
         defaultProfilePic,
         "", // Empty password
+        studentData.supervisor_id,
+        studentData.year_of_study,
+        studentData.course,
       ]
     );
 
@@ -120,7 +145,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           id: studentId, 
           hashed_id: hashedStudentId, 
           email: studentData.email,
-          name: `${result.rows[0].first_name} ${result.rows[0].last_name}`
+          name: `${result.rows[0].first_name} ${result.rows[0].last_name}`,
+          year_of_study: result.rows[0].year_of_study,
+          course: result.rows[0].course
         } 
       },
       { status: 201 }

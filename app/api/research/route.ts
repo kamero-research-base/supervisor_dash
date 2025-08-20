@@ -3,21 +3,29 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import client from "../utils/db"; // Adjust the path as needed
 
-export async function GET(req: Request) {
+export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
+    const formData = await req.json();
+    const { supervisor_id } = formData;
 
-    // Extract query parameters
-    const filter = searchParams.get("filter");
-    const search = searchParams.get("search");
-    const sort = searchParams.get("sort");
-    const sessionId = searchParams.get("department_id"); // Get session_id
-    console.log(sessionId)
-    if (!sessionId) {
+    if (!supervisor_id) {
       return NextResponse.json({ message: "Unauthorized access" }, { status: 401 });
     }
 
-    let query = `SELECT 
+    // First, get the students array from supervisor table
+    const supervisorQuery = `SELECT students FROM supervisors WHERE id = $1;`;
+    const supervisorResult = await client.query(supervisorQuery, [supervisor_id]);
+    
+    if (supervisorResult.rows.length === 0) {
+      return NextResponse.json({ message: "Supervisor not found" }, { status: 404 });
+    }
+
+    const students = supervisorResult.rows[0].students || [];
+    // Create array of all user IDs (supervisor + students)
+    const allUserIds = [parseInt(supervisor_id), ...students];
+
+    // Query to get all researches for supervisor and their students
+    const query = `SELECT 
       r.id,
       r.title,
       r.researcher,
@@ -32,43 +40,16 @@ export async function GET(req: Request) {
       r.category,
       r.hashed_id,
       r.created_at,
+      r.user_id,
       i.name AS institute,
       s.name AS school
       FROM researches r
       JOIN institutions i ON CAST(i.id AS TEXT) = r.institution
       JOIN schools s ON CAST(s.id AS TEXT) = r.school
-      WHERE r.department = $1`; // Filter by school_id (session_id)
+      WHERE r.user_id = ANY($1)
+      ORDER BY r.id DESC`; // Default ordering by latest first
 
-    const params: any[] = [sessionId];
-    const conditions = [];
-
-    if (filter) {
-      conditions.push(` r.status = $${params.length + 1}`);
-      params.push(filter);
-    }
-    if (search) {
-      conditions.push(`(r.title ILIKE $${params.length + 1} OR r.researcher ILIKE $${params.length + 1} OR r.school ILIKE $${params.length + 1} OR r.url ILIKE $${params.length + 1} OR r.category ILIKE $${params.length + 1} OR r.year ILIKE $${params.length + 1})`);
-      params.push(`%${search}%`);
-    }
-
-    if (conditions.length) {
-      query += ` AND ${conditions.join(" AND ")}`;
-    }
-
-    // Sorting
-    if (sort) {
-      if (sort === "new") {
-        query += " ORDER BY CAST(r.created_at AS DATE) DESC";
-      } else if (sort === "old") {
-        query += " ORDER BY CAST(r.created_at AS DATE) ASC";
-      } else if (sort === "title") {
-        query += " ORDER BY r.title ASC";
-      }
-    } else {
-      query += " ORDER BY r.id DESC";
-    }
-
-    const result = await client.query(query, params);
+    const result = await client.query(query, [allUserIds]);
 
     return NextResponse.json(result.rows, { status: 200 });
   } catch (error) {

@@ -10,6 +10,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return NextResponse.json({ message: "Invalid JSON format in request." }, { status: 400 });
       }
       const {id} = requestBody;
+
+      console.log("Research ID:", id);
       
       if (!id) {
           return NextResponse.json({ message: "Research ID is required." }, { status: 400 });
@@ -37,13 +39,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       FROM researches r
       JOIN institutions i ON CAST(i.id AS TEXT) = r.institution
       JOIN schools s ON CAST(s.id AS TEXT) = r.school
-      WHERE r.hashed_id = $1 
+      WHERE CAST(r.id AS TEXT) = $1 
       `;
    
         const researchResult = await client.query(query, [id]);
 
         if (researchResult.rows.length === 0) {
-            return NextResponse.json({ message: "Research not found." }, { status: 404 });
+            return NextResponse.json({ message: "Research not found." }, { status: 403 });
         }
 
         return NextResponse.json(researchResult.rows[0], { status: 200 });

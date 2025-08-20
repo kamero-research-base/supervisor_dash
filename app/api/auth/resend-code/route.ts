@@ -18,7 +18,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Validate required fields
     if (!hashed_id) {
-      return NextResponse.json({ error: "Failed try again!" }, { status: 400 });
+      return NextResponse.json({ message: "Failed try again!" }, { status: 400 });
     }
 
     // Check if the code exists in the database
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 
     if (checkResult.rowCount === 0) {
-      return NextResponse.json({ error: "Error occured" }, { status: 400 });
+      return NextResponse.json({ message: "Error occured" }, { status: 400 });
     }
     const email: string = checkResult.rows[0].email;
     const code: string = checkResult.rows[0].verification_code;

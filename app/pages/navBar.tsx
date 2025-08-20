@@ -11,6 +11,8 @@ interface UserInfo {
   username: string;
   name: string;
   email: string;
+  profile?: string;
+  institution: string;
 }
 
 const NavBar = ({ onNavigate }: NavBarProps) => {
@@ -111,11 +113,6 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
       url: "/students", 
       icon: "bi bi-people"
     },
-    { 
-      name: "Schedule", 
-      url: "/schedule", 
-      icon: "bi bi-calendar-week"
-    },
   ];
  
   const settings = [
@@ -190,15 +187,21 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
         {/* User Profile Section */}
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center">
-              <i className="bi bi-person-fill text-teal-700 text-xl"></i>
-            </div>
+            {userInfo?.profile ? (
+              <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
+                <img src={userInfo.profile} alt="Profile" className="w-full h-full object-cover rounded-full" />
+              </div>
+            ) : (
+              <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center">
+                <i className="bi bi-person-fill text-teal-700 text-xl"></i>
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 truncate">
                 {userInfo?.name || 'Supervisor'}
               </p>
               <p className="text-xs text-gray-500 truncate">
-                {userInfo?.email ? maskEmail(userInfo.email) : 'supervisor@institution.edu'}
+                {userInfo?.institution ? userInfo.institution : 'Unknown Institution'}
               </p>
             </div>
           </div>
