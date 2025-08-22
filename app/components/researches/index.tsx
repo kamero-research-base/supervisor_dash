@@ -1,3 +1,4 @@
+//supervisor researches listings
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -35,12 +36,14 @@ interface Research {
   title: string;
   researcher: string;
   year: string;
-
+  progress_status: string;
   created_at: string;
   hashed_id: string;
   department?: string;
   supervisor?: string;
   downloads?: number;
+  material_status?: string;
+  visibility?: string;
 }
 
 const Header = ({ onAddResearchClick }: ResearchHeaderProps) => {
@@ -49,13 +52,15 @@ const Header = ({ onAddResearchClick }: ResearchHeaderProps) => {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-
+        // Get userSession from localStorage
+        const userSession = JSON.parse(localStorage.getItem("supervisorSession") || "{}");
+        
         const response = await fetch(`/api/analytics/researches`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ supervisor_id: userSession.id }) // Include the supervisor_id in the request body
+          body: JSON.stringify({ supervisor_id: userSession.id })
         });
         if (!response.ok) throw new Error("Failed to fetch analytics");
         const data = await response.json();
@@ -440,13 +445,13 @@ const ResearchList = () => {
 
   const getProgressBadge = (status: string) => {
     const progressStyles = {
-      'Completed': 'bg-green-50 text-green-700 border-green-200',
-      'Ongoing': 'bg-blue-50 text-blue-700 border-blue-200',
-      'Paused': 'bg-orange-50 text-orange-700 border-orange-200'
+      'completed': 'bg-green-50 text-green-700 border-green-200 capitalize',
+      'ongoing': 'bg-blue-50 text-blue-700 border-blue-200 capitalize',
+      'paused': 'bg-orange-50 text-orange-700 border-orange-200 capitalize'
     };
     
     return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${progressStyles[status as keyof typeof progressStyles] || progressStyles.Ongoing}`}>
+      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${progressStyles[status as keyof typeof progressStyles] || progressStyles.ongoing}`}>
         {status}
       </span>
     );
@@ -491,6 +496,28 @@ const ResearchList = () => {
     handleCloseEdit();
   };
 
+  // Function to handle research view
+  const handleResearchView = (hashedId: string) => {
+    setView(hashedId);
+    setDropdownOpen(null);
+  };
+
+  // Function to handle research deletion
+  const handleDeleteResearch = async (researchId: number) => {
+    if (window.confirm('Are you sure you want to delete this research?')) {
+      try {
+        // Add your delete API call here
+        // const response = await fetch(`/api/research/${researchId}`, { method: 'DELETE' });
+        // if (response.ok) {
+          setAllResearches(prev => prev.filter(r => r.id !== researchId));
+          setDropdownOpen(null);
+        // }
+      } catch (error) {
+        console.error('Error deleting research:', error);
+      }
+    }
+  };
+
   // Pagination handlers
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -529,9 +556,13 @@ const ResearchList = () => {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
       {paginatedResearches.length === 0 ? (
         <div className="col-span-full text-center text-gray-500 py-8">
-          No researches found
+          <div className="flex flex-col justify-center items-center opacity-65">
+            <div className="img w-[150px] h-[150px]">
+              <img src="/delete.png" alt="" className="w-full h-full object-contain"/>
+            </div>
+            <i>No researches found</i>
+          </div>
         </div>
-
       ) : (
         paginatedResearches.map((research) => (
           <div key={research.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -552,7 +583,10 @@ const ResearchList = () => {
                 {dropdownOpen === research.id && (
                   <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                     <div className="py-1">
-                      <button className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setView(""+research.id)}>
+                      <button 
+                        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" 
+                        onClick={() => handleResearchView(research.hashed_id)}
+                      >
                         <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -567,7 +601,16 @@ const ResearchList = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                         Edit
-                      </button>   
+                      </button>
+                      <button 
+                        className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        onClick={() => handleDeleteResearch(research.id)}
+                      >
+                        <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                      </button>
                     </div>
                   </div>
                 )}
@@ -597,7 +640,7 @@ const ResearchList = () => {
                 <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
-                 {research.department || userInfo?.department_name}
+                {research.department || userInfo?.department_name}
               </div>
             </div>
             
@@ -615,7 +658,7 @@ const ResearchList = () => {
 
   // Table View Component  
   const TableView = () => (
-    <div className="">
+    <div className="overflow-x-auto">
       <table className="w-full">
         <thead className="bg-gray-50 border-b border-gray-200">
           <tr>
@@ -633,7 +676,12 @@ const ResearchList = () => {
           {paginatedResearches.length === 0 ? (
             <tr>
               <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                No researches found
+                <div className="flex flex-col justify-center items-center opacity-65">
+                  <div className="img w-[150px] h-[150px]">
+                    <img src="/delete.png" alt="" className="w-full h-full object-contain"/>
+                  </div>
+                  <i>No researches found</i>
+                </div>
               </td>
             </tr>
           ) : (
@@ -677,7 +725,10 @@ const ResearchList = () => {
                   {dropdownOpen === research.id && (
                     <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                       <div className="py-1">
-                        <button className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setView(""+research.id)}>
+                        <button 
+                          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" 
+                          onClick={() => handleResearchView(research.hashed_id)}
+                        >
                           <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -693,7 +744,10 @@ const ResearchList = () => {
                           </svg>
                           Edit
                         </button>
-                        <button className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                        <button 
+                          className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          onClick={() => handleDeleteResearch(research.id)}
+                        >
                           <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
@@ -706,78 +760,6 @@ const ResearchList = () => {
               </tr>
             ))
           )}
-      </div>
-      {Researches.length <= 0 ? (
-<div className="w-full min-h-[30vh] flex items-center justify-center">
- <div className="flex flex-col justify-center items-center opacity-65">
-   <div className="img w-[150px] h-[150px]">
-    <img src="/delete.png" alt="" className="w-full h-full object-contain"/>
-   </div>
-   <i>No researches yet.</i>
- </div>
-</div>
-) : ( <>
-      <table className="w-full mt-5">
-        <thead className="space-x-2 border-t-2 border-b-2 border-slate-100 text-sm text-slate-400 p-2 text-left">
-          <th className="py-2 px-2 font-normal"><input type="checkbox" name="" id="" /></th>
-          <th className="py-2 px-2 font-normal">Status</th>
-          <th className="py-2 px-2 font-normal">Title</th>
-          <th className="py-2 px-2 font-normal">Researcher</th>
-          <th className="py-2 px-2 font-normal">Year</th>
-          <th className="py-2 px-2 font-normal">Material Status</th>
-          <th className="py-2 px-2 font-normal">Visibility</th>
-          <th className="py-2 px-2 font-normal">Uploaded at</th>
-          <th className="py-2 px-2 font-normal">Actions</th>
-        </thead>
-        <tbody className="odd odd:bg-slate-500">
-         {Researches.map((research) => (
-           <tr key={research.id} className="text-sm text-slate-800 border-b ">
-            <td className="py-2 px-2"><input type="checkbox" name="selected" id="selected" value={research.id} className="text-slate-500"/></td>
-            <td className="py-2 px-2 text-nowrap">
-              <span className={`
-                ${research.status === 'Published' || research.status === 'Approved' ? 'bg-green-100 text-green-600 border-green-300 '
-                : research.status === 'Under review' || research.status === 'On hold'
-                ? 'bg-yellow-100 text-yellow-600 border-yellow-300'
-                : research.status === 'Rejected'
-                ? 'bg-amber-800 bg-opacity-30 text-amber-900 border-amber-800'
-                : 'bg-slate-100 text-slate-600 border-slate-300 '
-                } rounded px-1 border`}>{research.status}</span></td>
-            <td className="py-2 px-2">{research.title}</td>
-            <td className="py-2 px-2">{research.researcher}</td>
-            <td className="py-2 px-2">{research.year}</td>
-            <td className="py-2 px-2">{research.material_status}</td>
-            <td className="py-2 px-2 capitalize">
-              <span className={`
-                ${research.visibility === 'Public' ? 'bg-cyan-100 text-cyan-600 border-cyan-300 '
-                : 'bg-slate-100 text-slate-600 border-slate-300 '
-                } rounded px-1 border capitalize`}>{research.visibility}</span>
-            </td>
-            <td className="py-2 px-2">{timeAgo(research.created_at)}</td>
-            <td className="py-2 px-6 text-center relative">
-              <i
-                className="bi bi-three-dots cursor-pointer text-xl"
-                onClick={() => toggleDropdown(research.id)}
-              ></i>
-              {dropdownOpen === research.id && (
-                <div className="absolute right-0 mt-1 mr-1 w-36 bg-white border rounded-md shadow-lg z-10">
-                  <ul className="py-1 text-gray-700">
-                    <li
-                      className="px-4 py-2 cursor-pointer hover:bg-gray-100 flex items-center"
-                      onClick={() => {
-                        onResearchView(research.hashed_id); // Assign the Order
-                        toggleDropdown(research.id); // Close the dropdown
-                      }}
-                    >
-                      <i className="bi bi-eye mr-2 text-teal-500 hover:bg-slate-100"></i> Review
-                    </li>
-                   
-                  </ul>
-                </div>
-              )}
-            </td>
-           </tr>
-          ))}
-          
         </tbody>
       </table>
     </div>
