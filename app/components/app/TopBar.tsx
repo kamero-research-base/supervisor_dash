@@ -168,19 +168,7 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
 
           {/* Right Section - Actions & User */}
           <div className="flex items-center space-x-3">
-            {/* Quick Stats - Mobile Hidden */}
-            <div className="hidden xl:flex items-center space-x-3 mr-3">
-              <div className="flex items-center space-x-2 bg-gray-50 px-3 py-2 rounded-lg">
-                <i className="bi bi-clipboard-check text-teal-600"></i>
-                <span className="text-sm text-gray-600">Pending:</span>
-                <span className="text-sm font-semibold text-gray-900">12</span>
-              </div>
-              <div className="flex items-center space-x-2 bg-gray-50 px-3 py-2 rounded-lg">
-                <i className="bi bi-journal-text text-teal-600"></i>
-                <span className="text-sm text-gray-600">Active:</span>
-                <span className="text-sm font-semibold text-gray-900">8</span>
-              </div>
-            </div>
+           
 
 
             {/* Notifications */}
