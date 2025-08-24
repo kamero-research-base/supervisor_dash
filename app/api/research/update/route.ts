@@ -207,7 +207,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   let dbClient;
   try {
     // Start database transaction for data consistency
-    dbClient = await client.connect();
+    dbClient = client;
     await dbClient.query('BEGIN');
 
     // Check if research exists and belongs to the supervisor
@@ -488,7 +488,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     // Always release the database connection
     if (dbClient) {
       try {
-        dbClient.release();
+        // dbClient.release();
       } catch (releaseError) {
         console.error("Error releasing database connection:", releaseError);
       }
