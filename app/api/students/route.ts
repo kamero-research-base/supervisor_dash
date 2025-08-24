@@ -70,27 +70,27 @@ export async function GET(req: Request) {
         'status_asc': 'ORDER BY s.status ASC',
         'status_desc': 'ORDER BY s.status DESC',
       };
-      
+
       if (sortOptions[sort.trim()]) {
         query += ` ${sortOptions[sort.trim()]}`;
       } else {
-        query += ` ORDER BY s.created_at DESC`;
+        query += " ORDER BY s.created_at DESC";
       }
     } else {
-      query += ` ORDER BY s.created_at DESC`;
+      query += " ORDER BY s.created_at DESC";
     }
 
     // Add pagination
     if (page && limit) {
       const pageNum = parseInt(page, 10);
       const limitNum = parseInt(limit, 10);
-      
+
       if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
         const offset = (pageNum - 1) * limitNum;
         paramCount++;
         query += ` LIMIT $${paramCount}`;
         params.push(limitNum);
-        
+
         paramCount++;
         query += ` OFFSET $${paramCount}`;
         params.push(offset);

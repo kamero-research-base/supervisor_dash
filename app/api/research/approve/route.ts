@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import client from "../../utils/db"; // Adjust the path to your database client
+import client from "../../utils/db"; 
 
 export async function PUT(req: NextRequest): Promise<NextResponse> {
     let requestBody;
