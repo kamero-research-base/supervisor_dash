@@ -1,6 +1,7 @@
 // app/api/assignments/grade/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import client from "../../utils/db";
+import { sendGradeNotificationEmail } from "../../utils/assignmentEmails";
 
 // Define types for the grading request
 type GradingRequest = {
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     dbClient = client;
     await dbClient.query('BEGIN');
 
-    // First, get submission details and verify access
+    // First, get submission details and verify access (with student info for email)
     const submissionQuery = `
       SELECT 
         asub.id,
@@ -107,9 +108,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         asub.status,
         a.max_score,
         a.created_by,
-        a.title as assignment_title
+        a.title as assignment_title,
+        st.first_name as student_first_name,
+        st.last_name as student_last_name,
+        st.email as student_email,
+        s.first_name as supervisor_first_name,
+        s.last_name as supervisor_last_name
       FROM assignment_submissions asub
       INNER JOIN assignments a ON a.id = asub.assignment_id
+      LEFT JOIN students st ON st.id = asub.student_id
+      LEFT JOIN supervisors s ON s.id = a.created_by
       WHERE asub.id = $1
     `;
     
@@ -162,6 +170,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Log the successful grading
     console.log(`Submission graded successfully: Submission ID ${gradingData.submission_id}, Assignment: ${submission.assignment_title}, Score: ${gradingData.score}/${submission.max_score}, Status: ${gradingData.status}`);
   
+    // Send email notification to student (async, don't wait for completion)
+    if (submission.student_email && submission.student_first_name) {
+      const studentName = `${submission.student_first_name} ${submission.student_last_name}`;
+      const supervisorName = `${submission.supervisor_first_name} ${submission.supervisor_last_name}`;
+      
+      console.log(`📧 Sending grade notification email to: ${submission.student_email}`);
+      
+      // Send email asynchronously (don't block the response)
+      sendGradeNotificationEmail({
+        studentEmail: submission.student_email,
+        studentName: studentName,
+        assignmentTitle: submission.assignment_title,
+        supervisorName: supervisorName,
+        score: gradingData.score,
+        maxScore: submission.max_score,
+        feedback: gradingData.feedback || undefined
+      }).then(emailSent => {
+        if (emailSent) {
+          console.log(`✅ Grade notification email sent successfully to ${submission.student_email}`);
+        } else {
+          console.log(`⚠️ Failed to send grade notification email to ${submission.student_email} (but grading was successful)`);
+        }
+      }).catch(emailError => {
+        console.error(`❌ Error sending grade notification email to ${submission.student_email}:`, emailError);
+        // Don't throw error - grading was successful even if email failed
+      });
+    } else {
+      console.log(`⚠️ Student email or name missing, skipping email notification for submission ${gradingData.submission_id}`);
+    }
+
     return NextResponse.json({
       message: "Submission graded successfully", 
       data: {

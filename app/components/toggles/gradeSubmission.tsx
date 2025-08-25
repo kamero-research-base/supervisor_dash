@@ -223,11 +223,11 @@ const GradeSubmission: React.FC<GradeSubmissionProps> = ({ submission, assignmen
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setSuccess("Submission graded successfully! 🎉");
+        setSuccess("Submission graded successfully! 🎉 The student will be notified by email.");
         setTimeout(() => {
           onSuccess();
           onClose();
-        }, 1500);
+        }, 2000);
       } else {
         setError(data.message || data.error || "Failed to grade submission");
       }
