@@ -92,6 +92,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'submissions' | 'students'>('overview');
   const [gradingSubmission, setGradingSubmission] = useState<Submission | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
 
   useEffect(() => {
     const fetchAssignmentDetails = async () => {
@@ -199,6 +200,72 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
       minute: '2-digit'
     });
   };
+
+  const handleGradeSubmission = (submission: Submission) => {
+    setGradingSubmission(submission);
+  };
+
+  const handleCloseGrading = () => {
+    setGradingSubmission(null);
+  };
+
+  const handleGradingSuccess = () => {
+    // Refresh assignment details to get updated submission data
+    const fetchAssignmentDetails = async () => {
+      try {
+        setError(null);
+
+        const userSessionData = localStorage.getItem("supervisorSession");
+        if (!userSessionData) {
+          throw new Error("No supervisor session found");
+        }
+
+        const userSession: UserSession = JSON.parse(userSessionData);
+        
+        const response = await fetch(`/api/assignments/view`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            id: assignment.id.toString(),
+            supervisor_id: parseInt(userSession.id)
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          setAssignmentDetail(data.data);
+          
+          // Update selected submission with new data if it exists
+          if (selectedSubmission) {
+            const updatedSubmission = data.data.submissions.find(
+              (sub: Submission) => sub.id === selectedSubmission.id
+            );
+            if (updatedSubmission) {
+              setSelectedSubmission(updatedSubmission);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error refreshing assignment details:", error);
+      }
+    };
+
+    fetchAssignmentDetails();
+  };
+
+  // Auto-select first submission when switching to submissions tab
+  useEffect(() => {
+    if (activeTab === 'submissions' && assignmentDetail && assignmentDetail.submissions && assignmentDetail.submissions.length > 0 && !selectedSubmission) {
+      setSelectedSubmission(assignmentDetail.submissions[0]);
+    }
+  }, [activeTab, assignmentDetail, selectedSubmission]);
 
   if (loading) {
     return (
@@ -478,114 +545,180 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                 )}
 
                 {activeTab === 'submissions' && (
-                  <div className="animate-fade-in">
+                  <div className="animate-fade-in h-full">
                     {assignmentDetail.submissions.length > 0 ? (
-                      <div className="space-y-4">
-                        {assignmentDetail.submissions.map((submission) => (
-                          <div key={submission.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center gap-3">
-                                <User size={20} className="text-gray-500" />
-                                <div>
-                                  <h4 className="font-medium text-gray-900">{submission.student_name}</h4>
-                                  <p className="text-sm text-gray-500">{submission.student_email}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                {getSubmissionStatusBadge(submission.status)}
-                                <div className="text-right text-sm">
-                                  <p className="text-gray-500">Submitted</p>
-                                  <p className="text-gray-900">{formatDateTime(submission.submitted_at)}</p>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {submission.submission_text && (
-                              <div className="mb-3">
-                                <h5 className="text-sm font-medium text-gray-700 mb-1">Submission:</h5>
-                                <div 
-                                  className="text-sm text-gray-600 bg-gray-50 rounded p-3 prose prose-sm max-w-none"
-                                  dangerouslySetInnerHTML={{ __html: submission.submission_text }}
-                                />
-                              </div>
-                            )}
-                            
-                            {submission.attachments && submission.attachments.length > 0 && (
-                              <div className="mb-3">
-                                <h5 className="text-sm font-medium text-gray-700 mb-1">Attachments ({submission.attachments.length}):</h5>
-                                <div className="space-y-1">
-                                  {submission.attachments.map((attachment, idx) => (
-                                    <a 
-                                      key={idx}
-                                      href={attachment} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 transition-colors text-sm block"
-                                    >
-                                      <FileText size={16} />
-                                      View Attachment {idx + 1}
-                                    </a>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Grading Section */}
-                            <div className="pt-3 border-t border-gray-200 space-y-3">
-                              {submission.score !== null ? (
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div>
-                                      <span className="text-sm text-gray-500">Score: </span>
-                                      <span className="font-semibold text-teal-600">{submission.score} / {assignmentDetail.max_score}</span>
-                                    </div>
-                                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                      submission.status === 'approved' ? 'bg-green-100 text-green-800' :
-                                      submission.status === 'changes_required' ? 'bg-yellow-100 text-yellow-800' :
-                                      submission.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                      'bg-gray-100 text-gray-800'
-                                    }`}>
-                                      {submission.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      <div className="flex gap-6 h-[calc(90vh-280px)]">
+                        {/* Left Panel - Submissions List */}
+                        <div className="w-1/3 bg-white border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                            <h3 className="font-semibold text-gray-900">Submissions ({assignmentDetail.submissions.length})</h3>
+                          </div>
+                          <div className="overflow-y-auto h-full">
+                            {assignmentDetail.submissions.map((submission) => (
+                              <div
+                                key={submission.id}
+                                onClick={() => setSelectedSubmission(submission)}
+                                className={`p-4 border-b border-gray-100 cursor-pointer transition-colors hover:bg-gray-50 ${
+                                  selectedSubmission?.id === submission.id ? 'bg-teal-50 border-l-4 border-l-teal-500' : ''
+                                }`}
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <User size={16} className="text-gray-500 flex-shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                      <h4 className="font-medium text-gray-900 text-sm truncate">{submission.student_name}</h4>
+                                      <p className="text-xs text-gray-500 truncate">{submission.student_email}</p>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    {submission.graded_at && (
-                                      <span className="text-xs text-gray-500">Graded {formatDateTime(submission.graded_at)}</span>
-                                    )}
+                                  <div className="flex-shrink-0 ml-2">
+                                    {getSubmissionStatusBadge(submission.status)}
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                  <span>{formatDateTime(submission.submitted_at)}</span>
+                                  {submission.score !== null && (
+                                    <span className="font-medium text-teal-600">
+                                      {submission.score}/{assignmentDetail.max_score}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Right Panel - Selected Submission Details */}
+                        <div className="flex-1 bg-white border border-gray-200 rounded-lg overflow-hidden">
+                          {selectedSubmission ? (
+                            <div className="h-full flex flex-col">
+                              {/* Header */}
+                              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <User size={20} className="text-gray-500" />
+                                    <div>
+                                      <h4 className="font-semibold text-gray-900">{selectedSubmission.student_name}</h4>
+                                      <p className="text-sm text-gray-500">{selectedSubmission.student_email}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    {getSubmissionStatusBadge(selectedSubmission.status)}
+                                    <div className="text-right text-sm">
+                                      <p className="text-gray-500">Submitted</p>
+                                      <p className="text-gray-900">{formatDateTime(selectedSubmission.submitted_at)}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Content */}
+                              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                {selectedSubmission.submission_text && (
+                                  <div>
+                                    <h5 className="text-base font-semibold text-gray-900 mb-3">Submission Content</h5>
+                                    <div 
+                                      className="prose prose-sm max-w-none text-gray-700 bg-gray-50 rounded-lg p-4 border border-gray-200"
+                                      dangerouslySetInnerHTML={{ __html: selectedSubmission.submission_text }}
+                                    />
+                                  </div>
+                                )}
+                                
+                                {selectedSubmission.attachments && selectedSubmission.attachments.length > 0 && (
+                                  <div>
+                                    <h5 className="text-base font-semibold text-gray-900 mb-3">Attachments ({selectedSubmission.attachments.length})</h5>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      {selectedSubmission.attachments.map((attachment, idx) => (
+                                        <a 
+                                          key={idx}
+                                          href={attachment} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                                        >
+                                          <FileText size={20} className="text-gray-500" />
+                                          <div>
+                                            <p className="text-sm font-medium text-gray-900">Attachment {idx + 1}</p>
+                                            <p className="text-xs text-gray-500">Click to view</p>
+                                          </div>
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {selectedSubmission.feedback && (
+                                  <div>
+                                    <h5 className="text-base font-semibold text-gray-900 mb-3">Feedback</h5>
+                                    <div 
+                                      className="prose prose-sm max-w-none text-gray-700 bg-blue-50 rounded-lg p-4 border border-blue-200"
+                                      dangerouslySetInnerHTML={{ __html: selectedSubmission.feedback }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Footer - Grading Actions */}
+                              <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
+                                {selectedSubmission.score !== null ? (
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                      <div className="flex items-center gap-2">
+                                        <Star size={18} className="text-yellow-500" />
+                                        <span className="text-sm text-gray-600">Score:</span>
+                                        <span className="text-lg font-bold text-teal-600">
+                                          {selectedSubmission.score} / {assignmentDetail.max_score}
+                                        </span>
+                                      </div>
+                                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                        selectedSubmission.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                        selectedSubmission.status === 'changes_required' ? 'bg-yellow-100 text-yellow-800' :
+                                        selectedSubmission.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                        'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {selectedSubmission.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      {selectedSubmission.graded_at && (
+                                        <span className="text-xs text-gray-500">Graded {formatDateTime(selectedSubmission.graded_at)}</span>
+                                      )}
+                                      <button
+                                        onClick={() => setGradingSubmission(selectedSubmission)}
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                      >
+                                        <Edit size={16} />
+                                        Edit Grade
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 text-gray-600">
+                                      <Clock size={18} />
+                                      <span className="font-medium">This submission hasn't been graded yet</span>
+                                    </div>
                                     <button
-                                      onClick={() => setGradingSubmission(submission)}
-                                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors text-sm"
+                                      onClick={() => setGradingSubmission(selectedSubmission)}
+                                      className="inline-flex items-center gap-2 px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
                                     >
-                                      <Edit size={14} />
-                                      Edit Grade
+                                      <Star size={16} />
+                                      Grade Submission
                                     </button>
                                   </div>
-                                </div>
-                              ) : (
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm text-gray-500 italic">Not graded yet</span>
-                                  <button
-                                    onClick={() => setGradingSubmission(submission)}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors text-sm font-medium"
-                                  >
-                                    <Star size={16} />
-                                    Grade Submission
-                                  </button>
-                                </div>
-                              )}
-                              
-                              {submission.feedback && (
-                                <div>
-                                  <h5 className="text-sm font-medium text-gray-700 mb-1">Feedback:</h5>
-                                  <div 
-                                    className="text-sm text-gray-600 prose prose-sm max-w-none"
-                                    dangerouslySetInnerHTML={{ __html: submission.feedback }}
-                                  />
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ) : (
+                            <div className="h-full flex items-center justify-center">
+                              <div className="text-center">
+                                <FileText size={48} className="text-gray-300 mx-auto mb-3" />
+                                <h3 className="text-lg font-medium text-gray-900 mb-1">Select a Submission</h3>
+                                <p className="text-gray-500">Choose a submission from the list to view details</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="text-center py-8">
@@ -659,6 +792,16 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
           </div>
         </div>
       </div>
+
+      {/* Grading Modal */}
+      {gradingSubmission && (
+        <GradeSubmission
+          submission={gradingSubmission}
+          assignment={assignment}
+          onClose={handleCloseGrading}
+          onSuccess={handleGradingSuccess}
+        />
+      )}
     </>
   );
 };
