@@ -1,7 +1,9 @@
+//app/pages/App.tsx
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import AddResearch from "../components/toggles/addResearch";
+import AddAssignment from "../components/toggles/addAssignment";
 
 interface DashboardStats {
   totalStudents: number;
@@ -10,6 +12,29 @@ interface DashboardStats {
   attendanceRate: number;
   researchProjects: number;
   unreadMessages: number;
+}
+
+interface AssignmentAnalytics {
+  total_assignments: number;
+  active_assignments: number;
+  inactive_assignments: number;
+  completed_assignments: number;
+  pending_submissions: number;
+  total_submissions: number;
+  overdue_assignments: number;
+  students_invited: number;
+  average_score: number;
+  percentage_change: {
+    total_assignments: number;
+    active_assignments: number;
+    inactive_assignments: number;
+    completed_assignments: number;
+    pending_submissions: number;
+    total_submissions: number;
+    overdue_assignments: number;
+    students_invited: number;
+    average_score: number;
+  };
 }
 
 interface RecentActivity {
@@ -38,12 +63,17 @@ interface UpcomingDeadline {
   total: number;
 }
 
+interface UserSession {
+  id: string;
+  [key: string]: any;
+}
 interface TimeBasedGreeting {
   greeting: string;
   message: string;
   icon: string;
   bgColor: string;
   textColor: string;
+
 }
 
 export default function App() {
@@ -55,11 +85,57 @@ export default function App() {
     researchProjects: 0,
     unreadMessages: 0
   });
+  
+  const [assignmentAnalytics, setAssignmentAnalytics] = useState<AssignmentAnalytics | null>(null);
   const [showAddResearch, setShowAddResearch] = useState(false);
+  const [showAddAssignment, setShowAddAssignment] = useState(false);
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<UpcomingDeadline[]>([]);
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+
+  // Fetch assignment analytics
+  const fetchAssignmentAnalytics = async () => {
+    try {
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) {
+        console.error("No supervisor session found");
+        return;
+      }
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+      
+      const response = await fetch(`/api/assignments/analytics`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setAssignmentAnalytics(data.data);
+        
+        // Update the stats with real assignment data
+        setStats(prev => ({
+          ...prev,
+          activeAssignments: data.data.active_assignments
+        }));
+      } else {
+        console.error("Invalid analytics data structure:", data);
+      }
+    } catch (error) {
+      console.error("Error fetching assignment analytics:", error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
     const [currentGreeting, setCurrentGreeting] = useState<TimeBasedGreeting>({
     greeting: "Welcome back",
     message: "Here's an overview of your institution's activities",
@@ -211,7 +287,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Simulate loading data
+    // Fetch assignment analytics on component mount
+    fetchAssignmentAnalytics();
+    
+    // Simulate loading other data
     setTimeout(() => {
       setIsLoading(false);
     }, 1000);
@@ -236,20 +315,51 @@ export default function App() {
     }
   };
 
-    const toggleAddResearch = () => {
+  const toggleAddResearch = () => {
     setShowAddResearch(true);
   }
+  
   const closeAddResearch = () => {
     setShowAddResearch(false);
   }
 
+  const toggleAddAssignment = () => {
+    setShowAddAssignment(true);
+  }
+  
+  const closeAddAssignment = () => {
+    setShowAddAssignment(false);
+  }
+
+  const handleAssignmentSuccess = () => {
+    setShowAddAssignment(false);
+    // Refresh assignment analytics after successful creation
+    fetchAssignmentAnalytics();
+  }
+
+  const renderPercentageChange = (value: number) => {
+    if (value === 0) return null;
+    const isPositive = value > 0;
+    return (
+      <span className={`text-xs px-2 py-1 rounded-full ${isPositive ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+        {isPositive ? '+' : ''}{value}%
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
-
-       {showAddResearch && (
+      {showAddResearch && (
         <AddResearch onClose={closeAddResearch} />
       )}
 
+       {showAddAssignment && (
+        <AddAssignment 
+          assignment={null} 
+          onClose={closeAddAssignment} 
+          onSuccess={handleAssignmentSuccess} 
+        />
+      )}
        {/* Welcome Section with Time-Based Greeting */}
       <div className={`${currentGreeting.bgColor} rounded-xl shadow-sm border border-gray-200 p-4 transition-all duration-500 ease-in-out`}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -267,7 +377,13 @@ export default function App() {
           </div>
 
           <div className="mt-4 md:mt-0 flex items-center space-x-3">
-          
+            <button 
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2" 
+              onClick={toggleAddAssignment}
+            >
+              <i className="bi bi-plus-lg"></i>
+              New Assignment
+            </button>
             <button className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2" onClick={toggleAddResearch}>
               <i className="bi bi-plus-circle text-lg"></i>
               New Research
@@ -275,8 +391,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
-     
 
       {/* Statistics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
@@ -294,32 +408,48 @@ export default function App() {
           <p className="text-sm text-gray-600 mt-1">Total Students</p>
         </div>
 
-        {/* Active Assignments */}
+        {/* Active Assignments - Using Real Data */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
               <i className="bi bi-clipboard-check text-teal-600 text-xl"></i>
             </div>
-            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
-              Active
-            </span>
+            {analyticsLoading ? (
+              <div className="w-12 h-4 bg-gray-200 rounded animate-pulse"></div>
+            ) : (
+              assignmentAnalytics && renderPercentageChange(assignmentAnalytics.percentage_change.active_assignments)
+            )}
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.activeAssignments || "18"}</h3>
-          <p className="text-sm text-gray-600 mt-1">Assignments</p>
+          {analyticsLoading ? (
+            <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
+          ) : (
+            <h3 className="text-2xl font-bold text-gray-900">
+              {assignmentAnalytics?.active_assignments || 0}
+            </h3>
+          )}
+          <p className="text-sm text-gray-600 mt-1">Active Assignments</p>
         </div>
 
-        {/* Pending Reviews */}
+        {/* Pending Reviews - Using Real Data */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
               <i className="bi bi-hourglass-split text-orange-600 text-xl"></i>
             </div>
-            <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
-              Urgent
-            </span>
+            {analyticsLoading ? (
+              <div className="w-12 h-4 bg-gray-200 rounded animate-pulse"></div>
+            ) : (
+              assignmentAnalytics && renderPercentageChange(assignmentAnalytics.percentage_change.pending_submissions)
+            )}
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.pendingReviews || "32"}</h3>
-          <p className="text-sm text-gray-600 mt-1">Pending Reviews</p>
+          {analyticsLoading ? (
+            <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
+          ) : (
+            <h3 className="text-2xl font-bold text-gray-900">
+              {assignmentAnalytics?.pending_submissions || 0}
+            </h3>
+          )}
+          <p className="text-sm text-gray-600 mt-1">Pending Submissions</p>
         </div>
 
         {/* Attendance Rate */}
@@ -440,7 +570,7 @@ export default function App() {
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Upcoming Deadlines</h2>
-              <Link href="/supervisor/assignments" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
+              <Link href="/assignments" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
                 View All
               </Link>
             </div>
@@ -496,7 +626,10 @@ export default function App() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/assignments/new" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
+        <button 
+          onClick={toggleAddAssignment}
+          className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer text-left"
+        >
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-200 transition-colors">
               <i className="bi bi-plus-lg text-teal-600 text-xl"></i>
@@ -506,7 +639,7 @@ export default function App() {
               <p className="text-sm text-gray-600">Add new task</p>
             </div>
           </div>
-        </Link>
+        </button>
 
         <Link href="/students" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
           <div className="flex items-center space-x-4">

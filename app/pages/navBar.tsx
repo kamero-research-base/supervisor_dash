@@ -92,7 +92,7 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
     },
     { 
       name: "Assignments", 
-      url: "/assignments", 
+      url: "/components/assignment", 
       icon: "bi bi-clipboard-check",
     },
     { 
