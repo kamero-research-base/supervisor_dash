@@ -46,6 +46,14 @@ interface RecentActivity {
   status?: 'completed' | 'pending' | 'urgent';
 }
 
+
+interface UserInfo {
+  id: number;
+  username: string;
+  name: string;
+  email: string;
+}
+
 interface UpcomingDeadline {
   id: number;
   title: string;
@@ -58,6 +66,14 @@ interface UpcomingDeadline {
 interface UserSession {
   id: string;
   [key: string]: any;
+}
+interface TimeBasedGreeting {
+  greeting: string;
+  message: string;
+  icon: string;
+  bgColor: string;
+  textColor: string;
+
 }
 
 export default function App() {
@@ -75,6 +91,7 @@ export default function App() {
   const [showAddAssignment, setShowAddAssignment] = useState(false);
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<UpcomingDeadline[]>([]);
+    const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
@@ -119,6 +136,155 @@ export default function App() {
       setAnalyticsLoading(false);
     }
   };
+    const [currentGreeting, setCurrentGreeting] = useState<TimeBasedGreeting>({
+    greeting: "Welcome back",
+    message: "Here's an overview of your institution's activities",
+    icon: "👋",
+    bgColor: "bg-blue-50",
+    textColor: "text-blue-600"
+  });
+
+  // Function to get time-based greeting
+  const getTimeBasedGreeting = (): TimeBasedGreeting => {
+    const now = new Date();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    const day = now.getDay(); // 0 = Sunday, 6 = Saturday
+
+    // Weekend greetings
+    if (day === 0 || day === 6) {
+      if (hour >= 6 && hour < 12) {
+        return {
+          greeting: "Good morning",
+          message: "Hope you're having a relaxing weekend! Here's what's happening",
+          icon: "🌅",
+          bgColor: "bg-orange-50",
+          textColor: "text-orange-600"
+        };
+      } else if (hour >= 12 && hour < 17) {
+        return {
+          greeting: "Good afternoon",
+          message: "Enjoying your weekend? Here's a quick update",
+          icon: "☀️",
+          bgColor: "bg-yellow-50",
+          textColor: "text-yellow-600"
+        };
+      } else {
+        return {
+          greeting: "Good evening",
+          message: "Weekend vibes! Here's what's happening at the institution",
+          icon: "🌙",
+          bgColor: "bg-purple-50",
+          textColor: "text-purple-600"
+        };
+      }
+    }
+
+    // Special time-based messages
+    if (hour === 7 && minute >= 0 && minute < 30) {
+      return {
+        greeting: "Rise and shine",
+        message: "Early bird! Time to make today productive",
+        icon: "🌅",
+        bgColor: "bg-orange-50",
+        textColor: "text-orange-600"
+      };
+    }
+
+    if ((hour === 8 || hour === 9) || (hour === 14 || hour === 15)) {
+      return {
+        greeting: "Coffee time",
+        message: "Perfect time for a coffee break! Here's your dashboard",
+        icon: "☕",
+        bgColor: "bg-amber-50",
+        textColor: "text-amber-700"
+      };
+    }
+
+    if (hour === 12 || (hour === 13 && minute < 30)) {
+      return {
+        greeting: "Lunch time",
+        message: "Time for a well-deserved break! Quick check on activities",
+        icon: "🍽️",
+        bgColor: "bg-green-50",
+        textColor: "text-green-600"
+      };
+    }
+
+    if (hour >= 22 || hour < 6) {
+      return {
+        greeting: "Working late",
+        message: "Burning the midnight oil? Here's your update",
+        icon: "🌙",
+        bgColor: "bg-indigo-50",
+        textColor: "text-indigo-600"
+      };
+    }
+
+    // Regular time-based greetings
+    if (hour >= 5 && hour < 12) {
+      return {
+        greeting: "Good morning",
+        message: "Ready to tackle the day? Here's your overview",
+        icon: "🌅",
+        bgColor: "bg-blue-50",
+        textColor: "text-blue-600"
+      };
+    } else if (hour >= 12 && hour < 17) {
+      return {
+        greeting: "Good afternoon",
+        message: "Hope your day is going well! Here's the latest",
+        icon: "☀️",
+        bgColor: "bg-yellow-50",
+        textColor: "text-yellow-600"
+      };
+    } else if (hour >= 17 && hour < 21) {
+      return {
+        greeting: "Good evening",
+        message: "Wrapping up the day? Here's your summary",
+        icon: "🌆",
+        bgColor: "bg-orange-50",
+        textColor: "text-orange-600"
+      };
+    } else {
+      return {
+        greeting: "Good night",
+        message: "Late night session? Here's what's happening",
+        icon: "🌙",
+        bgColor: "bg-purple-50",
+        textColor: "text-purple-600"
+      };
+    }
+  };
+
+    useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userInfoData = localStorage.getItem('supervisorSession');
+      if (userInfoData) {
+        try {
+          const parsedUserInfo = JSON.parse(userInfoData);
+          setUserInfo(parsedUserInfo);
+        } catch (error) {
+          console.error('Error parsing user info:', error);
+        }
+      } else {
+        // Redirect to login if no user info found
+        window.location.href = "/auth/login";
+      }
+    }
+  }, []);
+
+  // Update greeting every minute
+  useEffect(() => {
+    const updateGreeting = () => {
+      setCurrentGreeting(getTimeBasedGreeting());
+    };
+
+    updateGreeting(); // Initial call
+    const interval = setInterval(updateGreeting, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     // Fetch assignment analytics on component mount
@@ -187,21 +353,29 @@ export default function App() {
         <AddResearch onClose={closeAddResearch} />
       )}
 
-      {showAddAssignment && (
+       {showAddAssignment && (
         <AddAssignment 
           assignment={null} 
           onClose={closeAddAssignment} 
           onSuccess={handleAssignmentSuccess} 
         />
       )}
-
-      {/* Welcome Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+       {/* Welcome Section with Time-Based Greeting */}
+      <div className={`${currentGreeting.bgColor} rounded-xl shadow-sm border border-gray-200 p-4 transition-all duration-500 ease-in-out`}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Welcome back, Supervisor!</h1>
-            <p className="text-gray-600 mt-1">Here's an overview of your institution's activities</p>
+          <div className="flex items-center space-x-3">
+            
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {currentGreeting.greeting}, {userInfo?.name || "User"}!
+              </h1>
+              <p className={`${currentGreeting.textColor} mt-1 font-medium`}>
+                {currentGreeting.message}
+              </p>
+              
+            </div>
           </div>
+
           <div className="mt-4 md:mt-0 flex items-center space-x-3">
             <button 
               className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2" 
