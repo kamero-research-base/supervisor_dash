@@ -160,7 +160,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           asub.id,
           asub.student_id,
           asub.submission_text,
-          asub.attachment_url,
+          asub.attachments,
           asub.status,
           asub.score,
           asub.feedback,

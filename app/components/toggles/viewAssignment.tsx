@@ -1,7 +1,8 @@
 // app/components/modals/viewAssignment.tsx
 "use client";
 import React, { useEffect, useState } from "react";
-import { X, Calendar, Clock, Users, FileText, CheckCircle, AlertCircle, User, Award, BookOpen, Eye, Download } from "lucide-react";
+import { X, Calendar, Clock, Users, FileText, CheckCircle, AlertCircle, User, Award, BookOpen, Eye, Download, Edit, Star } from "lucide-react";
+import GradeSubmission from './gradeSubmission';
 
 // Assignment interface
 interface Assignment {
@@ -41,12 +42,12 @@ interface Submission {
   student_name: string;
   student_email: string;
   submission_text: string;
-  attachment_url: string;
+  attachments: string[];
   status: string;
-  score: number;
+  score: number | null;
   feedback: string;
   submitted_at: string;
-  graded_at: string;
+  graded_at: string | null;
 }
 
 interface Invitation {
@@ -90,6 +91,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'submissions' | 'students'>('overview');
+  const [gradingSubmission, setGradingSubmission] = useState<Submission | null>(null);
 
   useEffect(() => {
     const fetchAssignmentDetails = async () => {
@@ -501,43 +503,87 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                             {submission.submission_text && (
                               <div className="mb-3">
                                 <h5 className="text-sm font-medium text-gray-700 mb-1">Submission:</h5>
-                                <p className="text-sm text-gray-600 bg-gray-50 rounded p-3">{submission.submission_text}</p>
+                                <div 
+                                  className="text-sm text-gray-600 bg-gray-50 rounded p-3 prose prose-sm max-w-none"
+                                  dangerouslySetInnerHTML={{ __html: submission.submission_text }}
+                                />
                               </div>
                             )}
                             
-                            {submission.attachment_url && (
+                            {submission.attachments && submission.attachments.length > 0 && (
                               <div className="mb-3">
-                                <h5 className="text-sm font-medium text-gray-700 mb-1">Attachment:</h5>
-                                <a 
-                                  href={submission.attachment_url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 transition-colors"
-                                >
-                                  <FileText size={16} />
-                                  View Attachment
-                                </a>
-                              </div>
-                            )}
-                            
-                            {submission.score !== null && (
-                              <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-                                <div>
-                                  <span className="text-sm text-gray-500">Score: </span>
-                                  <span className="font-semibold text-teal-600">{submission.score} / {assignmentDetail.max_score}</span>
+                                <h5 className="text-sm font-medium text-gray-700 mb-1">Attachments ({submission.attachments.length}):</h5>
+                                <div className="space-y-1">
+                                  {submission.attachments.map((attachment, idx) => (
+                                    <a 
+                                      key={idx}
+                                      href={attachment} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 transition-colors text-sm block"
+                                    >
+                                      <FileText size={16} />
+                                      View Attachment {idx + 1}
+                                    </a>
+                                  ))}
                                 </div>
-                                {submission.graded_at && (
-                                  <span className="text-xs text-gray-500">Graded {formatDateTime(submission.graded_at)}</span>
-                                )}
                               </div>
                             )}
                             
-                            {submission.feedback && (
-                              <div className="pt-3 border-t border-gray-200">
-                                <h5 className="text-sm font-medium text-gray-700 mb-1">Feedback:</h5>
-                                <p className="text-sm text-gray-600">{submission.feedback}</p>
-                              </div>
-                            )}
+                            {/* Grading Section */}
+                            <div className="pt-3 border-t border-gray-200 space-y-3">
+                              {submission.score !== null ? (
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div>
+                                      <span className="text-sm text-gray-500">Score: </span>
+                                      <span className="font-semibold text-teal-600">{submission.score} / {assignmentDetail.max_score}</span>
+                                    </div>
+                                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                      submission.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                      submission.status === 'changes_required' ? 'bg-yellow-100 text-yellow-800' :
+                                      submission.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {submission.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {submission.graded_at && (
+                                      <span className="text-xs text-gray-500">Graded {formatDateTime(submission.graded_at)}</span>
+                                    )}
+                                    <button
+                                      onClick={() => setGradingSubmission(submission)}
+                                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors text-sm"
+                                    >
+                                      <Edit size={14} />
+                                      Edit Grade
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-gray-500 italic">Not graded yet</span>
+                                  <button
+                                    onClick={() => setGradingSubmission(submission)}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors text-sm font-medium"
+                                  >
+                                    <Star size={16} />
+                                    Grade Submission
+                                  </button>
+                                </div>
+                              )}
+                              
+                              {submission.feedback && (
+                                <div>
+                                  <h5 className="text-sm font-medium text-gray-700 mb-1">Feedback:</h5>
+                                  <div 
+                                    className="text-sm text-gray-600 prose prose-sm max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: submission.feedback }}
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
