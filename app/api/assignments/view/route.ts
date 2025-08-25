@@ -71,6 +71,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         a.max_score,
         a.attachments,
         a.hashed_id,
+        a.assignment_type,
+        a.max_group_size,
+        a.allow_students_create_groups,
         a.created_at AT TIME ZONE 'UTC' as created_at,
         a.updated_at AT TIME ZONE 'UTC' as updated_at,
         a.created_by,
@@ -206,6 +209,84 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       responded_at: inv.responded_at ? new Date(inv.responded_at).toISOString() : null,
     }));
 
+    // Get group data for group assignments
+    let groups = [];
+    let groupStats = {
+      total_groups: 0,
+      groups_with_submissions: 0,
+      students_in_groups: 0,
+      students_without_groups: 0
+    };
+
+    if (assignment.assignment_type === 'group') {
+      // Get all groups for this assignment with member details
+      const groupsQuery = `
+        SELECT 
+          ag.id,
+          ag.group_name,
+          ag.created_by,
+          ag.created_at AT TIME ZONE 'UTC' as created_at,
+          ag.updated_at AT TIME ZONE 'UTC' as updated_at,
+          json_agg(
+            json_build_object(
+              'student_id', s.id,
+              'first_name', s.first_name,
+              'last_name', s.last_name,
+              'email', s.email,
+              'joined_at', agm.joined_at AT TIME ZONE 'UTC'
+            ) ORDER BY s.first_name, s.last_name
+          ) FILTER (WHERE s.id IS NOT NULL) as members,
+          COUNT(agm.student_id) as member_count,
+          CASE WHEN EXISTS(
+            SELECT 1 FROM assignment_submissions sub 
+            WHERE sub.group_id = ag.id
+          ) THEN true ELSE false END as has_submission
+        FROM assignment_groups ag
+        LEFT JOIN assignment_group_members agm ON ag.id = agm.group_id
+        LEFT JOIN students s ON agm.student_id = s.id
+        WHERE ag.assignment_id = $1
+        GROUP BY ag.id, ag.group_name, ag.created_by, ag.created_at, ag.updated_at
+        ORDER BY ag.created_at DESC
+      `;
+      
+      const groupsResult = await client.query(groupsQuery, [assignment.id]);
+      groups = groupsResult.rows.map((group: any) => ({
+        ...group,
+        created_at: new Date(group.created_at).toISOString(),
+        updated_at: new Date(group.updated_at).toISOString(),
+        member_count: parseInt(group.member_count) || 0,
+        members: group.members || []
+      }));
+
+      // Calculate group statistics
+      const totalGroups = groups.length;
+      const groupsWithSubmissions = groups.filter((g: any) => g.has_submission).length;
+      const studentsInGroups = groups.reduce((sum: number, group: any) => sum + group.member_count, 0);
+
+      // Get count of invited students not in any group
+      const studentsWithoutGroupsQuery = `
+        SELECT COUNT(DISTINCT ai.student_id) as count
+        FROM assignment_invitations ai
+        WHERE ai.assignment_id = $1 
+          AND ai.status = 'accepted'
+          AND NOT EXISTS (
+            SELECT 1 FROM assignment_group_members agm
+            JOIN assignment_groups ag ON agm.group_id = ag.id
+            WHERE ag.assignment_id = $1 AND agm.student_id = ai.student_id
+          )
+      `;
+      
+      const studentsWithoutGroupsResult = await client.query(studentsWithoutGroupsQuery, [assignment.id]);
+      const studentsWithoutGroups = parseInt(studentsWithoutGroupsResult.rows[0]?.count) || 0;
+
+      groupStats = {
+        total_groups: totalGroups,
+        groups_with_submissions: groupsWithSubmissions,
+        students_in_groups: studentsInGroups,
+        students_without_groups: studentsWithoutGroups
+      };
+    }
+
     // Use the actual counts from our separate queries
     const actualTotalInvitations = parseInt(invitationStats.total_invitations) || 0;
     const actualAcceptedInvitations = parseInt(invitationStats.accepted_invitations) || 0;
@@ -221,21 +302,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       total_invitations: actualTotalInvitations,
       accepted_invitations: actualAcceptedInvitations,
       max_score: parseInt(assignment.max_score),
+      max_group_size: assignment.max_group_size ? parseInt(assignment.max_group_size) : null,
+      allow_students_create_groups: Boolean(assignment.allow_students_create_groups),
       is_active: Boolean(assignment.is_active),
       created_at: new Date(assignment.created_at).toISOString(),
       updated_at: new Date(assignment.updated_at).toISOString(),
       submissions: submissions,
-      invitations: invitations
+      invitations: invitations,
+      groups: groups,
+      group_stats: groupStats
     };
 
     // Debug logging
     console.log(`Assignment ${id} view data:`, {
       id: assignment.id,
       title: assignment.title,
+      assignment_type: assignment.assignment_type,
       total_invitations: actualTotalInvitations,
       invitations_found: invitations.length,
       total_submissions: parseInt(submissionStats.total_submissions) || 0,
-      accepted_invitations: actualAcceptedInvitations
+      accepted_invitations: actualAcceptedInvitations,
+      total_groups: groupStats.total_groups,
+      students_in_groups: groupStats.students_in_groups,
+      students_without_groups: groupStats.students_without_groups
     });
 
     return NextResponse.json({

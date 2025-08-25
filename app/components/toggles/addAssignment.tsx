@@ -37,6 +37,10 @@ interface Assignment {
   submissions_count?: number;
   invited_students_count?: number;
   average_score?: number;
+  // Group assignment fields
+  assignment_type?: 'individual' | 'group';
+  max_group_size?: number;
+  allow_students_create_groups?: boolean;
 }
 
 // Inline types and interfaces
@@ -50,6 +54,10 @@ interface FormData {
   max_score: string;
   selected_students: StudentOption[];
   keep_existing_files: boolean; // New flag for edit mode
+  // Group assignment fields
+  assignment_type: 'individual' | 'group';
+  max_group_size: string;
+  allow_students_create_groups: boolean;
 }
 
 interface UserSession {
@@ -276,6 +284,10 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
         max_score: assignment.max_score.toString(),
         selected_students: [], // Will be populated after fetching
         keep_existing_files: true, // Default to keeping existing files
+        // Group assignment fields
+        assignment_type: assignment.assignment_type || 'individual',
+        max_group_size: assignment.max_group_size?.toString() || '4',
+        allow_students_create_groups: assignment.allow_students_create_groups || false,
       };
     }
     return {
@@ -288,6 +300,10 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       max_score: "",
       selected_students: [],
       keep_existing_files: true,
+      // Group assignment fields
+      assignment_type: 'individual',
+      max_group_size: '4',
+      allow_students_create_groups: false,
     };
   };
 
@@ -615,6 +631,11 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       payload.append("max_score", formData.max_score);
       payload.append("created_by", supervisorId);
       payload.append("updated_by", supervisorId);
+      
+      // Group assignment fields
+      payload.append("assignment_type", formData.assignment_type);
+      payload.append("max_group_size", formData.max_group_size);
+      payload.append("allow_students_create_groups", formData.allow_students_create_groups.toString());
 
       if (isEditMode) {
         payload.append("id", assignment!.id.toString());
@@ -865,6 +886,92 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                     <label htmlFor="max_score" className={`absolute left-4 top-3 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none ${validationErrors.max_score ? 'text-red-500' : 'text-gray-500'}`}>Maximum Score (Points) <span className="text-red-500">*</span></label>
                     {focusedField === 'max_score' && !validationErrors.max_score && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
                     {validationErrors.max_score && (<p className="mt-1 text-sm text-red-600">{validationErrors.max_score}</p>)}
+                  </div>
+
+                  {/* Group Assignment Settings */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold text-blue-900 mb-4">
+                      <Users size={20} />
+                      Assignment Type
+                    </h3>
+                    
+                    {/* Assignment Type Toggle */}
+                    <div className="mb-4">
+                      <div className="flex gap-4">
+                        <label className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${formData.assignment_type === 'individual' ? 'border-blue-500 bg-blue-100 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}>
+                          <input
+                            type="radio"
+                            name="assignment_type"
+                            value="individual"
+                            checked={formData.assignment_type === 'individual'}
+                            onChange={handleChange}
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <span className="font-medium">Individual Assignment</span>
+                        </label>
+                        <label className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${formData.assignment_type === 'group' ? 'border-blue-500 bg-blue-100 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}>
+                          <input
+                            type="radio"
+                            name="assignment_type"
+                            value="group"
+                            checked={formData.assignment_type === 'group'}
+                            onChange={handleChange}
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <span className="font-medium">Group Assignment</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Group-specific settings */}
+                    {formData.assignment_type === 'group' && (
+                      <div className="space-y-4 border-t border-blue-200 pt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="max_group_size" className="block text-sm font-medium text-blue-900 mb-2">
+                              Maximum Group Size
+                            </label>
+                            <select
+                              id="max_group_size"
+                              name="max_group_size"
+                              value={formData.max_group_size}
+                              onChange={handleChange}
+                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-all duration-200"
+                            >
+                              {[2, 3, 4, 5, 6, 7, 8].map(size => (
+                                <option key={size} value={size.toString()}>{size} students</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="flex items-center">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                name="allow_students_create_groups"
+                                checked={formData.allow_students_create_groups}
+                                onChange={handleChange}
+                                className="w-4 h-4 text-blue-600 border-2 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <div>
+                                <span className="text-sm font-medium text-blue-900">Allow Student Self-Formation</span>
+                                <p className="text-xs text-blue-700">Students can create and join groups themselves</p>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-blue-100 rounded-lg p-3 text-sm text-blue-800">
+                          <strong>Group Assignment Info:</strong>
+                          <ul className="mt-2 space-y-1 list-disc list-inside">
+                            <li>One submission per group (any member can submit)</li>
+                            <li>All group members receive the same grade</li>
+                            <li>{formData.allow_students_create_groups ? 'Students can form their own groups' : 'You will create groups manually after assignment creation'}</li>
+                            <li>Maximum {formData.max_group_size} students per group</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Student Selection - Now available in both create and edit modes */}
