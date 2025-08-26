@@ -192,14 +192,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Create the group
     const insertGroupQuery = `
-      INSERT INTO assignment_groups (assignment_id, group_name, created_by, created_at, updated_at)
-      VALUES ($1, $2, $3, NOW(), NOW())
+      INSERT INTO assignment_groups (assignment_id, group_name, created_by_supervisor_id, max_members, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
       RETURNING *
     `;
     const groupResult = await dbClient.query(insertGroupQuery, [
       parseInt(groupData.assignment_id),
       groupData.group_name.trim(),
-      parseInt(groupData.created_by)
+      parseInt(groupData.created_by),
+      groupData.members.length // Set max_members to the actual number of members being created
     ]);
 
     const groupId = groupResult.rows[0].id;
@@ -320,7 +321,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         ag.id,
         ag.assignment_id,
         ag.group_name,
-        ag.created_by,
+        ag.created_by_supervisor_id,
+        ag.created_by_student_id,
+        ag.max_members,
         ag.created_at,
         ag.updated_at,
         json_agg(
@@ -337,7 +340,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       LEFT JOIN assignment_group_members agm ON ag.id = agm.group_id
       LEFT JOIN students s ON agm.student_id = s.id
       WHERE ag.assignment_id = $1
-      GROUP BY ag.id, ag.assignment_id, ag.group_name, ag.created_by, ag.created_at, ag.updated_at
+      GROUP BY ag.id, ag.assignment_id, ag.group_name, ag.created_by_supervisor_id, ag.created_by_student_id, ag.max_members, ag.created_at, ag.updated_at
       ORDER BY ag.created_at DESC
     `;
     

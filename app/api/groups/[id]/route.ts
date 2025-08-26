@@ -81,7 +81,9 @@ export async function GET(
         ag.id,
         ag.assignment_id,
         ag.group_name,
-        ag.created_by,
+        ag.created_by_supervisor_id,
+        ag.created_by_student_id,
+        ag.max_members,
         ag.created_at,
         ag.updated_at,
         a.title as assignment_title,
@@ -102,7 +104,7 @@ export async function GET(
       LEFT JOIN students s ON agm.student_id = s.id
       LEFT JOIN assignments a ON ag.assignment_id = a.id
       WHERE ag.id = $1
-      GROUP BY ag.id, ag.assignment_id, ag.group_name, ag.created_by, ag.created_at, ag.updated_at,
+      GROUP BY ag.id, ag.assignment_id, ag.group_name, ag.created_by_supervisor_id, ag.created_by_student_id, ag.max_members, ag.created_at, ag.updated_at,
                a.title, a.assignment_type, a.max_group_size
     `;
     
@@ -294,7 +296,9 @@ export async function PUT(
         ag.id,
         ag.assignment_id,
         ag.group_name,
-        ag.created_by,
+        ag.created_by_supervisor_id,
+        ag.created_by_student_id,
+        ag.max_members,
         ag.created_at,
         ag.updated_at,
         json_agg(
@@ -311,7 +315,7 @@ export async function PUT(
       LEFT JOIN assignment_group_members agm ON ag.id = agm.group_id
       LEFT JOIN students s ON agm.student_id = s.id
       WHERE ag.id = $1
-      GROUP BY ag.id, ag.assignment_id, ag.group_name, ag.created_by, ag.created_at, ag.updated_at
+      GROUP BY ag.id, ag.assignment_id, ag.group_name, ag.created_by_supervisor_id, ag.created_by_student_id, ag.max_members, ag.created_at, ag.updated_at
     `;
     const updatedResult = await dbClient.query(updatedGroupQuery, [parseInt(groupId)]);
 

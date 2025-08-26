@@ -224,7 +224,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         SELECT 
           ag.id,
           ag.group_name,
-          ag.created_by,
+          ag.created_by_supervisor_id,
+          ag.created_by_student_id,
+          ag.max_members,
           ag.created_at AT TIME ZONE 'UTC' as created_at,
           ag.updated_at AT TIME ZONE 'UTC' as updated_at,
           json_agg(
@@ -245,7 +247,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         LEFT JOIN assignment_group_members agm ON ag.id = agm.group_id
         LEFT JOIN students s ON agm.student_id = s.id
         WHERE ag.assignment_id = $1
-        GROUP BY ag.id, ag.group_name, ag.created_by, ag.created_at, ag.updated_at
+        GROUP BY ag.id, ag.group_name, ag.created_by_supervisor_id, ag.created_by_student_id, ag.max_members, ag.created_at, ag.updated_at
         ORDER BY ag.created_at DESC
       `;
       
