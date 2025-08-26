@@ -474,19 +474,24 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void => {
-    const { id, value, type } = e.target;
+    const { id, name, value, type } = e.target;
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [id]: checked }));
+    } else if (type === 'radio') {
+      // For radio buttons, use the name attribute as the field identifier
+      setFormData(prev => ({ ...prev, [name]: value }));
     } else {
       setFormData(prev => ({ ...prev, [id]: value }));
     }
     
-    if (validationErrors[id]) {
+    // Clear validation errors for the appropriate field
+    const fieldName = type === 'radio' ? name : id;
+    if (validationErrors[fieldName]) {
       setValidationErrors(prev => {
         const updated = { ...prev };
-        delete updated[id];
+        delete updated[fieldName];
         return updated;
       });
     }
@@ -574,20 +579,64 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
     }
 
     const newValidationErrors: Record<string, string> = {};
-    if (!formData.title.trim()) newValidationErrors.title = "Assignment title is required";
-    if (!formData.description.trim()) newValidationErrors.description = "Description is required";
-    if (!formData.instructions.trim()) newValidationErrors.instructions = "Instructions are required";
-    if (!formData.due_date) newValidationErrors.due_date = "Due date is required";
-    if (!formData.due_time) newValidationErrors.due_time = "Due time is required";
+    
+    // Debug logging
+    console.log('Form validation starting. Form data:', {
+      title: formData.title,
+      description: formData.description,
+      instructions: formData.instructions,
+      due_date: formData.due_date,
+      due_time: formData.due_time,
+      max_score: formData.max_score,
+      selected_students_count: formData.selected_students.length,
+      assignment_type: formData.assignment_type,
+      max_group_size: formData.max_group_size
+    });
+    
+    // Validate required fields
+    if (!formData.title.trim()) {
+      newValidationErrors.title = "Assignment title is required";
+      console.log('Validation error: title is required');
+    }
+    if (!formData.description.trim()) {
+      newValidationErrors.description = "Description is required";
+      console.log('Validation error: description is required');
+    }
+    if (!formData.instructions.trim()) {
+      newValidationErrors.instructions = "Instructions are required";
+      console.log('Validation error: instructions are required');
+    }
+    if (!formData.due_date) {
+      newValidationErrors.due_date = "Due date is required";
+      console.log('Validation error: due_date is required');
+    }
+    if (!formData.due_time) {
+      newValidationErrors.due_time = "Due time is required";
+      console.log('Validation error: due_time is required');
+    }
     if (!formData.max_score) {
       newValidationErrors.max_score = "Max score is required";
+      console.log('Validation error: max_score is required');
     } else if (parseInt(formData.max_score) <= 0) {
       newValidationErrors.max_score = "Max score must be greater than 0";
+      console.log('Validation error: max_score must be greater than 0');
+    }
+    
+    // Group assignment validation
+    if (formData.assignment_type === 'group') {
+      if (!formData.max_group_size) {
+        newValidationErrors.max_group_size = "Maximum group size is required for group assignments";
+        console.log('Validation error: max_group_size is required for group assignments');
+      } else if (parseInt(formData.max_group_size) < 2) {
+        newValidationErrors.max_group_size = "Maximum group size must be at least 2";
+        console.log('Validation error: max_group_size must be at least 2');
+      }
     }
     
     // Only require students for new assignments
     if (!isEditMode && formData.selected_students.length === 0) {
       newValidationErrors.selected_students = "At least one student must be selected";
+      console.log('Validation error: at least one student must be selected');
     }
 
     if (formData.due_date && formData.due_time) {
@@ -599,12 +648,24 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       // For editing, allow past dates if the assignment is completed/inactive
       if (!isEditMode && dueDateTime <= now) {
         newValidationErrors.due_date = "Due date and time must be in the future";
+        console.log('Validation error: due date and time must be in the future');
       }
     }
 
+    console.log('Validation errors found:', newValidationErrors);
+
     if (Object.keys(newValidationErrors).length > 0) {
       setValidationErrors(newValidationErrors);
-      setError("Please correct the validation errors and try again.");
+      const errorCount = Object.keys(newValidationErrors).length;
+      const errorList = Object.values(newValidationErrors).join(', ');
+      setError(`Found ${errorCount} validation error${errorCount > 1 ? 's' : ''}: ${errorList}`);
+      
+      // Scroll to the first error
+      const firstErrorField = Object.keys(newValidationErrors)[0];
+      const errorElement = document.getElementById(firstErrorField) || document.querySelector(`[name="${firstErrorField}"]`);
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -936,18 +997,24 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                               name="max_group_size"
                               value={formData.max_group_size}
                               onChange={handleChange}
-                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-all duration-200"
+                              className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none transition-all duration-200 ${
+                                validationErrors.max_group_size ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-blue-500'
+                              }`}
                             >
                               {[2, 3, 4, 5, 6, 7, 8].map(size => (
                                 <option key={size} value={size.toString()}>{size} students</option>
                               ))}
                             </select>
+                            {validationErrors.max_group_size && (
+                              <p className="mt-1 text-sm text-red-600">{validationErrors.max_group_size}</p>
+                            )}
                           </div>
                           
                           <div className="flex items-center">
                             <label className="flex items-center gap-3 cursor-pointer">
                               <input
                                 type="checkbox"
+                                id="allow_students_create_groups"
                                 name="allow_students_create_groups"
                                 checked={formData.allow_students_create_groups}
                                 onChange={handleChange}
