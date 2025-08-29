@@ -21,6 +21,13 @@ interface StudentOption {
   status?: string;
 }
 
+// Department option type for react-select
+interface DepartmentOption {
+  value: string;
+  label: string;
+  studentCount?: number;
+}
+
 // Assignment interface for editing
 interface Assignment {
   id: number;
@@ -60,6 +67,9 @@ interface FormData {
   assignment_type: 'individual' | 'group';
   max_group_size: string;
   allow_students_create_groups: boolean;
+  // Student selection mode
+  student_selection_mode: 'individual' | 'department';
+  selected_departments: DepartmentOption[];
 }
 
 interface UserSession {
@@ -290,6 +300,9 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
         assignment_type: assignment.assignment_type || 'individual',
         max_group_size: assignment.max_group_size?.toString() || '4',
         allow_students_create_groups: assignment.allow_students_create_groups || false,
+        // Student selection mode - in edit mode, default to individual selection
+        student_selection_mode: 'individual',
+        selected_departments: [],
       };
     }
     return {
@@ -306,6 +319,9 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       assignment_type: 'individual',
       max_group_size: '4',
       allow_students_create_groups: false,
+      // Student selection mode
+      student_selection_mode: 'department', // Default to department selection
+      selected_departments: [],
     };
   };
 
@@ -341,16 +357,6 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
     return original.filter(student => !currentIds.includes(student.value));
   };
 
-  const getStudentSelectionHelperText = (): string => {
-    if (isEditMode) {
-      if (formData.selected_students.length === 0) {
-        return "No students currently assigned to this assignment.";
-      }
-      return "You can add or remove students. Changes will be applied when you save.";
-    } else {
-      return "You can select students from your department. Students marked with (Dept.) are colleagues from your department but not directly supervised by you.";
-    }
-  };
 
   // Get supervisor ID from localStorage
   useEffect(() => {
@@ -477,6 +483,76 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
     }
   };
 
+  // Load departments function for AsyncSelect
+  const loadDepartments = async (inputValue: string): Promise<DepartmentOption[]> => {
+    try {
+      const url = new URL('/api/departments', window.location.origin);
+      if (inputValue) {
+        url.searchParams.append('search', inputValue);
+      }
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch departments');
+      }
+
+      const data = await response.json();
+      
+      // Get student count for each department and filter out departments with no students
+      const departmentsWithCounts = await Promise.all(
+        data.map(async (dept: any) => {
+          try {
+            const studentsResponse = await fetch('/api/students/by_department', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ departmentId: dept.id })
+            });
+            
+            if (studentsResponse.ok) {
+              const studentsData = await studentsResponse.json();
+              return {
+                value: dept.id.toString(),
+                label: `${dept.name} (${studentsData.students.length} students)`,
+                studentCount: studentsData.students.length,
+              };
+            }
+            
+            return {
+              value: dept.id.toString(),
+              label: dept.name,
+              studentCount: 0,
+            };
+          } catch (error) {
+            return {
+              value: dept.id.toString(),
+              label: dept.name,
+              studentCount: 0,
+            };
+          }
+        })
+      );
+
+      // Filter out departments with zero students
+      const departmentsWithStudents = departmentsWithCounts.filter(dept => dept.studentCount > 0);
+      
+      console.log('🔍 [DEPARTMENTS DEBUG] Filtered departments:', {
+        totalDepartments: data.length,
+        departmentsWithStudents: departmentsWithStudents.length,
+        filteredOut: data.length - departmentsWithStudents.length,
+        departments: departmentsWithStudents.map(d => ({ name: d.label, count: d.studentCount }))
+      });
+
+      return departmentsWithStudents;
+
+    } catch (error) {
+      console.error('Error loading departments:', error);
+      return [];
+    }
+  };
+
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void => {
     const { id, name, value, type } = e.target;
     
@@ -501,7 +577,7 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
     }
   };
 
-  const handleStudentChange = (newValue: MultiValue<StudentOption>, actionMeta: ActionMeta<StudentOption>) => {
+  const handleStudentChange = (newValue: MultiValue<StudentOption>) => {
     const students = newValue ? [...newValue] : [];
     setFormData(prev => ({ ...prev, selected_students: students }));
     
@@ -509,6 +585,19 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       setValidationErrors(prev => {
         const updated = { ...prev };
         delete updated.selected_students;
+        return updated;
+      });
+    }
+  };
+
+  const handleDepartmentChange = (newValue: MultiValue<DepartmentOption>) => {
+    const departments = newValue ? [...newValue] : [];
+    setFormData(prev => ({ ...prev, selected_departments: departments }));
+    
+    if (validationErrors.selected_departments) {
+      setValidationErrors(prev => {
+        const updated = { ...prev };
+        delete updated.selected_departments;
         return updated;
       });
     }
@@ -637,10 +726,19 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       }
     }
     
-    // Only require students for new assignments
-    if (!isEditMode && formData.selected_students.length === 0) {
-      newValidationErrors.selected_students = "At least one student must be selected";
-      console.log('Validation error: at least one student must be selected');
+    // Only require students/departments for new assignments
+    if (!isEditMode) {
+      if (formData.student_selection_mode === 'individual') {
+        if (formData.selected_students.length === 0) {
+          newValidationErrors.selected_students = "At least one student must be selected";
+          console.log('Validation error: at least one student must be selected');
+        }
+      } else if (formData.student_selection_mode === 'department') {
+        if (formData.selected_departments.length === 0) {
+          newValidationErrors.selected_departments = "At least one department must be selected";
+          console.log('Validation error: at least one department must be selected');
+        }
+      }
     }
 
     if (formData.due_date && formData.due_time) {
@@ -782,10 +880,11 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                 }
               }
             } else {
-              // For new assignments, invite all selected students
-              if (formData.selected_students.length > 0) {
+              // For new assignments, handle both individual and department-based invitations
+              if (formData.student_selection_mode === 'individual' && formData.selected_students.length > 0) {
+                // Individual student invitation logic
                 const studentIds = formData.selected_students.map(student => student.value);
-                console.log('🔍 [FRONTEND DEBUG] About to invite students:', {
+                console.log('🔍 [FRONTEND DEBUG] About to invite individual students:', {
                   assignmentId,
                   selectedStudents: formData.selected_students,
                   studentIds,
@@ -805,7 +904,7 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                 
                 if (!inviteResponse.ok) {
                   const inviteData = await inviteResponse.json();
-                  console.error("❌ [FRONTEND DEBUG] Error inviting students:", {
+                  console.error("❌ [FRONTEND DEBUG] Error inviting individual students:", {
                     status: inviteResponse.status,
                     statusText: inviteResponse.statusText,
                     responseData: inviteData
@@ -814,10 +913,93 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                   invitationError = true;
                 } else {
                   const inviteData = await inviteResponse.json();
-                  console.log('✅ [FRONTEND DEBUG] Students invited successfully:', {
+                  console.log('✅ [FRONTEND DEBUG] Individual students invited successfully:', {
                     studentsInvited: inviteData.data?.invitations_sent || 0,
                     emailsSent: inviteData.data?.emails_sent || 0,
                     assignmentId
+                  });
+                }
+              } else if (formData.student_selection_mode === 'department' && formData.selected_departments.length > 0) {
+                // Department-based invitation logic
+                console.log('🔍 [FRONTEND DEBUG] About to invite students from departments:', {
+                  assignmentId,
+                  selectedDepartments: formData.selected_departments,
+                  supervisorId,
+                  departmentCount: formData.selected_departments.length
+                });
+
+                // Get all students from selected departments and invite them
+                const departmentIds = formData.selected_departments.map(dept => dept.value);
+                let totalStudentsInvited = 0;
+                let totalEmailsSent = 0;
+                
+                for (const departmentId of departmentIds) {
+                  try {
+                    // Get students from this department
+                    const studentsResponse = await fetch('/api/students/by_department', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ departmentId })
+                    });
+                    
+                    if (studentsResponse.ok) {
+                      const studentsData = await studentsResponse.json();
+                      const studentIds = studentsData.students.map((student: any) => student.id);
+                      
+                      if (studentIds.length > 0) {
+                        console.log(`🔍 [FRONTEND DEBUG] Inviting ${studentIds.length} students from department ${departmentId}:`, {
+                          departmentId,
+                          studentIds,
+                          assignmentId
+                        });
+                        
+                        const inviteResponse = await fetch("/api/assignments/invite", {
+                          method: "POST",
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            assignment_id: assignmentId,
+                            student_ids: studentIds,
+                            supervisor_id: parseInt(supervisorId)
+                          })
+                        });
+                        
+                        if (!inviteResponse.ok) {
+                          const inviteData = await inviteResponse.json();
+                          console.error(`❌ [FRONTEND DEBUG] Error inviting students from department ${departmentId}:`, inviteData);
+                          setError(`Assignment created but failed to invite students from some departments: ${inviteData.message}`);
+                          invitationError = true;
+                          break;
+                        } else {
+                          const inviteData = await inviteResponse.json();
+                          totalStudentsInvited += inviteData.data?.invitations_sent || 0;
+                          totalEmailsSent += inviteData.data?.emails_sent || 0;
+                          console.log(`✅ [FRONTEND DEBUG] Students from department ${departmentId} invited successfully:`, {
+                            studentsInvited: inviteData.data?.invitations_sent || 0,
+                            emailsSent: inviteData.data?.emails_sent || 0
+                          });
+                        }
+                      } else {
+                        console.log(`ℹ️ [FRONTEND DEBUG] No students found in department ${departmentId}`);
+                      }
+                    } else {
+                      console.error(`❌ [FRONTEND DEBUG] Failed to fetch students from department ${departmentId}`);
+                      setError(`Assignment created but failed to fetch students from some departments`);
+                      invitationError = true;
+                      break;
+                    }
+                  } catch (error) {
+                    console.error(`❌ [FRONTEND DEBUG] Error processing department ${departmentId}:`, error);
+                    setError(`Assignment created but encountered an error processing departments`);
+                    invitationError = true;
+                    break;
+                  }
+                }
+                
+                if (!invitationError) {
+                  console.log('✅ [FRONTEND DEBUG] All department-based invitations completed:', {
+                    totalStudentsInvited,
+                    totalEmailsSent,
+                    departmentsProcessed: formData.selected_departments.length
                   });
                 }
               }
@@ -828,7 +1010,9 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
               assignmentId,
               supervisorId,
               isEditMode,
-              selectedStudentsCount: formData.selected_students.length
+              studentSelectionMode: formData.student_selection_mode,
+              selectedStudentsCount: formData.selected_students.length,
+              selectedDepartmentsCount: formData.selected_departments.length
             });
             setError(`Assignment ${isEditMode ? 'updated' : 'created'} but there was an issue managing student invitations: ${inviteError instanceof Error ? inviteError.message : 'Unknown error'}`);
             invitationError = true;
@@ -852,6 +1036,8 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
               assignment_type: 'individual',
               max_group_size: '4',
               allow_students_create_groups: false,
+              student_selection_mode: 'department',
+              selected_departments: [],
             });
             setFiles([]);
             setCurrentStep(1);
@@ -889,7 +1075,15 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       case 1:
         const hasTitle = formData.title.trim() !== "";
         const hasValidScore = formData.max_score !== "" && parseInt(formData.max_score) > 0;
-        const hasStudentsOrIsEdit = isEditMode || formData.selected_students.length > 0;
+        
+        let hasStudentsOrIsEdit = isEditMode;
+        if (!isEditMode) {
+          if (formData.student_selection_mode === 'individual') {
+            hasStudentsOrIsEdit = formData.selected_students.length > 0;
+          } else if (formData.student_selection_mode === 'department') {
+            hasStudentsOrIsEdit = formData.selected_departments.length > 0;
+          }
+        }
         
         return hasTitle && hasValidScore && hasStudentsOrIsEdit;
       case 2:
@@ -1079,54 +1273,178 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                     )}
                   </div>
                   
-                  {/* Student Selection - Now available in both create and edit modes */}
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${validationErrors.selected_students ? 'text-red-700' : 'text-gray-700'}`}>
-                      <Users size={16} className="inline mr-1" />
-                      {isEditMode ? 'Edit Assigned Students' : 'Select Students'} 
-                      {!isEditMode && <span className="text-red-500">*</span>}
-                    </label>
-                    
-                    <AsyncSelect 
-                      isMulti 
-                      value={formData.selected_students} 
-                      onChange={handleStudentChange} 
-                      loadOptions={loadStudents} 
-                      placeholder={isEditMode ? "Search to add or remove students..." : "Search and select students..."} 
-                      noOptionsMessage={({ inputValue }) => 
-                        inputValue ? `No students found matching "${inputValue}"` : "Type to search students..."
-                      } 
-                      loadingMessage={() => "Loading students..."} 
-                      styles={selectStyles} 
-                      classNamePrefix="react-select" 
-                      defaultOptions 
-                      cacheOptions 
-                    />
-                    
-                    {validationErrors.selected_students && (
-                      <p className="mt-1 text-sm text-red-600">{validationErrors.selected_students}</p>
-                    )}
-                    
-                    {formData.selected_students.length > 0 && (
-                      <div className="mt-3 p-3 bg-teal-50 border border-teal-200 rounded-lg">
-                        <p className="text-sm text-teal-700 font-medium">
-                          {formData.selected_students.length} student{formData.selected_students.length !== 1 ? 's' : ''} selected:
-                        </p>
-                        <div className="mt-1 text-xs text-teal-600">
-                          {formData.selected_students.map(student => student.firstName + ' ' + student.lastName).join(', ')}
+                  {/* Student Selection Mode - Only available in create mode */}
+                  {!isEditMode && (
+                    <div className="bg-gradient-to-r from-green-50 to-teal-50 border border-green-200 rounded-lg p-4">
+                      <h3 className="flex items-center gap-2 text-lg font-semibold text-green-900 mb-4">
+                        <Users size={20} />
+                        Student Selection Method
+                      </h3>
+                      
+                      {/* Selection Mode Toggle */}
+                      <div className="mb-4">
+                        <div className="flex gap-4">
+                          <label className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${formData.student_selection_mode === 'individual' ? 'border-green-500 bg-green-100 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}>
+                            <input
+                              type="radio"
+                              name="student_selection_mode"
+                              value="individual"
+                              checked={formData.student_selection_mode === 'individual'}
+                              onChange={handleChange}
+                              className="w-4 h-4 text-green-600"
+                            />
+                            <span className="font-medium">Select Individual Students</span>
+                          </label>
+                          <label className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${formData.student_selection_mode === 'department' ? 'border-green-500 bg-green-100 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}>
+                            <input
+                              type="radio"
+                              name="student_selection_mode"
+                              value="department"
+                              checked={formData.student_selection_mode === 'department'}
+                              onChange={handleChange}
+                              className="w-4 h-4 text-green-600"
+                            />
+                            <span className="font-medium">Select by Department</span>
+                          </label>
                         </div>
-                        
-                        {isEditMode && (
+                      </div>
+
+                      {/* Individual Student Selection */}
+                      {formData.student_selection_mode === 'individual' && (
+                        <div className="space-y-4 border-t border-green-200 pt-4">
+                          <div>
+                            <label className="block text-sm font-medium text-green-900 mb-2">
+                              Select Individual Students <span className="text-red-500">*</span>
+                            </label>
+                            
+                            <AsyncSelect 
+                              isMulti 
+                              value={formData.selected_students} 
+                              onChange={handleStudentChange} 
+                              loadOptions={loadStudents} 
+                              placeholder="Search and select students..." 
+                              noOptionsMessage={({ inputValue }) => 
+                                inputValue ? `No students found matching "${inputValue}"` : "Type to search students..."
+                              } 
+                              loadingMessage={() => "Loading students..."} 
+                              styles={selectStyles} 
+                              classNamePrefix="react-select" 
+                              defaultOptions 
+                              cacheOptions 
+                            />
+                            
+                            {validationErrors.selected_students && (
+                              <p className="mt-1 text-sm text-red-600">{validationErrors.selected_students}</p>
+                            )}
+                            
+                            {formData.selected_students.length > 0 && (
+                              <div className="mt-3 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                                <p className="text-sm text-teal-700 font-medium">
+                                  {formData.selected_students.length} student{formData.selected_students.length !== 1 ? 's' : ''} selected:
+                                </p>
+                                <div className="mt-1 text-xs text-teal-600">
+                                  {formData.selected_students.map(student => student.firstName + ' ' + student.lastName).join(', ')}
+                                </div>
+                              </div>
+                            )}
+                            
+                            <p className="mt-1 text-xs text-gray-500">Select individual students from your department. Students marked with (Dept.) are colleagues from your department.</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Department Selection */}
+                      {formData.student_selection_mode === 'department' && (
+                        <div className="space-y-4 border-t border-green-200 pt-4">
+                          <div>
+                            <label className="block text-sm font-medium text-green-900 mb-2">
+                              Select Departments <span className="text-red-500">*</span>
+                            </label>
+                            
+                            <AsyncSelect 
+                              isMulti 
+                              value={formData.selected_departments} 
+                              onChange={handleDepartmentChange} 
+                              loadOptions={loadDepartments} 
+                              placeholder="Search and select departments..." 
+                              noOptionsMessage={({ inputValue }) => 
+                                inputValue ? `No departments found matching "${inputValue}"` : "Type to search departments..."
+                              } 
+                              loadingMessage={() => "Loading departments..."} 
+                              styles={selectStyles} 
+                              classNamePrefix="react-select" 
+                              defaultOptions 
+                              cacheOptions 
+                            />
+                            
+                            {validationErrors.selected_departments && (
+                              <p className="mt-1 text-sm text-red-600">{validationErrors.selected_departments}</p>
+                            )}
+                            
+                            {formData.selected_departments.length > 0 && (
+                              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <p className="text-sm text-green-700 font-medium">
+                                  {formData.selected_departments.length} department{formData.selected_departments.length !== 1 ? 's' : ''} selected:
+                                </p>
+                                <div className="mt-1 text-xs text-green-600">
+                                  {formData.selected_departments.map(dept => dept.label).join(', ')}
+                                </div>
+                                <div className="mt-2 text-xs text-blue-600">
+                                  <strong>All students</strong> in the selected department(s) will be automatically invited to this assignment.
+                                </div>
+                              </div>
+                            )}
+                            
+                            <p className="mt-1 text-xs text-gray-500">Select entire departments to invite all students at once. Perfect for large classes!</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Edit Mode - Individual Student Selection */}
+                  {isEditMode && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700">
+                        <Users size={16} className="inline mr-1" />
+                        Edit Assigned Students
+                      </label>
+                      
+                      <AsyncSelect 
+                        isMulti 
+                        value={formData.selected_students} 
+                        onChange={handleStudentChange} 
+                        loadOptions={loadStudents} 
+                        placeholder="Search to add or remove students..." 
+                        noOptionsMessage={({ inputValue }) => 
+                          inputValue ? `No students found matching "${inputValue}"` : "Type to search students..."
+                        } 
+                        loadingMessage={() => "Loading students..."} 
+                        styles={selectStyles} 
+                        classNamePrefix="react-select" 
+                        defaultOptions 
+                        cacheOptions 
+                      />
+                      
+                      {formData.selected_students.length > 0 && (
+                        <div className="mt-3 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                          <p className="text-sm text-teal-700 font-medium">
+                            {formData.selected_students.length} student{formData.selected_students.length !== 1 ? 's' : ''} selected:
+                          </p>
+                          <div className="mt-1 text-xs text-teal-600">
+                            {formData.selected_students.map(student => student.firstName + ' ' + student.lastName).join(', ')}
+                          </div>
+                          
                           <div className="mt-2 text-xs text-blue-600">
                             <strong>Note:</strong> Adding students will send them new invitations. 
                             Removing students will cancel their existing invitations.
                           </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    <p className="mt-1 text-xs text-gray-500">{getStudentSelectionHelperText()}</p>
-                  </div>
+                        </div>
+                      )}
+                      
+                      <p className="mt-1 text-xs text-gray-500">You can add or remove students. Changes will be applied when you save.</p>
+                    </div>
+                  )}
                 </div>
               )}
               
