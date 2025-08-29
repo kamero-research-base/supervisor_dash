@@ -1,8 +1,9 @@
 // app/components/modals/viewAssignment.tsx
 "use client";
 import React, { useEffect, useState } from "react";
-import { X, Calendar, Clock, Users, FileText, CheckCircle, AlertCircle, User, Award, BookOpen, Eye, Download, Edit, Star } from "lucide-react";
+import { X, Calendar, Clock, Users, FileText, CheckCircle, AlertCircle, User, Award, BookOpen, Eye, Download, Edit, Star, Settings } from "lucide-react";
 import GradeSubmission from './gradeSubmission';
+import ManageGroups from './manageGroups';
 
 // Assignment interface
 interface Assignment {
@@ -19,6 +20,9 @@ interface Assignment {
   created_by: number;
   updated_by: number;
   hashed_id: string;
+  assignment_type?: string;
+  max_group_size?: number;
+  allow_students_create_groups?: boolean;
   submissions_count?: number;
   invited_students_count?: number;
   average_score?: number;
@@ -34,6 +38,34 @@ interface AssignmentDetail extends Assignment {
   accepted_invitations: number;
   submissions: Submission[];
   invitations: Invitation[];
+  groups?: Group[];
+  group_stats?: GroupStats;
+}
+
+interface Group {
+  id: number;
+  group_name: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  members: GroupMember[];
+  member_count: number;
+  has_submission: boolean;
+}
+
+interface GroupMember {
+  student_id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  joined_at: string;
+}
+
+interface GroupStats {
+  total_groups: number;
+  groups_with_submissions: number;
+  students_in_groups: number;
+  students_without_groups: number;
 }
 
 interface Submission {
@@ -48,6 +80,8 @@ interface Submission {
   feedback: string;
   submitted_at: string;
   graded_at: string | null;
+  group_id?: number;
+  group_name?: string;
 }
 
 interface Invitation {
@@ -90,9 +124,10 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
   const [assignmentDetail, setAssignmentDetail] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'submissions' | 'students'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'submissions' | 'students' | 'groups'>('overview');
   const [gradingSubmission, setGradingSubmission] = useState<Submission | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const [showManageGroups, setShowManageGroups] = useState(false);
 
   useEffect(() => {
     const fetchAssignmentDetails = async () => {
@@ -391,12 +426,19 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
               </div>
               
               {/* Stats Overview */}
-              <div className="grid grid-cols-4 gap-4 mt-6">
+              <div className={`grid gap-4 mt-6 ${assignmentDetail.assignment_type === 'group' ? 'grid-cols-5' : 'grid-cols-4'}`}>
                 <div className="bg-white/10 rounded-lg p-3 text-center">
                   <Users size={20} className="mx-auto mb-1" />
                   <p className="text-2xl font-bold">{assignmentDetail.total_invitations}</p>
                   <p className="text-sm text-white/80">Students Invited</p>
                 </div>
+                {assignmentDetail.assignment_type === 'group' && assignmentDetail.group_stats && (
+                  <div className="bg-white/10 rounded-lg p-3 text-center">
+                    <Users size={20} className="mx-auto mb-1" />
+                    <p className="text-2xl font-bold">{assignmentDetail.group_stats.total_groups}</p>
+                    <p className="text-sm text-white/80">Groups</p>
+                  </div>
+                )}
                 <div className="bg-white/10 rounded-lg p-3 text-center">
                   <FileText size={20} className="mx-auto mb-1" />
                   <p className="text-2xl font-bold">{assignmentDetail.total_submissions}</p>
@@ -449,6 +491,18 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                 >
                   Students ({assignmentDetail.total_invitations})
                 </button>
+                {assignmentDetail.assignment_type === 'group' && (
+                  <button
+                    onClick={() => setActiveTab('groups')}
+                    className={`px-6 py-3 font-medium text-sm transition-colors ${
+                      activeTab === 'groups'
+                        ? 'text-teal-600 border-b-2 border-teal-600 bg-white'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Groups ({assignmentDetail.group_stats?.total_groups || 0})
+                  </button>
+                )}
               </div>
 
               {/* Tab Content */}
@@ -483,6 +537,18 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                               <dt className="text-sm font-medium text-gray-500">Status</dt>
                               <dd>{getStatusBadge(assignmentDetail.is_active, assignmentDetail.due_date)}</dd>
                             </div>
+                            <div className="flex justify-between items-center">
+                              <dt className="text-sm font-medium text-gray-500">Assignment Type</dt>
+                              <dd className="text-sm text-gray-900 font-semibold">
+                                {assignmentDetail.assignment_type === 'group' ? 'Group Assignment' : 'Individual Assignment'}
+                              </dd>
+                            </div>
+                            {assignmentDetail.assignment_type === 'group' && (
+                              <div className="flex justify-between items-center">
+                                <dt className="text-sm font-medium text-gray-500">Max Group Size</dt>
+                                <dd className="text-sm text-gray-900 font-semibold">{assignmentDetail.max_group_size} students</dd>
+                              </div>
+                            )}
                             <div className="flex justify-between items-center">
                               <dt className="text-sm font-medium text-gray-500">Maximum Score</dt>
                               <dd className="text-sm text-gray-900 font-semibold">{assignmentDetail.max_score} points</dd>
@@ -566,7 +632,12 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                                   <div className="flex items-center gap-3 min-w-0 flex-1">
                                     <User size={16} className="text-gray-500 flex-shrink-0" />
                                     <div className="min-w-0 flex-1">
-                                      <h4 className="font-medium text-gray-900 text-sm truncate">{submission.student_name}</h4>
+                                      <h4 className="font-medium text-gray-900 text-sm truncate">
+                                        {assignmentDetail.assignment_type === 'group' && submission.group_name ? 
+                                          `${submission.group_name} (${submission.student_name})` : 
+                                          submission.student_name
+                                        }
+                                      </h4>
                                       <p className="text-xs text-gray-500 truncate">{submission.student_email}</p>
                                     </div>
                                   </div>
@@ -787,6 +858,121 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                     )}
                   </div>
                 )}
+
+                {activeTab === 'groups' && assignmentDetail.assignment_type === 'group' && (
+                  <div className="animate-fade-in space-y-6">
+                    {/* Group Statistics */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                        <Users size={24} className="mx-auto mb-2 text-teal-500" />
+                        <p className="text-2xl font-bold text-gray-900">{assignmentDetail.group_stats?.total_groups || 0}</p>
+                        <p className="text-sm text-gray-500">Total Groups</p>
+                      </div>
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                        <CheckCircle size={24} className="mx-auto mb-2 text-green-500" />
+                        <p className="text-2xl font-bold text-gray-900">{assignmentDetail.group_stats?.groups_with_submissions || 0}</p>
+                        <p className="text-sm text-gray-500">Groups Submitted</p>
+                      </div>
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                        <User size={24} className="mx-auto mb-2 text-blue-500" />
+                        <p className="text-2xl font-bold text-gray-900">{assignmentDetail.group_stats?.students_in_groups || 0}</p>
+                        <p className="text-sm text-gray-500">Students in Groups</p>
+                      </div>
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                        <AlertCircle size={24} className="mx-auto mb-2 text-amber-500" />
+                        <p className="text-2xl font-bold text-gray-900">{assignmentDetail.group_stats?.students_without_groups || 0}</p>
+                        <p className="text-sm text-gray-500">Students Without Groups</p>
+                      </div>
+                    </div>
+
+                    {/* Manage Groups Button */}
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">Groups</h3>
+                      <button
+                        onClick={() => setShowManageGroups(true)}
+                        className="bg-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-teal-700 transition-colors flex items-center gap-2"
+                      >
+                        <Settings size={16} />
+                        Manage Groups
+                      </button>
+                    </div>
+
+                    {/* Groups List */}
+                    {assignmentDetail.groups && assignmentDetail.groups.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="grid gap-4">
+                          {assignmentDetail.groups.map((group) => (
+                            <div key={group.id} className="bg-white border border-gray-200 rounded-lg p-6">
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-teal-100 rounded-full">
+                                    <Users size={20} className="text-teal-600" />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-lg font-semibold text-gray-900">{group.group_name}</h4>
+                                    <p className="text-sm text-gray-500">{group.member_count} members</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  {group.has_submission ? (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-300">
+                                      <CheckCircle size={14} className="mr-1" />
+                                      Submitted
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 border border-gray-300">
+                                      <Clock size={14} className="mr-1" />
+                                      Pending
+                                    </span>
+                                  )}
+                                  <div className="text-right text-sm">
+                                    <p className="text-gray-500">Created</p>
+                                    <p className="text-gray-900">{formatDateTime(group.created_at)}</p>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="border-t border-gray-200 pt-4">
+                                <h5 className="text-sm font-semibold text-gray-900 mb-3">Group Members</h5>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {group.members.map((member, index) => (
+                                    <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                                      <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
+                                        <User size={16} className="text-teal-600" />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                          {member.first_name} {member.last_name}
+                                        </p>
+                                        <p className="text-xs text-gray-500 truncate">{member.email}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Users size={48} className="text-gray-300 mx-auto mb-3" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-1">No Groups Yet</h3>
+                        <p className="text-gray-500">Students haven't formed groups for this assignment yet.</p>
+                        {assignmentDetail.allow_students_create_groups && (
+                          <p className="text-sm text-gray-400 mt-2">Students can create their own groups.</p>
+                        )}
+                        <button
+                          onClick={() => setShowManageGroups(true)}
+                          className="mt-4 bg-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-teal-700 transition-colors inline-flex items-center gap-2"
+                        >
+                          <Settings size={16} />
+                          Create First Group
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -800,6 +986,51 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
           assignment={assignment}
           onClose={handleCloseGrading}
           onSuccess={handleGradingSuccess}
+        />
+      )}
+
+      {/* Manage Groups Modal */}
+      {showManageGroups && assignmentDetail && (
+        <ManageGroups
+          assignment={{
+            id: assignmentDetail.id,
+            title: assignmentDetail.title,
+            max_group_size: assignmentDetail.max_group_size || 4,
+            allow_students_create_groups: assignmentDetail.allow_students_create_groups || false
+          }}
+          groups={assignmentDetail.groups || []}
+          onClose={() => setShowManageGroups(false)}
+          onSuccess={() => {
+            // Refresh assignment details to get updated group data
+            const fetchAssignmentDetails = async () => {
+              try {
+                const userSessionData = localStorage.getItem("supervisorSession");
+                if (!userSessionData) return;
+
+                const userSession = JSON.parse(userSessionData);
+                
+                const response = await fetch(`/api/assignments/view`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    id: assignment.id.toString(),
+                    supervisor_id: parseInt(userSession.id)
+                  })
+                });
+
+                if (response.ok) {
+                  const data = await response.json();
+                  if (data.success && data.data) {
+                    setAssignmentDetail(data.data);
+                  }
+                }
+              } catch (error) {
+                console.error("Error refreshing assignment details:", error);
+              }
+            };
+
+            fetchAssignmentDetails();
+          }}
         />
       )}
     </>

@@ -17,6 +17,8 @@ interface StudentOption {
   email: string;
   firstName: string;
   lastName: string;
+  relationshipType?: string;
+  status?: string;
 }
 
 // Assignment interface for editing
@@ -37,6 +39,10 @@ interface Assignment {
   submissions_count?: number;
   invited_students_count?: number;
   average_score?: number;
+  // Group assignment fields
+  assignment_type?: 'individual' | 'group';
+  max_group_size?: number;
+  allow_students_create_groups?: boolean;
 }
 
 // Inline types and interfaces
@@ -50,6 +56,10 @@ interface FormData {
   max_score: string;
   selected_students: StudentOption[];
   keep_existing_files: boolean; // New flag for edit mode
+  // Group assignment fields
+  assignment_type: 'individual' | 'group';
+  max_group_size: string;
+  allow_students_create_groups: boolean;
 }
 
 interface UserSession {
@@ -276,6 +286,10 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
         max_score: assignment.max_score.toString(),
         selected_students: [], // Will be populated after fetching
         keep_existing_files: true, // Default to keeping existing files
+        // Group assignment fields
+        assignment_type: assignment.assignment_type || 'individual',
+        max_group_size: assignment.max_group_size?.toString() || '4',
+        allow_students_create_groups: assignment.allow_students_create_groups || false,
       };
     }
     return {
@@ -288,6 +302,10 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       max_score: "",
       selected_students: [],
       keep_existing_files: true,
+      // Group assignment fields
+      assignment_type: 'individual',
+      max_group_size: '4',
+      allow_students_create_groups: false,
     };
   };
 
@@ -330,7 +348,7 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       }
       return "You can add or remove students. Changes will be applied when you save.";
     } else {
-      return "Select at least one student to assign this assignment.";
+      return "You can select students from your department. Students marked with (Dept.) are colleagues from your department but not directly supervised by you.";
     }
   };
 
@@ -445,10 +463,12 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       
       return data.map((student: any) => ({
         value: student.id,
-        label: `${student.first_name} ${student.last_name}`,
+        label: `${student.first_name} ${student.last_name}${student.relationship_type === 'department' ? ' (Dept.)' : ''}`,
         email: student.email,
         firstName: student.first_name,
         lastName: student.last_name,
+        relationshipType: student.relationship_type,
+        status: student.status,
       }));
 
     } catch (error) {
@@ -458,19 +478,24 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void => {
-    const { id, value, type } = e.target;
+    const { id, name, value, type } = e.target;
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [id]: checked }));
+    } else if (type === 'radio') {
+      // For radio buttons, use the name attribute as the field identifier
+      setFormData(prev => ({ ...prev, [name]: value }));
     } else {
       setFormData(prev => ({ ...prev, [id]: value }));
     }
     
-    if (validationErrors[id]) {
+    // Clear validation errors for the appropriate field
+    const fieldName = type === 'radio' ? name : id;
+    if (validationErrors[fieldName]) {
       setValidationErrors(prev => {
         const updated = { ...prev };
-        delete updated[id];
+        delete updated[fieldName];
         return updated;
       });
     }
@@ -558,20 +583,64 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
     }
 
     const newValidationErrors: Record<string, string> = {};
-    if (!formData.title.trim()) newValidationErrors.title = "Assignment title is required";
-    if (!formData.description.trim()) newValidationErrors.description = "Description is required";
-    if (!formData.instructions.trim()) newValidationErrors.instructions = "Instructions are required";
-    if (!formData.due_date) newValidationErrors.due_date = "Due date is required";
-    if (!formData.due_time) newValidationErrors.due_time = "Due time is required";
+    
+    // Debug logging
+    console.log('Form validation starting. Form data:', {
+      title: formData.title,
+      description: formData.description,
+      instructions: formData.instructions,
+      due_date: formData.due_date,
+      due_time: formData.due_time,
+      max_score: formData.max_score,
+      selected_students_count: formData.selected_students.length,
+      assignment_type: formData.assignment_type,
+      max_group_size: formData.max_group_size
+    });
+    
+    // Validate required fields
+    if (!formData.title.trim()) {
+      newValidationErrors.title = "Assignment title is required";
+      console.log('Validation error: title is required');
+    }
+    if (!formData.description.trim()) {
+      newValidationErrors.description = "Description is required";
+      console.log('Validation error: description is required');
+    }
+    if (!formData.instructions.trim()) {
+      newValidationErrors.instructions = "Instructions are required";
+      console.log('Validation error: instructions are required');
+    }
+    if (!formData.due_date) {
+      newValidationErrors.due_date = "Due date is required";
+      console.log('Validation error: due_date is required');
+    }
+    if (!formData.due_time) {
+      newValidationErrors.due_time = "Due time is required";
+      console.log('Validation error: due_time is required');
+    }
     if (!formData.max_score) {
       newValidationErrors.max_score = "Max score is required";
+      console.log('Validation error: max_score is required');
     } else if (parseInt(formData.max_score) <= 0) {
       newValidationErrors.max_score = "Max score must be greater than 0";
+      console.log('Validation error: max_score must be greater than 0');
+    }
+    
+    // Group assignment validation
+    if (formData.assignment_type === 'group') {
+      if (!formData.max_group_size) {
+        newValidationErrors.max_group_size = "Maximum group size is required for group assignments";
+        console.log('Validation error: max_group_size is required for group assignments');
+      } else if (parseInt(formData.max_group_size) < 2) {
+        newValidationErrors.max_group_size = "Maximum group size must be at least 2";
+        console.log('Validation error: max_group_size must be at least 2');
+      }
     }
     
     // Only require students for new assignments
     if (!isEditMode && formData.selected_students.length === 0) {
       newValidationErrors.selected_students = "At least one student must be selected";
+      console.log('Validation error: at least one student must be selected');
     }
 
     if (formData.due_date && formData.due_time) {
@@ -583,12 +652,24 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       // For editing, allow past dates if the assignment is completed/inactive
       if (!isEditMode && dueDateTime <= now) {
         newValidationErrors.due_date = "Due date and time must be in the future";
+        console.log('Validation error: due date and time must be in the future');
       }
     }
 
+    console.log('Validation errors found:', newValidationErrors);
+
     if (Object.keys(newValidationErrors).length > 0) {
       setValidationErrors(newValidationErrors);
-      setError("Please correct the validation errors and try again.");
+      const errorCount = Object.keys(newValidationErrors).length;
+      const errorList = Object.values(newValidationErrors).join(', ');
+      setError(`Found ${errorCount} validation error${errorCount > 1 ? 's' : ''}: ${errorList}`);
+      
+      // Scroll to the first error
+      const firstErrorField = Object.keys(newValidationErrors)[0];
+      const errorElement = document.getElementById(firstErrorField) || document.querySelector(`[name="${firstErrorField}"]`);
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -615,6 +696,11 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       payload.append("max_score", formData.max_score);
       payload.append("created_by", supervisorId);
       payload.append("updated_by", supervisorId);
+      
+      // Group assignment fields
+      payload.append("assignment_type", formData.assignment_type);
+      payload.append("max_group_size", formData.max_group_size);
+      payload.append("allow_students_create_groups", formData.allow_students_create_groups.toString());
 
       if (isEditMode) {
         payload.append("id", assignment!.id.toString());
@@ -640,6 +726,8 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
         let assignmentId = isEditMode ? assignment!.id : (data as any).data?.assignment?.id;
         
         // Handle student invitations for both create and edit modes
+        let invitationError = false;
+        
         if (assignmentId) {
           try {
             if (isEditMode) {
@@ -670,6 +758,7 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                   const removeData = await removeResponse.json();
                   console.error("Error removing students:", removeData);
                   setError(`Warning: Assignment updated but failed to remove some students: ${removeData.message}`);
+                  invitationError = true;
                 }
               }
               
@@ -689,12 +778,21 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                   const addData = await addResponse.json();
                   console.error("Error adding students:", addData);
                   setError(`Warning: Assignment updated but failed to invite some students: ${addData.message}`);
+                  invitationError = true;
                 }
               }
             } else {
               // For new assignments, invite all selected students
               if (formData.selected_students.length > 0) {
                 const studentIds = formData.selected_students.map(student => student.value);
+                console.log('🔍 [FRONTEND DEBUG] About to invite students:', {
+                  assignmentId,
+                  selectedStudents: formData.selected_students,
+                  studentIds,
+                  supervisorId,
+                  studentCount: formData.selected_students.length
+                });
+                
                 const inviteResponse = await fetch("/api/assignments/invite", {
                   method: "POST",
                   headers: { 'Content-Type': 'application/json' },
@@ -707,44 +805,66 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                 
                 if (!inviteResponse.ok) {
                   const inviteData = await inviteResponse.json();
-                  console.error("Error inviting students:", inviteData);
-                  setError(`Assignment created but failed to invite some students: ${inviteData.message}`);
+                  console.error("❌ [FRONTEND DEBUG] Error inviting students:", {
+                    status: inviteResponse.status,
+                    statusText: inviteResponse.statusText,
+                    responseData: inviteData
+                  });
+                  setError(`Assignment created but failed to invite students: ${inviteData.message || 'Unknown error'}`);
+                  invitationError = true;
+                } else {
+                  const inviteData = await inviteResponse.json();
+                  console.log('✅ [FRONTEND DEBUG] Students invited successfully:', {
+                    studentsInvited: inviteData.data?.invitations_sent || 0,
+                    emailsSent: inviteData.data?.emails_sent || 0,
+                    assignmentId
+                  });
                 }
               }
             }
           } catch (inviteError) {
-            console.error("Error managing student invitations:", inviteError);
-            setError(`Assignment ${isEditMode ? 'updated' : 'created'} but there was an issue managing student invitations.`);
+            console.error("❌ [FRONTEND DEBUG] Error managing student invitations:", {
+              error: inviteError,
+              assignmentId,
+              supervisorId,
+              isEditMode,
+              selectedStudentsCount: formData.selected_students.length
+            });
+            setError(`Assignment ${isEditMode ? 'updated' : 'created'} but there was an issue managing student invitations: ${inviteError instanceof Error ? inviteError.message : 'Unknown error'}`);
+            invitationError = true;
           }
         }
 
-        if (!error) { // Only show success if no errors occurred with student management
+        if (!invitationError) { // Only show success if no errors occurred with student management
           setSuccess(`Assignment ${isEditMode ? 'updated' : 'created'} successfully! 🎉`);
-        }
-        
-        if (!isEditMode) {
-          setFormData({
-            title: "",
-            description: "",
-            instructions: "",
-            due_date: null,
-            due_time: "",
-            is_active: true,
-            max_score: "",
-            selected_students: [],
-            keep_existing_files: true,
-          });
-          setFiles([]);
-          setCurrentStep(1);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+          
+          if (!isEditMode) {
+            setFormData({
+              title: "",
+              description: "",
+              instructions: "",
+              due_date: null,
+              due_time: "",
+              is_active: true,
+              max_score: "",
+              selected_students: [],
+              keep_existing_files: true,
+              assignment_type: 'individual',
+              max_group_size: '4',
+              allow_students_create_groups: false,
+            });
+            setFiles([]);
+            setCurrentStep(1);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
           }
+          
+          setTimeout(() => {
+            onSuccess();
+            onClose();
+          }, 1500);
         }
-        
-        setTimeout(() => {
-          onSuccess();
-          onClose();
-        }, 1500);
       } else {
         if (data.errors && typeof data.errors === 'object') {
           setValidationErrors(data.errors);
@@ -865,6 +985,98 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                     <label htmlFor="max_score" className={`absolute left-4 top-3 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none ${validationErrors.max_score ? 'text-red-500' : 'text-gray-500'}`}>Maximum Score (Points) <span className="text-red-500">*</span></label>
                     {focusedField === 'max_score' && !validationErrors.max_score && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
                     {validationErrors.max_score && (<p className="mt-1 text-sm text-red-600">{validationErrors.max_score}</p>)}
+                  </div>
+
+                  {/* Group Assignment Settings */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold text-blue-900 mb-4">
+                      <Users size={20} />
+                      Assignment Type
+                    </h3>
+                    
+                    {/* Assignment Type Toggle */}
+                    <div className="mb-4">
+                      <div className="flex gap-4">
+                        <label className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${formData.assignment_type === 'individual' ? 'border-blue-500 bg-blue-100 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}>
+                          <input
+                            type="radio"
+                            name="assignment_type"
+                            value="individual"
+                            checked={formData.assignment_type === 'individual'}
+                            onChange={handleChange}
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <span className="font-medium">Individual Assignment</span>
+                        </label>
+                        <label className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${formData.assignment_type === 'group' ? 'border-blue-500 bg-blue-100 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}>
+                          <input
+                            type="radio"
+                            name="assignment_type"
+                            value="group"
+                            checked={formData.assignment_type === 'group'}
+                            onChange={handleChange}
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <span className="font-medium">Group Assignment</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Group-specific settings */}
+                    {formData.assignment_type === 'group' && (
+                      <div className="space-y-4 border-t border-blue-200 pt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="max_group_size" className="block text-sm font-medium text-blue-900 mb-2">
+                              Maximum Group Size
+                            </label>
+                            <select
+                              id="max_group_size"
+                              name="max_group_size"
+                              value={formData.max_group_size}
+                              onChange={handleChange}
+                              className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none transition-all duration-200 ${
+                                validationErrors.max_group_size ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-blue-500'
+                              }`}
+                            >
+                              {[2, 3, 4, 5, 6, 7, 8].map(size => (
+                                <option key={size} value={size.toString()}>{size} students</option>
+                              ))}
+                            </select>
+                            {validationErrors.max_group_size && (
+                              <p className="mt-1 text-sm text-red-600">{validationErrors.max_group_size}</p>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                id="allow_students_create_groups"
+                                name="allow_students_create_groups"
+                                checked={formData.allow_students_create_groups}
+                                onChange={handleChange}
+                                className="w-4 h-4 text-blue-600 border-2 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <div>
+                                <span className="text-sm font-medium text-blue-900">Allow Student Self-Formation</span>
+                                <p className="text-xs text-blue-700">Students can create and join groups themselves</p>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-blue-100 rounded-lg p-3 text-sm text-blue-800">
+                          <strong>Group Assignment Info:</strong>
+                          <ul className="mt-2 space-y-1 list-disc list-inside">
+                            <li>One submission per group (any member can submit)</li>
+                            <li>All group members receive the same grade</li>
+                            <li>{formData.allow_students_create_groups ? 'Students can form their own groups' : 'You will create groups manually after assignment creation'}</li>
+                            <li>Maximum {formData.max_group_size} students per group</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Student Selection - Now available in both create and edit modes */}

@@ -32,6 +32,7 @@ interface GradeNotificationData {
   maxScore: number;
   feedback?: string;
   assignmentUrl?: string;
+  groupName?: string;
 }
 
 interface StatusChangeEmailData {
@@ -757,7 +758,8 @@ export async function sendGradeNotificationEmail(data: GradeNotificationData): P
     const gradeColor = percentage >= 70 ? '#059669' : percentage >= 50 ? '#f59e0b' : '#dc2626';
     const gradeEmoji = percentage >= 70 ? '🎉' : percentage >= 50 ? '📊' : '📈';
     
-    sendSmtpEmail.subject = `${gradeEmoji} Grade Available: ${data.assignmentTitle} - ${percentage}%`;
+    const subjectPrefix = data.groupName ? `[${data.groupName}] ` : '';
+    sendSmtpEmail.subject = `${gradeEmoji} Grade Available: ${subjectPrefix}${data.assignmentTitle} - ${percentage}%`;
     sendSmtpEmail.htmlContent = `
     <html>
     <head>
@@ -785,7 +787,7 @@ export async function sendGradeNotificationEmail(data: GradeNotificationData): P
           </p>
           
           <p style="color: #4b5563; font-size: 14px; margin: 0 0 24px 0; line-height: 1.6;">
-            Your assignment <strong>"${data.assignmentTitle}"</strong> has been graded by <strong>${data.supervisorName}</strong>.
+            Your ${data.groupName ? `group assignment <strong>"${data.assignmentTitle}"</strong> (Group: ${data.groupName})` : `assignment <strong>"${data.assignmentTitle}"</strong>`} has been graded by <strong>${data.supervisorName}</strong>.
           </p>
           
           <!-- Grade Display Box -->
@@ -802,6 +804,11 @@ export async function sendGradeNotificationEmail(data: GradeNotificationData): P
             <p style="color: #6b7280; font-size: 13px; margin: 12px 0 0 0;">
               Assignment: <strong>${data.assignmentTitle}</strong>
             </p>
+            ${data.groupName ? `
+            <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">
+              Group: <strong>${data.groupName}</strong>
+            </p>
+            ` : ''}
             <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">
               Graded by: <strong>${data.supervisorName}</strong>
             </p>

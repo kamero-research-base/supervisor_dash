@@ -20,22 +20,45 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: "supervisor ID is required" }, { status: 400 });
     }
 
+    // First, get the supervisor's department
+    const supervisorQuery = `
+      SELECT department, school, first_name, last_name
+      FROM supervisors 
+      WHERE id = $1
+    `;
+    
+    const supervisorResult = await client.query(supervisorQuery, [supervisor_id]);
+    
+    if (supervisorResult.rows.length === 0) {
+      return NextResponse.json({ message: "Supervisor not found" }, { status: 404 });
+    }
+    
+    const supervisor = supervisorResult.rows[0];
+    const supervisorDepartment = supervisor.department;
+    
+    console.log(`🔍 [STUDENTS API] Fetching students from department: ${supervisorDepartment} for supervisor: ${supervisor.first_name} ${supervisor.last_name}`);
+    
+    // Now fetch all students from the same department as the supervisor
     let query = `
       SELECT 
         s.id, s.first_name, s.last_name, s.email, s.phone, s.password,
-        s.status, s.created_at, s.hashed_id, s.profile_picture,
+        s.status, s.created_at, s.hashed_id, s.profile_picture, s.supervisor_id,
         i.name AS institute, c.name AS college,
-        sc.name AS school, d.name AS department
+        sc.name AS school, d.name AS department,
+        CASE 
+          WHEN s.supervisor_id = $1 THEN 'direct'
+          ELSE 'department'
+        END AS relationship_type
       FROM students s
       LEFT JOIN departments d ON CAST(d.id AS TEXT) = s.department
       LEFT JOIN schools sc ON CAST(sc.id AS TEXT) = d.school
       LEFT JOIN colleges c ON CAST(c.id AS TEXT) = sc.college
       LEFT JOIN institutions i ON CAST(i.id AS TEXT) = c.institution
-      WHERE s.supervisor_id = $1
+      WHERE s.department = $2
     `;
 
-    const params: any[] = [supervisor_id];
-    let paramCount = 1;
+    const params: any[] = [supervisor_id, supervisorDepartment];
+    let paramCount = 2;
 
     // Add search functionality
     if (search && search.trim()) {
@@ -98,6 +121,15 @@ export async function GET(req: Request) {
     }
 
     const result = await client.query(query, params);
+    
+    console.log(`✅ [STUDENTS API] Found ${result.rows.length} students in department ${supervisorDepartment}:`, {
+      students: result.rows.map(s => ({
+        id: s.id,
+        name: `${s.first_name} ${s.last_name}`,
+        relationship: s.relationship_type,
+        status: s.status
+      }))
+    });
 
     return NextResponse.json(result.rows, { status: 200 });
   } catch (error) {

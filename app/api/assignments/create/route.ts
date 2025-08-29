@@ -14,6 +14,10 @@ type AssignmentRequest = {
   created_by: string;
   updated_by: string;
   attachments?: File[];
+  // Group assignment fields
+  assignment_type: string;
+  max_group_size: string;
+  allow_students_create_groups: boolean;
 };
 
 interface ApiErrorResponse {
@@ -131,6 +135,25 @@ const validateFiles = (files: File[]): string | null => {
   return null;
 };
 
+const validateGroupAssignment = (assignmentType: string, maxGroupSize: string): string | null => {
+  if (assignmentType === 'group') {
+    if (!maxGroupSize) {
+      return "Maximum group size is required for group assignments";
+    }
+    
+    const groupSizeNum = parseInt(maxGroupSize);
+    if (isNaN(groupSizeNum) || groupSizeNum < 2) {
+      return "Maximum group size must be at least 2 for group assignments";
+    }
+    
+    if (groupSizeNum > 20) {
+      return "Maximum group size cannot exceed 20 members";
+    }
+  }
+  
+  return null;
+};
+
 // Handle POST request for creating a new Assignment
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let dbClient;
@@ -148,6 +171,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       max_score: formData.get('max_score')?.toString() || '',
       created_by: formData.get('created_by')?.toString() || '',
       updated_by: formData.get('updated_by')?.toString() || '',
+      assignment_type: formData.get('assignment_type')?.toString() || 'individual',
+      max_group_size: formData.get('max_group_size')?.toString() || '1',
+      allow_students_create_groups: formData.get('allow_students_create_groups')?.toString() === 'true',
     };
 
     // Extract attachments
@@ -179,6 +205,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const createdByError = validateRequired(assignmentData.created_by, 'Creator ID');
     if (createdByError) validationErrors.created_by = createdByError;
+
+    // Group assignment validation
+    const groupError = validateGroupAssignment(assignmentData.assignment_type, assignmentData.max_group_size);
+    if (groupError) validationErrors.max_group_size = groupError;
 
     // Only proceed with detailed validation if required fields are present
     if (Object.keys(validationErrors).length === 0) {
@@ -267,9 +297,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       INSERT INTO assignments (
         title, description, instructions, due_date, 
         is_active, max_score, attachments, created_by, 
-        updated_by, created_at, updated_at
+        updated_by, assignment_type, max_group_size, 
+        allow_students_create_groups, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()) 
       RETURNING *
     `;
 
@@ -282,7 +313,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       parseInt(assignmentData.max_score), 
       JSON.stringify(attachmentUrls),
       parseInt(assignmentData.created_by),
-      parseInt(assignmentData.updated_by || assignmentData.created_by)
+      parseInt(assignmentData.updated_by || assignmentData.created_by),
+      assignmentData.assignment_type,
+      parseInt(assignmentData.max_group_size),
+      assignmentData.allow_students_create_groups
     ]);
     
     const assignmentId = result.rows[0].id;
