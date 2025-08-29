@@ -184,9 +184,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Get supervisor information for email
+    // Get supervisor information for email and department
     const supervisorQuery = `
-      SELECT first_name, last_name, email
+      SELECT first_name, last_name, email, department
       FROM supervisors
       WHERE id = $1
     `;
@@ -202,22 +202,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const supervisor: SupervisorRecord = supervisorResult.rows[0];
     const supervisorName = `${supervisor.first_name} ${supervisor.last_name}`;
-    console.log('✅ [INVITE DEBUG] Supervisor found:', supervisorName);
-
-    // Verify all students exist and belong to this supervisor
+    const supervisorDepartment = (supervisor as any).department;
+    
+    console.log(`✅ [INVITE DEBUG] Supervisor ${supervisorName} from department: ${supervisorDepartment}`);
+    
+    // Verify all students exist and are from the same department as the supervisor
     const studentsQuery = `
-      SELECT id, first_name, last_name, email, status
+      SELECT id, first_name, last_name, email, status, supervisor_id, department
       FROM students
-      WHERE id = ANY($1) AND supervisor_id = $2
+      WHERE id = ANY($1) AND department = $2
     `;
     
     console.log('🔍 [INVITE DEBUG] Checking students:', student_ids);
-    const studentsResult = await databaseClient.query(studentsQuery, [student_ids, supervisor_id]);
+    const studentsResult = await databaseClient.query(studentsQuery, [student_ids, supervisorDepartment]);
     
     console.log('🔍 [INVITE DEBUG] Students query result:', {
       expected_count: student_ids.length,
       found_count: studentsResult.rows.length,
-      found_students: studentsResult.rows.map((s: any) => ({ id: s.id, name: `${s.first_name} ${s.last_name}` }))
+      found_students: studentsResult.rows.map((s: any) => ({
+        id: s.id,
+        name: `${s.first_name} ${s.last_name}`,
+        department: s.department,
+        relationship: s.supervisor_id === supervisor_id ? 'direct' : 'department_colleague',
+        status: s.status
+      }))
     });
     
     if (studentsResult.rows.length !== student_ids.length) {
@@ -225,9 +233,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // Fix: Add proper TypeScript types
       const foundIds = studentsResult.rows.map((item: StudentRecord) => item.id);
       const missingIds = student_ids.filter((itemId: number) => !foundIds.includes(itemId));
-      console.log('❌ [INVITE DEBUG] Missing students:', missingIds);
+      console.log('❌ [INVITE DEBUG] Missing students or students not in same department:', missingIds);
       return createErrorResponse(
-        `Some students not found or not under your supervision: ${missingIds.join(', ')}`,
+        `Some students not found or not in your department: ${missingIds.join(', ')}`,
         "INVALID_STUDENTS",
         400
       );
@@ -245,7 +253,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Check for existing invitations
     const existingInvitationsQuery = `
-      SELECT student_id
+      SELECT student_id, status, invited_at
       FROM assignment_invitations
       WHERE assignment_id = $1 AND student_id = ANY($2)
     `;
@@ -255,7 +263,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Fix: Add proper TypeScript types
     const alreadyInvitedIds = existingResult.rows.map((item: { student_id: number }) => item.student_id);
     
-    console.log('🔍 [INVITE DEBUG] Already invited students:', alreadyInvitedIds);
+    console.log('🔍 [INVITE DEBUG] Existing invitations found:', {
+      count: existingResult.rows.length,
+      details: existingResult.rows.map((item: any) => ({
+        student_id: item.student_id,
+        status: item.status,
+        invited_at: item.invited_at
+      })),
+      alreadyInvitedIds
+    });
     
     if (alreadyInvitedIds.length > 0) {
       // Fix: Add proper TypeScript types
@@ -272,21 +288,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Insert invitations
-    console.log('🔍 [INVITE DEBUG] Creating invitations...');
-    // Fix: Add proper TypeScript types
-    const invitationPromises = students.map((item: StudentRecord) => {
-      return databaseClient.query(
+    // Insert invitations - FIXED: Use sequential execution instead of parallel to avoid race conditions
+    console.log('🔍 [INVITE DEBUG] Creating invitations sequentially...');
+    const invitationResults = [];
+    
+    for (const student of students) {
+      console.log(`🔍 [INVITE DEBUG] Creating invitation for student ${student.id} (${student.first_name} ${student.last_name})...`);
+      
+      const result = await databaseClient.query(
         `INSERT INTO assignment_invitations 
          (assignment_id, student_id, status, invited_at, custom_message) 
          VALUES ($1, $2, 'pending', NOW(), $3)
-         RETURNING id`,
-        [assignment_id, item.id, custom_message || null]
+         RETURNING id, assignment_id, student_id, status, invited_at`,
+        [assignment_id, student.id, custom_message || null]
       );
+      
+      console.log(`✅ [INVITE DEBUG] Created invitation ID ${result.rows[0].id} for student ${student.id}`);
+      invitationResults.push(result);
+    }
+    
+    console.log('✅ [INVITE DEBUG] All invitations created successfully:', {
+      totalStudents: students.length,
+      totalInvitations: invitationResults.length,
+      invitationIds: invitationResults.map(r => r.rows[0].id)
     });
-
-    const invitationResults = await Promise.all(invitationPromises);
-    console.log('✅ [INVITE DEBUG] Invitations created:', invitationResults.length);
 
     // Send emails to all students using the NEW Brevo service
     console.log('🔍 [INVITE DEBUG] Sending emails using Brevo...');

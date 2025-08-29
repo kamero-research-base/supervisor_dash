@@ -17,6 +17,8 @@ interface StudentOption {
   email: string;
   firstName: string;
   lastName: string;
+  relationshipType?: string;
+  status?: string;
 }
 
 // Assignment interface for editing
@@ -346,7 +348,7 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       }
       return "You can add or remove students. Changes will be applied when you save.";
     } else {
-      return "Select at least one student to assign this assignment.";
+      return "You can select students from your department. Students marked with (Dept.) are colleagues from your department but not directly supervised by you.";
     }
   };
 
@@ -461,10 +463,12 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
       
       return data.map((student: any) => ({
         value: student.id,
-        label: `${student.first_name} ${student.last_name}`,
+        label: `${student.first_name} ${student.last_name}${student.relationship_type === 'department' ? ' (Dept.)' : ''}`,
         email: student.email,
         firstName: student.first_name,
         lastName: student.last_name,
+        relationshipType: student.relationship_type,
+        status: student.status,
       }));
 
     } catch (error) {
@@ -722,6 +726,8 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
         let assignmentId = isEditMode ? assignment!.id : (data as any).data?.assignment?.id;
         
         // Handle student invitations for both create and edit modes
+        let invitationError = false;
+        
         if (assignmentId) {
           try {
             if (isEditMode) {
@@ -752,6 +758,7 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                   const removeData = await removeResponse.json();
                   console.error("Error removing students:", removeData);
                   setError(`Warning: Assignment updated but failed to remove some students: ${removeData.message}`);
+                  invitationError = true;
                 }
               }
               
@@ -771,12 +778,21 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                   const addData = await addResponse.json();
                   console.error("Error adding students:", addData);
                   setError(`Warning: Assignment updated but failed to invite some students: ${addData.message}`);
+                  invitationError = true;
                 }
               }
             } else {
               // For new assignments, invite all selected students
               if (formData.selected_students.length > 0) {
                 const studentIds = formData.selected_students.map(student => student.value);
+                console.log('🔍 [FRONTEND DEBUG] About to invite students:', {
+                  assignmentId,
+                  selectedStudents: formData.selected_students,
+                  studentIds,
+                  supervisorId,
+                  studentCount: formData.selected_students.length
+                });
+                
                 const inviteResponse = await fetch("/api/assignments/invite", {
                   method: "POST",
                   headers: { 'Content-Type': 'application/json' },
@@ -789,44 +805,66 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
                 
                 if (!inviteResponse.ok) {
                   const inviteData = await inviteResponse.json();
-                  console.error("Error inviting students:", inviteData);
-                  setError(`Assignment created but failed to invite some students: ${inviteData.message}`);
+                  console.error("❌ [FRONTEND DEBUG] Error inviting students:", {
+                    status: inviteResponse.status,
+                    statusText: inviteResponse.statusText,
+                    responseData: inviteData
+                  });
+                  setError(`Assignment created but failed to invite students: ${inviteData.message || 'Unknown error'}`);
+                  invitationError = true;
+                } else {
+                  const inviteData = await inviteResponse.json();
+                  console.log('✅ [FRONTEND DEBUG] Students invited successfully:', {
+                    studentsInvited: inviteData.data?.invitations_sent || 0,
+                    emailsSent: inviteData.data?.emails_sent || 0,
+                    assignmentId
+                  });
                 }
               }
             }
           } catch (inviteError) {
-            console.error("Error managing student invitations:", inviteError);
-            setError(`Assignment ${isEditMode ? 'updated' : 'created'} but there was an issue managing student invitations.`);
+            console.error("❌ [FRONTEND DEBUG] Error managing student invitations:", {
+              error: inviteError,
+              assignmentId,
+              supervisorId,
+              isEditMode,
+              selectedStudentsCount: formData.selected_students.length
+            });
+            setError(`Assignment ${isEditMode ? 'updated' : 'created'} but there was an issue managing student invitations: ${inviteError instanceof Error ? inviteError.message : 'Unknown error'}`);
+            invitationError = true;
           }
         }
 
-        if (!error) { // Only show success if no errors occurred with student management
+        if (!invitationError) { // Only show success if no errors occurred with student management
           setSuccess(`Assignment ${isEditMode ? 'updated' : 'created'} successfully! 🎉`);
-        }
-        
-        if (!isEditMode) {
-          setFormData({
-            title: "",
-            description: "",
-            instructions: "",
-            due_date: null,
-            due_time: "",
-            is_active: true,
-            max_score: "",
-            selected_students: [],
-            keep_existing_files: true,
-          });
-          setFiles([]);
-          setCurrentStep(1);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+          
+          if (!isEditMode) {
+            setFormData({
+              title: "",
+              description: "",
+              instructions: "",
+              due_date: null,
+              due_time: "",
+              is_active: true,
+              max_score: "",
+              selected_students: [],
+              keep_existing_files: true,
+              assignment_type: 'individual',
+              max_group_size: '4',
+              allow_students_create_groups: false,
+            });
+            setFiles([]);
+            setCurrentStep(1);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
           }
+          
+          setTimeout(() => {
+            onSuccess();
+            onClose();
+          }, 1500);
         }
-        
-        setTimeout(() => {
-          onSuccess();
-          onClose();
-        }, 1500);
       } else {
         if (data.errors && typeof data.errors === 'object') {
           setValidationErrors(data.errors);
