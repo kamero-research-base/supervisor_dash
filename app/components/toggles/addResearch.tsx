@@ -1,7 +1,6 @@
 "use client";
-import React, { useEffect, useState, useRef, ChangeEvent, FormEvent } from "react";
-import { X, Upload, FileText, CheckCircle, AlertCircle, Sparkles, BookOpen, Building, Calendar, School, FileUp } from "lucide-react";
-import AlertNotification from "../app/notify";
+import React, { useEffect, useState, useRef, ChangeEvent, FormEvent, useCallback } from "react";
+import { X, Upload, FileText, CheckCircle, AlertCircle, Sparkles, BookOpen, Building, Calendar, School, FileUp, Search, User, Eye, EyeOff, Clock } from "lucide-react";
 
 // Type definitions
 interface FormData {
@@ -13,6 +12,7 @@ interface FormData {
   department: string;
   year: string;
   abstract: string;
+  isPublic: boolean;
 }
 
 interface School {
@@ -30,6 +30,7 @@ interface Department {
 
 interface UserSession {
   id: string;
+  name?: string;
   [key: string]: any;
 }
 
@@ -39,6 +40,18 @@ interface AddResearchProps {
 
 interface ApiError {
   error: string;
+}
+
+interface ExistingResearch {
+  title: string;
+  abstract: string;
+  researcher: string;
+}
+
+interface ResearcherInfo {
+  researcher: string;
+  institute?: string;
+  school?: string;
 }
 
 const researchTopics: string[] = [
@@ -54,6 +67,98 @@ const researchTopics: string[] = [
   "Innovation and Technology Transfer"
 ];
 
+// Enhanced similarity detection using multiple algorithms
+const normalizeText = (text: string): string => {
+  return text.toLowerCase()
+    .trim()
+    .replace(/[^\w\s]/g, '') // Remove punctuation
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/\b(the|a|an|and|or|of|in|on|at|to|for|with|by)\b/g, ''); // Remove common words
+};
+
+// Levenshtein distance
+const levenshteinSimilarity = (str1: string, str2: string): number => {
+  const s1 = normalizeText(str1);
+  const s2 = normalizeText(str2);
+  
+  if (s1 === s2) return 100;
+  if (s1.length === 0 || s2.length === 0) return 0;
+  
+  const matrix = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+  
+  for (let i = 0; i <= s1.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= s2.length; j++) matrix[j][0] = j;
+  
+  for (let j = 1; j <= s2.length; j++) {
+    for (let i = 1; i <= s1.length; i++) {
+      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j - 1][i] + 1,
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i - 1] + cost
+      );
+    }
+  }
+  
+  const maxLength = Math.max(s1.length, s2.length);
+  return ((maxLength - matrix[s2.length][s1.length]) / maxLength) * 100;
+};
+
+// Jaccard similarity (word-based)
+const jaccardSimilarity = (str1: string, str2: string): number => {
+  const words1 = new Set(normalizeText(str1).split(' ').filter(w => w.length > 2));
+  const words2 = new Set(normalizeText(str2).split(' ').filter(w => w.length > 2));
+  
+  const intersection = new Set([...words1].filter(x => words2.has(x)));
+  const union = new Set([...words1, ...words2]);
+  
+  return union.size === 0 ? 0 : (intersection.size / union.size) * 100;
+};
+
+// Cosine similarity (character n-grams)
+const cosineSimilarity = (str1: string, str2: string): number => {
+  const getNGrams = (text: string, n: number = 3): Map<string, number> => {
+    const ngrams = new Map<string, number>();
+    const normalized = normalizeText(text);
+    for (let i = 0; i <= normalized.length - n; i++) {
+      const ngram = normalized.slice(i, i + n);
+      ngrams.set(ngram, (ngrams.get(ngram) || 0) + 1);
+    }
+    return ngrams;
+  };
+
+  const ngrams1 = getNGrams(str1);
+  const ngrams2 = getNGrams(str2);
+  
+  const allNgrams = new Set([...ngrams1.keys(), ...ngrams2.keys()]);
+  
+  let dotProduct = 0;
+  let norm1 = 0;
+  let norm2 = 0;
+  
+  for (const ngram of allNgrams) {
+    const count1 = ngrams1.get(ngram) || 0;
+    const count2 = ngrams2.get(ngram) || 0;
+    
+    dotProduct += count1 * count2;
+    norm1 += count1 * count1;
+    norm2 += count2 * count2;
+  }
+  
+  return norm1 === 0 || norm2 === 0 ? 0 : (dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2))) * 100;
+};
+
+// Combined similarity score
+const calculateSimilarity = (str1: string, str2: string): number => {
+  const levenshtein = levenshteinSimilarity(str1, str2);
+  const jaccard = jaccardSimilarity(str1, str2);
+  const cosine = cosineSimilarity(str1, str2);
+  
+  // Weighted average (Levenshtein gets more weight as it's more strict)
+  const combinedScore = (levenshtein * 0.5) + (jaccard * 0.3) + (cosine * 0.2);
+  return Math.round(combinedScore);
+};
+
 const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
   const [formData, setFormData] = useState<FormData>({
     title: "",
@@ -64,6 +169,7 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
     department: "",
     year: "",
     abstract: "",
+    isPublic: true,
   });
   
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -82,10 +188,36 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
   const [showSchoolDropdown, setShowSchoolDropdown] = useState<boolean>(false);
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState<boolean>(false);
   
+  // Enhanced validation states
+  const [existingResearch, setExistingResearch] = useState<ExistingResearch[]>([]);
+  const [researcherList, setResearcherList] = useState<ResearcherInfo[]>([]);
+  const [validationErrors, setValidationErrors] = useState<{title?: string, abstract?: string}>({});
+  const [isValidating, setIsValidating] = useState({title: false, abstract: false});
+  const [validationStatus, setValidationStatus] = useState<{title?: 'pending' | 'valid' | 'invalid', abstract?: 'pending' | 'valid' | 'invalid'}>({});
+  const [showResearcherDropdown, setShowResearcherDropdown] = useState(false);
+  const [filteredResearchers, setFilteredResearchers] = useState<ResearcherInfo[]>([]);
+  const [userSession, setUserSession] = useState<any>(null);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const schoolDropdownRef = useRef<HTMLDivElement>(null);
   const departmentDropdownRef = useRef<HTMLDivElement>(null);
+  const researcherRef = useRef<HTMLInputElement>(null);
+  const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abstractTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get user session on mount
+  useEffect(() => {
+    try {
+      const session = JSON.parse(localStorage.getItem('userSession') || '{}');
+      setUserSession(session);
+      if (session && session.name) {
+        setFormData(prev => ({ ...prev, researcher: session.name }));
+      }
+    } catch (error) {
+      console.error("Error parsing user session:", error);
+    }
+  }, []);
 
   // Get institution ID from localStorage
   useEffect(() => {
@@ -101,6 +233,147 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
       }
     }
   }, []);
+
+  // Fetch existing research data for similarity checking
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch titles and abstracts
+        const [titlesRes, abstractsRes, researchersRes] = await Promise.all([
+          fetch('/api/research/similars/titles'),
+          fetch('/api/research/similars/abstracts'),
+          fetch('/api/research/similars/researchers')
+        ]);
+        
+        const titles = await titlesRes.json();
+        const abstracts = await abstractsRes.json();
+        const researchers = await researchersRes.json();
+        
+        // Combine data
+        const combinedData: ExistingResearch[] = [];
+        const researcherMap = new Map();
+        
+        titles.forEach((item: any) => {
+          if (!researcherMap.has(item.researcher)) {
+            researcherMap.set(item.researcher, { titles: [], abstracts: [] });
+          }
+          researcherMap.get(item.researcher).titles.push(item.title);
+        });
+        
+        abstracts.forEach((item: any) => {
+          if (!researcherMap.has(item.researcher)) {
+            researcherMap.set(item.researcher, { titles: [], abstracts: [] });
+          }
+          researcherMap.get(item.researcher).abstracts.push(item.abstract);
+        });
+        
+        researcherMap.forEach((data, researcher) => {
+          data.titles.forEach((title: string) => {
+            data.abstracts.forEach((abstract: string) => {
+              combinedData.push({ title, abstract, researcher });
+            });
+          });
+        });
+        
+        setExistingResearch(combinedData);
+        setResearcherList(researchers);
+        setFilteredResearchers(researchers);
+      } catch (error) {
+        console.error("Error fetching research data:", error);
+      }
+    };
+    
+    fetchData();
+  }, []);
+
+  // Enhanced debounced validation function
+  const debouncedValidation = useCallback((field: 'title' | 'abstract', value: string) => {
+    if (!value.trim()) {
+      setValidationErrors(prev => ({ ...prev, [field]: undefined }));
+      setValidationStatus(prev => ({ ...prev, [field]: undefined }));
+      return;
+    }
+    
+    setIsValidating(prev => ({ ...prev, [field]: true }));
+    setValidationStatus(prev => ({ ...prev, [field]: 'pending' }));
+    
+    setTimeout(() => {
+      // Check for exact matches first (100% similarity)
+      const exactMatches = existingResearch.filter(research => 
+        normalizeText(research[field]) === normalizeText(value)
+      );
+      
+      if (exactMatches.length > 0) {
+        setValidationErrors(prev => ({
+          ...prev,
+          [field]: `🚫 EXACT MATCH FOUND: "${exactMatches[0][field]}" by ${exactMatches[0].researcher}. Please choose a different ${field}.`
+        }));
+        setValidationStatus(prev => ({ ...prev, [field]: 'invalid' }));
+        setIsValidating(prev => ({ ...prev, [field]: false }));
+        return;
+      }
+      
+      // Cross-field validation: Check title against abstracts and vice versa
+      const crossFieldMatches = existingResearch.filter(research => {
+        const crossField = field === 'title' ? 'abstract' : 'title';
+        return calculateSimilarity(value, research[crossField]) >= 75; // Higher threshold for cross-field
+      });
+      
+      if (crossFieldMatches.length > 0) {
+        const crossField = field === 'title' ? 'abstract' : 'title';
+        const topCrossMatch = crossFieldMatches[0];
+        setValidationErrors(prev => ({
+          ...prev,
+          [field]: `🚫 CROSS-FIELD SIMILARITY: Your ${field} is highly similar to an existing ${crossField}:\n"${topCrossMatch[crossField]}" by ${topCrossMatch.researcher}\nThis indicates potential duplicate research content.`
+        }));
+        setValidationStatus(prev => ({ ...prev, [field]: 'invalid' }));
+        setIsValidating(prev => ({ ...prev, [field]: false }));
+        return;
+      }
+      
+      // Check for high similarity (70%+ threshold - blocking)
+      const highSimilarities = existingResearch
+        .map(research => ({
+          ...research,
+          similarity: calculateSimilarity(value, research[field])
+        }))
+        .filter(item => item.similarity >= 70)
+        .sort((a, b) => b.similarity - a.similarity);
+      
+      if (highSimilarities.length > 0) {
+        const topMatch = highSimilarities[0];
+        setValidationErrors(prev => ({
+          ...prev,
+          [field]: `🚫 HIGH SIMILARITY DETECTED (${topMatch.similarity}%): "${topMatch[field]}" by ${topMatch.researcher}\nPlease make your ${field} more unique to proceed.`
+        }));
+        setValidationStatus(prev => ({ ...prev, [field]: 'invalid' }));
+        setError(`${field} similarity too high. Please revise before submitting.`);
+      } else {
+        // Check for moderate similarity (50-69%) as warnings
+        const moderateSimilarities = existingResearch
+          .map(research => ({
+            ...research,
+            similarity: calculateSimilarity(value, research[field])
+          }))
+          .filter(item => item.similarity >= 50)
+          .sort((a, b) => b.similarity - a.similarity);
+        
+        if (moderateSimilarities.length > 0) {
+          const topMatch = moderateSimilarities[0];
+          setValidationErrors(prev => ({
+            ...prev,
+            [field]: `⚡ MODERATE SIMILARITY (${topMatch.similarity}%): "${topMatch[field]}" by ${topMatch.researcher}\nConsider making your ${field} more distinctive, but submission is allowed.`
+          }));
+          setValidationStatus(prev => ({ ...prev, [field]: 'valid' }));
+        } else {
+          setValidationErrors(prev => ({ ...prev, [field]: undefined }));
+          setValidationStatus(prev => ({ ...prev, [field]: 'valid' }));
+        }
+      }
+      
+      setIsValidating(prev => ({ ...prev, [field]: false }));
+    }, 2000); // Reduced timeout for better UX
+  }, [existingResearch]);
 
   // Fetch schools
   useEffect(() => {
@@ -181,9 +454,61 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Cleanup timeouts
+  useEffect(() => {
+    return () => {
+      if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+      if (abstractTimeoutRef.current) clearTimeout(abstractTimeoutRef.current);
+    };
+  }, []);
+
+  // Handle input changes with debounced validation
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void => {
     const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
+    
+    // Clear existing timeouts and validation states
+    if (id === 'title') {
+      if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+      setValidationErrors(prev => ({ ...prev, title: undefined }));
+      setValidationStatus(prev => ({ ...prev, title: undefined }));
+    }
+    if (id === 'abstract') {
+      if (abstractTimeoutRef.current) clearTimeout(abstractTimeoutRef.current);
+      setValidationErrors(prev => ({ ...prev, abstract: undefined }));
+      setValidationStatus(prev => ({ ...prev, abstract: undefined }));
+    }
+    
+    // Set new timeout for validation
+    if (id === 'title' || id === 'abstract') {
+      const timeoutId = setTimeout(() => {
+        debouncedValidation(id as 'title' | 'abstract', value);
+      }, 1000); // Shorter debounce for better UX
+      
+      if (id === 'title') {
+        titleTimeoutRef.current = timeoutId;
+      } else {
+        abstractTimeoutRef.current = timeoutId;
+      }
+    }
+    
+    // Handle researcher field
+    if (id === 'researcher') {
+      const filtered = researcherList.filter(r => 
+        r.researcher.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredResearchers(filtered);
+      setShowResearcherDropdown(value.length > 0);
+    }
+  };
+
+  const handleVisibilityChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, isPublic: e.target.value === 'true' }));
+  };
+
+  const handleResearcherSelect = (researcher: ResearcherInfo) => {
+    setFormData(prev => ({ ...prev, researcher: researcher.researcher }));
+    setShowResearcherDropdown(false);
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>): void => {
@@ -197,22 +522,44 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
         'application/pdf', 
         'application/msword', 
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'text/plain',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        'text/plain'
       ];
       if (!allowedTypes.includes(selectedFile.type)) {
-        setError("Only PDF, DOC, DOCX, TXT, PPT, PPTX, XLS, XLSX files are allowed");
+        setError("Only PDF, DOC, DOCX, TXT files are allowed");
         return;
       }
       setFile(selectedFile);
     }
   };
 
+  // Enhanced validation checking
+  const hasBlockingValidationErrors = (): any => {
+    const titleBlocked = validationStatus.title === 'invalid' || 
+                        validationErrors.title?.includes('🚫');
+    const abstractBlocked = validationStatus.abstract === 'invalid' || 
+                           validationErrors.abstract?.includes('🚫');
+    return titleBlocked || abstractBlocked;
+  };
+
+  const isValidationInProgress = (): boolean => {
+    return isValidating.title || isValidating.abstract || 
+           validationStatus.title === 'pending' || 
+           validationStatus.abstract === 'pending';
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>): Promise<void> => {
     e.preventDefault();
+    
+    // Enhanced validation blocking
+    if (hasBlockingValidationErrors()) {
+      setError("Please resolve all similarity issues before submitting. High similarity (≥70%) and exact matches are not allowed.");
+      return;
+    }
+    
+    if (isValidationInProgress()) {
+      setError("Please wait for similarity checking to complete before submitting.");
+      return;
+    }
     
     if (!file) {
       setError("Please upload a document");
@@ -226,7 +573,9 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
     try {
       const payload = new FormData();
       Object.entries(formData).forEach(([key, value]) => {
-        if (value) payload.append(key, value);
+        if (value !== null && value !== undefined) {
+          payload.append(key, String(value));
+        }
       });
       
       if (file) {
@@ -243,19 +592,22 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
       });
 
       if (response.ok) {
-        setSuccess("Research added successfully! 🎉");
+        setSuccess("Research added successfully!");
         setFormData({
           title: "",
-          researcher: "",
+          researcher: userSession?.name || "",
           category: "",
           status: "",
           school: "",
           department: "",
           year: "",
           abstract: "",
+          isPublic: true,
         });
         setSchoolSearchTerm("");
         setDepartmentSearchTerm("");
+        setValidationErrors({});
+        setValidationStatus({});
         setFile(null);
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
@@ -277,34 +629,45 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
     }
   };
 
+  // Enhanced step validation
   const isStepValid = (step: number): boolean => {
     switch(step) {
       case 1:
-        return formData.title !== "" && formData.researcher !== "" && formData.category !== "";
+        const titleValid = formData.title !== "" && 
+                          validationStatus.title !== 'invalid' && 
+                          !isValidating.title;
+        return titleValid && 
+               formData.researcher !== "" && 
+               formData.category !== "";
       case 2:
-        return formData.status !== "" && formData.year !== "" && formData.school !== "" && formData.department !== "";
+        return formData.status !== "" && 
+               formData.year !== "" && 
+               formData.school !== "" && 
+               formData.department !== "";
       case 3:
-        return formData.abstract !== "" && file !== null;
+        const abstractValid = formData.abstract !== "" && 
+                             validationStatus.abstract !== 'invalid' && 
+                             !isValidating.abstract;
+        return abstractValid && 
+               file !== null && 
+               !hasBlockingValidationErrors() &&
+               !isValidationInProgress();
       default:
         return false;
     }
   };
 
-  const maskFileName = (filename: string): string => {
-    if (!filename || filename.length <= 10) {
-      return filename;
+  const getValidationIcon = (field: 'title' | 'abstract') => {
+    if (isValidating[field]) {
+      return <div className="w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />;
     }
-    
-    const extension = filename.split('.').pop() || '';
-    const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'));
-    
-    if (nameWithoutExt.length <= 6) {
-      return filename;
+    if (validationStatus[field] === 'valid') {
+      return <CheckCircle size={20} className="text-green-500" />;
     }
-    
-    const firstPart = nameWithoutExt.substring(0, 3);
-    const lastPart = nameWithoutExt.substring(nameWithoutExt.length - 3);
-    return `${firstPart}***${lastPart}.${extension}`;
+    if (validationStatus[field] === 'invalid') {
+      return <AlertCircle size={20} className="text-red-500" />;
+    }
+    return null;
   };
 
   const filteredSchools = schools.filter((school: School) =>
@@ -312,477 +675,454 @@ const AddResearch: React.FC<AddResearchProps> = ({ onClose = () => {} }) => {
   );
 
   const filteredDepartments = departments.filter((department: Department) =>
-    `${department.name} ${department.school} ${department.institute}`
-      .toLowerCase()
-      .includes(departmentSearchTerm.toLowerCase())
+    department.name.toLowerCase().includes(departmentSearchTerm.toLowerCase())
   );
-
-  const handleSchoolSelect = (school: School) => (e: React.MouseEvent): void => {
-    e.preventDefault();
-    setSchoolSearchTerm(school.name);
-    setDepartmentSearchTerm("");
-    setFormData({ ...formData, school: school.id, department: "" });
-    setDepartments([]);
-    setShowSchoolDropdown(false);
-  };
-
-  const handleDepartmentSelect = (department: Department) => (e: React.MouseEvent): void => {
-    e.preventDefault();
-    setDepartmentSearchTerm(department.name);
-    setFormData({ ...formData, department: department.id });
-    setShowDepartmentDropdown(false);
-  };
 
   return (
     <>
       <style jsx>{`
-        @keyframes slide-in {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        
-        @keyframes scale-in {
-          from {
-            transform: scale(0.9);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-        
-        @keyframes shimmer {
-          0% {
-            background-position: -1000px 0;
-          }
-          100% {
-            background-position: 1000px 0;
-          }
-        }
-        
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
-        
-        .animate-fade-in {
-          animation: fade-in 0.4s ease-out;
-        }
-        
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
-        
-        .shimmer {
-          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
-          background-size: 1000px 100%;
-          animation: shimmer 2s infinite;
-        }
-        
-        .gradient-border {
-          background: linear-gradient(135deg, #14b8a6 0%, #0891b2 50%, #6366f1 100%);
-          padding: 2px;
-          border-radius: 1rem;
-        }
-        
-        .glass-effect {
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.18);
-        }
-        
-        .floating {
-          animation: float 3s ease-in-out infinite;
-        }
-        
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
+        @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scale-in { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .animate-slide-in { animation: slide-in 0.3s ease-out; }
+        .animate-fade-in { animation: fade-in 0.4s ease-out; }
+        .animate-scale-in { animation: scale-in 0.3s ease-out; }
+        .animate-pulse { animation: pulse 2s infinite; }
       `}</style>
 
-      {error && <AlertNotification message={error} type="error" />}
-      {success && <AlertNotification message={success} type="success" />}
+      {error && (
+        <div className="fixed top-4 right-4 z-50 bg-red-500 text-white p-4 rounded-lg shadow-lg animate-slide-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={20} />
+            {error}
+          </div>
+        </div>
+      )}
       
-      <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4 ${showModal ? 'animate-fade-in' : ''}`}>
-        <div ref={modalRef} className="gradient-border w-full max-w-4xl max-h-[90vh] animate-scale-in">
-          <div className="glass-effect rounded-2xl overflow-hidden">
-            {/* Header */}
-            <div className="relative bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 p-6 text-white">
-              <button
-                onClick={onClose}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-300 hover:scale-110"
-                type="button"
-              >
-                <X size={20} />
-              </button>
-              
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-white/20 rounded-full floating">
-                  <BookOpen size={28} />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">Upload Research Material</h2>
-                  <p className="text-white/80 text-sm">Share your knowledge with the community</p>
-                </div>
+      {success && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white p-4 rounded-lg shadow-lg animate-slide-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle size={20} />
+            {success}
+          </div>
+        </div>
+      )}
+      
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4 animate-fade-in">
+        <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-scale-in">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 p-6 text-white">
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-300"
+              type="button"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-white/20 rounded-full">
+                <BookOpen size={28} />
               </div>
-              
-              {/* Progress Steps */}
-              <div className="flex items-center justify-center gap-2 mt-6">
-                {[1, 2, 3].map((step: number) => (
-                  <div key={step} className="flex items-center">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all duration-300 ${
-                      currentStep >= step ? 'bg-white text-teal-600 scale-110' : 'bg-white/20 text-white/60'
-                    }`}>
-                      {currentStep > step ? <CheckCircle size={20} /> : step}
-                    </div>
-                    {step < 3 && (
-                      <div className={`w-16 h-1 mx-2 rounded transition-all duration-500 ${
-                        currentStep > step ? 'bg-white' : 'bg-white/20'
-                      }`} />
-                    )}
-                  </div>
-                ))}
+              <div>
+                <h2 className="text-2xl font-bold">Upload Research Material</h2>
+                <p className="text-white/80 text-sm">Share your knowledge with the community</p>
               </div>
             </div>
             
-            {/* Form Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              {/* Step 1: Basic Information */}
-              {currentStep === 1 && (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="relative group">
-                      <input
-                        id="title"
-                        type="text"
-                        value={formData.title}
-                        onChange={handleChange}
-                        onFocus={() => setFocusedField('title')}
-                        onBlur={() => setFocusedField('')}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer"
-                        placeholder=" "
-                        required
-                      />
-                      <label htmlFor="title" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
-                        Research Title <span className="text-red-500">*</span>
-                      </label>
-                      {focusedField === 'title' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
+            {/* Progress Steps */}
+            <div className="flex items-center justify-center gap-2 mt-6">
+              {[1, 2, 3].map((step: number) => (
+                <div key={step} className="flex items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all duration-300 ${
+                    currentStep >= step ? 'bg-white text-teal-600' : 'bg-white/20 text-white/60'
+                  }`}>
+                    {currentStep > step ? <CheckCircle size={20} /> : step}
+                  </div>
+                  {step < 3 && (
+                    <div className={`w-16 h-1 mx-2 rounded transition-all duration-500 ${
+                      currentStep > step ? 'bg-white' : 'bg-white/20'
+                    }`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Form Content */}
+          <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+            {/* Validation Status Banner */}
+            {(hasBlockingValidationErrors() || isValidationInProgress()) && (
+              <div className={`mb-6 p-4 rounded-lg border ${
+                hasBlockingValidationErrors() 
+                  ? 'bg-red-50 border-red-200' 
+                  : 'bg-blue-50 border-blue-200'
+              }`}>
+                <div className="flex items-center gap-2 mb-2">
+                  {isValidationInProgress() ? (
+                    <Clock size={16} className="text-blue-600" />
+                  ) : (
+                    <AlertCircle size={16} className="text-red-600" />
+                  )}
+                  <h3 className={`font-semibold ${
+                    hasBlockingValidationErrors() ? 'text-red-800' : 'text-blue-800'
+                  }`}>
+                    {isValidationInProgress() 
+                      ? 'Similarity Check in Progress...' 
+                      : 'Submission Blocked - Similarity Issues Detected'
+                    }
+                  </h3>
+                </div>
+                <p className={`text-sm ${
+                  hasBlockingValidationErrors() ? 'text-red-700' : 'text-blue-700'
+                }`}>
+                  {isValidationInProgress()
+                    ? 'Please wait while we check your content for similarities with existing research.'
+                    : 'High similarity or exact matches found. Please revise your content before submitting.'
+                  }
+                </p>
+              </div>
+            )}
+
+            {/* Step 1: Basic Information */}
+            {currentStep === 1 && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="relative group">
+                    <input
+                      id="title"
+                      type="text"
+                      value={formData.title}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 pr-12 border-2 rounded-lg focus:outline-none transition-all duration-300 peer ${
+                        validationStatus.title === 'invalid' ? 'border-red-500' : 
+                        validationStatus.title === 'valid' ? 'border-green-500' :
+                        'border-gray-200 focus:border-teal-500'
+                      }`}
+                      placeholder=" "
+                      required
+                    />
+                    <label htmlFor="title" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
+                      Research Title <span className="text-red-500">*</span>
+                    </label>
+                    <div className="absolute right-3 top-3">
+                      {getValidationIcon('title')}
                     </div>
-                    
-                    <div className="relative group">
-                      <input
-                        id="researcher"
-                        type="text"
-                        value={formData.researcher}
-                        onChange={handleChange}
-                        onFocus={() => setFocusedField('researcher')}
-                        onBlur={() => setFocusedField('')}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer"
-                        placeholder=" "
-                        required
-                      />
-                      <label htmlFor="researcher" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
-                        Researcher Name <span className="text-red-500">*</span>
-                      </label>
-                      {focusedField === 'researcher' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
-                    </div>
+                    {validationErrors.title && (
+                      <div className={`mt-2 p-3 border rounded-lg ${
+                        validationStatus.title === 'invalid' 
+                          ? 'bg-red-50 border-red-200' 
+                          : 'bg-yellow-50 border-yellow-200'
+                      }`}>
+                        <div className="flex items-start gap-2">
+                          <AlertCircle size={16} className={`mt-0.5 flex-shrink-0 ${
+                            validationStatus.title === 'invalid' ? 'text-red-500' : 'text-yellow-600'
+                          }`} />
+                          <div className={`text-sm whitespace-pre-line ${
+                            validationStatus.title === 'invalid' ? 'text-red-700' : 'text-yellow-700'
+                          }`}>
+                            {validationErrors.title}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="relative group">
-                    <select
-                      id="category"
-                      value={formData.category}
+                    <input
+                      ref={researcherRef}
+                      id="researcher"
+                      type="text"
+                      value={formData.researcher}
                       onChange={handleChange}
-                      onFocus={() => setFocusedField('category')}
-                      onBlur={() => setFocusedField('')}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer"
+                      placeholder=" "
+                      required
+                    />
+                    <label htmlFor="researcher" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
+                      <User size={16} className="inline mr-1" />
+                      Researcher Name <span className="text-red-500">*</span>
+                    </label>
+                  </div>
+                </div>
+                
+                <div className="relative group">
+                  <select
+                    id="category"
+                    value={formData.category}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 appearance-none peer"
+                    required
+                  >
+                    <option value=""></option>
+                    {researchTopics.map((topic: string, i: number) => (
+                      <option key={i} value={topic}>{topic}</option>
+                    ))}
+                  </select>
+                  <label htmlFor="category" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
+                    Research Category <span className="text-red-500">*</span>
+                  </label>
+                </div>
+              </div>
+            )}
+            
+            {/* Step 2: Research Details */}
+            {currentStep === 2 && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="relative group">
+                    <select
+                      id="status"
+                      value={formData.status}
+                      onChange={handleChange}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 appearance-none peer"
                       required
                     >
                       <option value=""></option>
-                      {researchTopics.map((topic: string, i: number) => (
-                        <option key={i} value={topic}>{topic}</option>
-                      ))}
+                      <option value="ongoing">🔄 Ongoing</option>
+                      <option value="completed">✅ Completed</option>
+                      <option value="pending">🔶 Pending</option>
                     </select>
-                    <label htmlFor="category" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
-                      Research Category <span className="text-red-500">*</span>
+                    <label htmlFor="status" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
+                      Progress Status <span className="text-red-500">*</span>
                     </label>
-                    {focusedField === 'category' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
                   </div>
-                </div>
-              )}
-              
-              {/* Step 2: Research Details with School and Department */}
-              {currentStep === 2 && (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="relative group">
-                      <select
-                        id="status"
-                        value={formData.status}
-                        onChange={handleChange}
-                        onFocus={() => setFocusedField('status')}
-                        onBlur={() => setFocusedField('')}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 appearance-none peer"
-                        required
-                      >
-                        <option value=""></option>
-                        <option value="ongoing">🔄 Ongoing</option>
-                        <option value="completed">✅ Completed</option>
-                        <option value="pending">🔶 Pending</option>
-                      </select>
-                      <label htmlFor="status" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
-                        Progress Status <span className="text-red-500">*</span>
-                      </label>
-                      {focusedField === 'status' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
-                    </div>
-                    
-                    <div className="relative group">
-                      <input
-                        id="year"
-                        type="text"
-                        value={formData.year}
-                        onChange={handleChange}
-                        onFocus={() => setFocusedField('year')}
-                        onBlur={() => setFocusedField('')}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer"
-                        placeholder=" "
-                        pattern="[0-9]{4}"
-                        maxLength={4}
-                        required
-                      />
-                      <label htmlFor="year" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
-                        <Calendar size={16} className="inline mr-1" />
-                        Year <span className="text-red-500">*</span>
-                      </label>
-                      {focusedField === 'year' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
-                    </div>
-                  </div>
-
-                  {/* School Selection */}
-                  <div ref={schoolDropdownRef} className="relative group">
+                  
+                  <div className="relative group">
                     <input
+                      id="year"
                       type="text"
-                      id="school"
+                      value={formData.year}
+                      onChange={handleChange}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer"
-                      onFocus={() => {
-                        setFocusedField('school');
-                        setShowSchoolDropdown(true);
-                      }}
-                      onBlur={() => setFocusedField('')}
-                      value={schoolSearchTerm}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        setSchoolSearchTerm(e.target.value);
-                        setShowSchoolDropdown(true);
-                      }}
                       placeholder=" "
+                      pattern="[0-9]{4}"
+                      maxLength={4}
                       required
                     />
-                    <label htmlFor="school" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
+                    <label htmlFor="year" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
+                      <Calendar size={16} className="inline mr-1" />
+                      Year <span className="text-red-500">*</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Visibility selection */}
+                <div className="relative group">
+                  <label className="block text-gray-500 mb-2">Visibility</label>
+                  <div className="flex gap-4">
+                    <label className={`flex-1 p-4 border-2 rounded-lg cursor-pointer transition-all duration-300 ${formData.isPublic ? 'border-teal-500 bg-teal-50' : 'border-gray-200'}`}>
+                      <input
+                        type="radio"
+                        name="visibility"
+                        value="true"
+                        checked={formData.isPublic}
+                        onChange={handleVisibilityChange}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center gap-3">
+                        <Eye size={20} className="text-teal-600" />
+                        <div>
+                          <p className="font-semibold text-gray-800">Public</p>
+                          <p className="text-sm text-gray-500">Visible to everyone</p>
+                        </div>
+                      </div>
+                    </label>
+                    <label className={`flex-1 p-4 border-2 rounded-lg cursor-pointer transition-all duration-300 ${!formData.isPublic ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`}>
+                      <input
+                        type="radio"
+                        name="visibility"
+                        value="false"
+                        checked={!formData.isPublic}
+                        onChange={handleVisibilityChange}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center gap-3">
+                        <EyeOff size={20} className="text-indigo-600" />
+                        <div>
+                          <p className="font-semibold text-gray-800">Private</p>
+                          <p className="text-sm text-gray-500">Description only</p>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* School and Department selection (simplified for demo) */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="relative group">
+                    <select
+                      id="school"
+                      value={formData.school}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 appearance-none peer"
+                      required
+                    >
+                      <option value=""></option>
+                      {schools.map((school) => (
+                        <option key={school.id} value={school.id}>{school.name}</option>
+                      ))}
+                    </select>
+                    <label htmlFor="school" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
                       <School size={16} className="inline mr-1" />
                       School <span className="text-red-500">*</span>
                     </label>
-                    {showSchoolDropdown && (
-                      <div className="absolute w-full bg-white border border-gray-300 rounded-md mt-1 shadow-lg z-20 max-h-48 overflow-y-auto">
-                        {filteredSchools.length > 0 ? (
-                          <ul>
-                            {filteredSchools.map((school: School) => (
-                              <li
-                                key={school.id}
-                                className="px-3 py-2 hover:bg-gray-200 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                onMouseDown={handleSchoolSelect(school)}
-                              >
-                                <div className="font-medium">{school.name}</div>
-                                <div className="text-sm text-gray-500">{school.institute}</div>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <div className="px-4 py-3 text-gray-500 text-center">
-                            No schools found
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {focusedField === 'school' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
                   </div>
 
-                  {/* Department Selection */}
-                  <div ref={departmentDropdownRef} className="relative group">
-                    <input
-                      type="text"
+                  <div className="relative group">
+                    <select
                       id="department"
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 peer disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      onFocus={() => {
-                        if (formData.school) {
-                          setFocusedField('department');
-                          setShowDepartmentDropdown(true);
-                        }
-                      }}
-                      onBlur={() => setFocusedField('')}
-                      value={departmentSearchTerm}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        setDepartmentSearchTerm(e.target.value);
-                        setShowDepartmentDropdown(true);
-                      }}
-                      placeholder={!formData.school ? "Select a school first" : " "}
+                      value={formData.department}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 appearance-none peer disabled:bg-gray-100"
                       disabled={!formData.school}
                       required
-                    />
-                    <label htmlFor="department" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none peer-disabled:text-gray-400">
+                    >
+                      <option value=""></option>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>{dept.name}</option>
+                      ))}
+                    </select>
+                    <label htmlFor="department" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none peer-disabled:text-gray-400">
                       <Building size={16} className="inline mr-1" />
                       Department <span className="text-red-500">*</span>
                     </label>
-                    {showDepartmentDropdown && formData.school && (
-                      <div className="absolute w-full bg-white border border-gray-300 rounded-md mt-1 shadow-lg z-10 max-h-48 overflow-y-auto">
-                        {filteredDepartments.length > 0 ? (
-                          <ul>
-                            {filteredDepartments.map((department: Department) => (
-                              <li
-                                key={department.id}
-                                className="px-3 py-2 hover:bg-gray-200 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                onMouseDown={handleDepartmentSelect(department)}
-                              >
-                                <div className="font-medium">{department.name}</div>
-                                <div className="text-sm text-gray-500">{department.school} - {department.institute}</div>
-                              </li>
-                            ))}
-                          </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Step 3: Document & Abstract */}
+            {currentStep === 3 && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="relative">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.txt"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-teal-500 transition-all duration-300 group"
+                  >
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="p-4 bg-teal-50 rounded-full group-hover:bg-teal-100">
+                        {file ? (
+                          <CheckCircle size={32} className="text-teal-600" />
                         ) : (
-                          <div className="px-4 py-3 text-gray-500 text-center">
-                            No departments found
-                          </div>
+                          <FileUp size={32} className="text-teal-600" />
                         )}
                       </div>
-                    )}
-                    {focusedField === 'department' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
-                  </div>
+                      <div>
+                        <p className="text-lg font-medium text-gray-700">
+                          {file ? file.name : "Click to upload document"}
+                        </p>
+                        <p className="text-sm text-gray-500">PDF, DOC, DOCX, TXT (Max 10MB)</p>
+                      </div>
+                    </div>
+                  </button>
                 </div>
-              )}
-              
-              {/* Step 3: Document & Abstract */}
-              {currentStep === 3 && (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="relative">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      onChange={handleFileChange}
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.txt,.ppt,.pptx,.xls,.xlsx"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-teal-500 transition-all duration-300 group overflow-hidden"
-                    >
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="p-4 bg-teal-50 rounded-full group-hover:bg-teal-100 transition-colors">
-                          {file ? (
-                            <CheckCircle size={32} className="text-teal-600" />
-                          ) : (
-                            <FileUp size={32} className="text-teal-600" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-lg font-medium text-gray-700 truncate">
-                            {file ? maskFileName(file.name) : "Click to upload document"}
-                          </p>
-                          <p className="text-sm text-gray-500">PDF, DOC, DOCX, TXT, PPT, PPTX, XLS, XLSX (Max 10MB)</p>
+                
+                <div className="relative">
+                  <textarea
+                    id="abstract"
+                    value={formData.abstract}
+                    onChange={handleChange}
+                    rows={6}
+                    className={`w-full px-4 py-3 pr-12 border-2 rounded-lg focus:outline-none transition-all duration-300 resize-none peer ${
+                      validationStatus.abstract === 'invalid' ? 'border-red-500' : 
+                      validationStatus.abstract === 'valid' ? 'border-green-500' :
+                      'border-gray-200 focus:border-teal-500'
+                    }`}
+                    placeholder=" "
+                    required
+                  />
+                  <label htmlFor="abstract" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
+                    Abstract <span className="text-red-500">*</span>
+                  </label>
+                  <div className="absolute right-3 top-3">
+                    {getValidationIcon('abstract')}
+                  </div>
+                  {validationErrors.abstract && (
+                    <div className={`mt-2 p-3 border rounded-lg ${
+                      validationStatus.abstract === 'invalid'
+                        ? 'bg-red-50 border-red-200' 
+                        : 'bg-yellow-50 border-yellow-200'
+                    }`}>
+                      <div className="flex items-start gap-2">
+                        <AlertCircle size={16} className={`mt-0.5 flex-shrink-0 ${
+                          validationStatus.abstract === 'invalid' ? 'text-red-500' : 'text-yellow-600'
+                        }`} />
+                        <div className={`text-sm whitespace-pre-line ${
+                          validationStatus.abstract === 'invalid' ? 'text-red-700' : 'text-yellow-700'
+                        }`}>
+                          {validationErrors.abstract}
                         </div>
                       </div>
-                    </button>
-                  </div>
-                  
-                  <div className="relative">
-                    <textarea
-                      id="abstract"
-                      value={formData.abstract}
-                      onChange={handleChange}
-                      onFocus={() => setFocusedField('abstract')}
-                      onBlur={() => setFocusedField('')}
-                      rows={6}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none transition-all duration-300 resize-none peer"
-                      placeholder=" "
-                      required
-                    />
-                    <label htmlFor="abstract" className="absolute left-4 top-3 text-gray-500 transition-all duration-300 peer-focus:text-teal-500 peer-focus:-top-2.5 peer-focus:bg-white peer-focus:px-2 peer-focus:text-sm peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2 peer-[:not(:placeholder-shown)]:text-sm pointer-events-none">
-                      Abstract <span className="text-red-500">*</span>
-                    </label>
-                    {focusedField === 'abstract' && <div className="absolute inset-0 rounded-lg shimmer pointer-events-none" />}
-                  </div>
-                </div>
-              )}
-              
-              {/* Navigation Buttons */}
-              <div className="flex justify-between items-center mt-8 pt-6 border-t">
-                <button
-                  type="button"
-                  onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : onClose()}
-                  className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  {currentStep === 1 ? 'Cancel' : 'Previous'}
-                </button>
-                
-                <div className="flex items-center gap-4">
-                  {currentStep < 3 ? (
-                    <button
-                      type="button"
-                      onClick={() => setCurrentStep(currentStep + 1)}
-                      disabled={!isStepValid(currentStep)}
-                      className={`px-8 py-3 rounded-lg font-medium transition-all duration-300 flex items-center gap-2 ${
-                        isStepValid(currentStep)
-                          ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:shadow-lg hover:scale-105'
-                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      }`}
-                    >
-                      Next
-                      <Sparkles size={16} />
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={!isStepValid(3) || loading || submitting}
-                      onClick={handleSubmit}
-                      className={`px-8 py-3 rounded-lg font-medium transition-all duration-300 flex items-center gap-2 ${
-                        isStepValid(3) && !loading && !submitting
-                          ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:shadow-lg hover:scale-105'
-                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      }`}
-                    >
-                      {loading || submitting ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload size={16} />
-                          Upload Research
-                        </>
-                      )}
-                    </button>
+                    </div>
                   )}
                 </div>
+              </div>
+            )}
+            
+            {/* Navigation Buttons */}
+            <div className="flex justify-between items-center mt-8 pt-6 border-t">
+              <button
+                type="button"
+                onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : onClose()}
+                className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                {currentStep === 1 ? 'Cancel' : 'Previous'}
+              </button>
+              
+              <div className="flex items-center gap-4">
+                {currentStep < 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(currentStep + 1)}
+                    disabled={!isStepValid(currentStep)}
+                    className={`px-8 py-3 rounded-lg font-medium transition-all duration-300 flex items-center gap-2 ${
+                      isStepValid(currentStep)
+                        ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:shadow-lg'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Next
+                    <Sparkles size={16} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!isStepValid(3) || loading || submitting || hasBlockingValidationErrors() || isValidationInProgress()}
+                    onClick={handleSubmit}
+                    className={`px-8 py-3 rounded-lg font-medium transition-all duration-300 flex items-center gap-2 ${
+                      isStepValid(3) && !loading && !submitting && !hasBlockingValidationErrors() && !isValidationInProgress()
+                        ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:shadow-lg'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {loading || submitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Uploading...
+                      </>
+                    ) : isValidationInProgress() ? (
+                      <>
+                        <Clock size={16} />
+                        Checking...
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={16} />
+                        Upload Research
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>

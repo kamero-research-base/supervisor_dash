@@ -253,6 +253,14 @@ export async function POST(req: Request) {
   }
 }
 
-function getChangeIndicator(arg0: number, arg1: number) {
-  throw new Error("Function not implemented.");
+function getChangeIndicator(current: number, previous: number): string {
+  if (current > previous) {
+    return "increase";
+  } else if (current < previous) {
+    return "decrease";
+  } else if (current === 0 && previous === 0) {
+    return "no-data";
+  } else {
+    return "same";
+  }
 }
