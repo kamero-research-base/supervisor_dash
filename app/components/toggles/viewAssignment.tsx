@@ -124,10 +124,275 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
   const [assignmentDetail, setAssignmentDetail] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'submissions' | 'students' | 'groups'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'submissions' | 'students' | 'groups' | 'download'>('overview');
   const [gradingSubmission, setGradingSubmission] = useState<Submission | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [showManageGroups, setShowManageGroups] = useState(false);
+  
+  // Download states
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([
+    'student_name', 'student_email', 'invite_status', 'score', 'status', 'submitted_at'
+  ]);
+  const [fileFormat, setFileFormat] = useState<'xlsx' | 'pdf'>('xlsx');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [selectedColor, setSelectedColor] = useState('#009688'); // Default brand color
+  const [showCustomColorPicker, setShowCustomColorPicker] = useState(false);
+  const [customHue, setCustomHue] = useState(174); // Default hue for brand color #009688
+  const [customSaturation, setCustomSaturation] = useState(100);
+  const [customBrightness, setCustomBrightness] = useState(53);
+  
+  // Student filtering states
+  const [studentFilters, setStudentFilters] = useState({
+    searchTerm: '',
+    submissionStatus: 'all', // all, submitted, not_submitted, graded, pending
+    scoreRange: { min: 0, max: 100, enabled: false },
+    dateRange: { start: '', end: '', enabled: false },
+    groupFilter: 'all', // all, has_group, no_group, specific_group
+    specificGroup: '',
+    sortBy: 'name', // name, email, score, submission_date
+    sortOrder: 'asc' // asc, desc
+  });
+  const [filteredStudents, setFilteredStudents] = useState<any[]>([]);
+  
+  // Color conversion utilities
+  const hsvToHex = (h: number, s: number, v: number): string => {
+    const c = (v / 100) * (s / 100);
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = (v / 100) - c;
+    
+    let r, g, b;
+    if (h >= 0 && h < 60) {
+      r = c; g = x; b = 0;
+    } else if (h >= 60 && h < 120) {
+      r = x; g = c; b = 0;
+    } else if (h >= 120 && h < 180) {
+      r = 0; g = c; b = x;
+    } else if (h >= 180 && h < 240) {
+      r = 0; g = x; b = c;
+    } else if (h >= 240 && h < 300) {
+      r = x; g = 0; b = c;
+    } else {
+      r = c; g = 0; b = x;
+    }
+    
+    const red = Math.round((r + m) * 255);
+    const green = Math.round((g + m) * 255);
+    const blue = Math.round((b + m) * 255);
+    
+    return `#${red.toString(16).padStart(2, '0')}${green.toString(16).padStart(2, '0')}${blue.toString(16).padStart(2, '0')}`;
+  };
+
+  const hexToHsv = (hex: string): { h: number, s: number, v: number } => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const diff = max - min;
+
+    let h = 0;
+    if (diff !== 0) {
+      if (max === r) {
+        h = ((g - b) / diff) % 6;
+      } else if (max === g) {
+        h = (b - r) / diff + 2;
+      } else {
+        h = (r - g) / diff + 4;
+      }
+    }
+    h = Math.round(h * 60);
+    if (h < 0) h += 360;
+
+    const s = max === 0 ? 0 : Math.round((diff / max) * 100);
+    const v = Math.round(max * 100);
+
+    return { h, s, v };
+  };
+
+  // Student filtering function
+  const applyStudentFilters = () => {
+    if (!assignmentDetail) {
+      setFilteredStudents([]);
+      return;
+    }
+
+    // Merge submissions with invitation data to get complete student info
+    const allStudents = assignmentDetail.invitations?.map(invitation => {
+      const submission = assignmentDetail.submissions?.find(sub => sub.student_id === invitation.student_id);
+      return {
+        // Base invitation data
+        id: invitation.id,
+        student_id: invitation.student_id,
+        student_name: invitation.student_name,
+        student_email: invitation.student_email,
+        invitation_status: invitation.status,
+        invited_at: invitation.invited_at,
+        responded_at: invitation.responded_at,
+        
+        // Submission data (with safe defaults)
+        submission_id: submission?.id,
+        score: submission?.score || null,
+        status: submission?.status || 'not_submitted',
+        submitted_at: submission?.submitted_at || null,
+        graded_at: submission?.graded_at || null,
+        feedback: submission?.feedback || null,
+        group_name: submission?.group_name || null,
+        submission_text: submission?.submission_text || null,
+        attachments: submission?.attachments || []
+      };
+    }) || [];
+
+    let filtered = [...allStudents];
+
+    // Search by name or email
+    if (studentFilters.searchTerm) {
+      const searchLower = studentFilters.searchTerm.toLowerCase();
+      filtered = filtered.filter(student => 
+        student.student_name?.toLowerCase().includes(searchLower) ||
+        student.student_email?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Filter by status (includes invitation status and submission status)
+    if (studentFilters.submissionStatus !== 'all') {
+      filtered = filtered.filter(student => {
+        switch (studentFilters.submissionStatus) {
+          case 'invite_accepted':
+            return student.invitation_status === 'accepted';
+          case 'invite_pending':
+            return student.invitation_status === 'pending' || !student.invitation_status;
+          case 'not_submitted':
+            return student.status === 'not_submitted';
+          case 'approved':
+            return student.status === 'approved';
+          case 'pending':
+            return student.status === 'pending';
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Filter by score range
+    if (studentFilters.scoreRange.enabled) {
+      filtered = filtered.filter(student => {
+        const score = student.score || 0;
+        return score >= studentFilters.scoreRange.min && score <= studentFilters.scoreRange.max;
+      });
+    }
+
+    // Filter by date range
+    if (studentFilters.dateRange.enabled && studentFilters.dateRange.start && studentFilters.dateRange.end) {
+      const startDate = new Date(studentFilters.dateRange.start);
+      const endDate = new Date(studentFilters.dateRange.end);
+      filtered = filtered.filter(student => {
+        if (!student.submitted_at) return false;
+        const submitDate = new Date(student.submitted_at);
+        return submitDate >= startDate && submitDate <= endDate;
+      });
+    }
+
+    // Filter by group membership
+    if (studentFilters.groupFilter !== 'all' && assignmentDetail.assignment_type === 'group') {
+      filtered = filtered.filter(student => {
+        switch (studentFilters.groupFilter) {
+          case 'has_group':
+            return student.group_name;
+          case 'no_group':
+            return !student.group_name;
+          case 'specific_group':
+            return student.group_name === studentFilters.specificGroup;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Sort results
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (studentFilters.sortBy) {
+        case 'name':
+          aValue = a.student_name || '';
+          bValue = b.student_name || '';
+          break;
+        case 'email':
+          aValue = a.student_email || '';
+          bValue = b.student_email || '';
+          break;
+        case 'score':
+          aValue = a.score || 0;
+          bValue = b.score || 0;
+          break;
+        case 'submission_date':
+          aValue = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+          bValue = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+          break;
+        default:
+          aValue = a.student_name || '';
+          bValue = b.student_name || '';
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return studentFilters.sortOrder === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      } else {
+        return studentFilters.sortOrder === 'asc' 
+          ? (aValue as number) - (bValue as number)
+          : (bValue as number) - (aValue as number);
+      }
+    });
+
+    setFilteredStudents(filtered);
+  };
+
+  // Apply filters whenever they change
+  useEffect(() => {
+    applyStudentFilters();
+  }, [studentFilters, assignmentDetail]);
+  
+  // Color palette for PDF styling
+  const colorPalette = [
+    { name: 'Brand Teal', color: '#009688' },
+    { name: 'Deep Blue', color: '#1976D2' },
+    { name: 'Purple', color: '#7B1FA2' },
+    { name: 'Indigo', color: '#303F9F' },
+    { name: 'Green', color: '#388E3C' },
+    { name: 'Orange', color: '#F57C00' },
+    { name: 'Red', color: '#D32F2F' },
+    { name: 'Pink', color: '#C2185B' },
+    { name: 'Cyan', color: '#00ACC1' },
+    { name: 'Brown', color: '#5D4037' },
+    { name: 'Blue Grey', color: '#455A64' },
+    { name: 'Amber', color: '#FFA000' },
+    { name: 'Deep Purple', color: '#512DA8' },
+    { name: 'Light Green', color: '#689F38' },
+    { name: 'Deep Orange', color: '#E64A19' },
+    { name: 'Lime', color: '#AFB42B' },
+    { name: 'Teal Dark', color: '#00695C' },
+    { name: 'Blue Dark', color: '#1565C0' },
+    { name: 'Purple Dark', color: '#6A1B9A' },
+    { name: 'Green Dark', color: '#2E7D32' }
+  ];
+  
+  // Available columns for download
+  const availableColumns = [
+    { id: 'student_name', label: 'Student Name', description: 'Full name of the student' },
+    { id: 'student_email', label: 'Student Email', description: 'Email address of the student' },
+    { id: 'student_id', label: 'Student ID', description: 'Unique student identifier' },
+    { id: 'invite_status', label: 'Invite Status', description: 'Whether student accepted or is pending invitation' },
+    { id: 'score', label: 'Score', description: 'Assignment score or grade' },
+    { id: 'max_score', label: 'Maximum Score', description: 'Maximum possible score' },
+    { id: 'percentage', label: 'Percentage', description: 'Score as percentage' },
+    { id: 'status', label: 'Status', description: 'Submission status (submitted, graded, etc.)' },
+    { id: 'submitted_at', label: 'Submission Date', description: 'When the assignment was submitted' },
+    { id: 'graded_at', label: 'Graded Date', description: 'When the assignment was graded' },
+    { id: 'feedback', label: 'Feedback', description: 'Instructor feedback' },
+    { id: 'group_name', label: 'Group Name', description: 'Name of the group (for group assignments)' },
+  ];
 
   useEffect(() => {
     const fetchAssignmentDetails = async () => {
@@ -234,6 +499,86 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Column selection handlers
+  const handleColumnToggle = (columnId: string) => {
+    setSelectedColumns(prev => {
+      if (prev.includes(columnId)) {
+        return prev.filter(id => id !== columnId);
+      } else {
+        return [...prev, columnId];
+      }
+    });
+  };
+
+  const handleSelectAllColumns = () => {
+    setSelectedColumns(availableColumns.map(col => col.id));
+  };
+
+  const handleDeselectAllColumns = () => {
+    setSelectedColumns([]);
+  };
+
+  // Download handler
+  const handleDownloadMarks = async () => {
+    if (selectedColumns.length === 0) {
+      setError('Please select at least one column to download');
+      return;
+    }
+
+    try {
+      setIsDownloading(true);
+      setError(null);
+
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) {
+        throw new Error("No supervisor session found");
+      }
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+
+      const response = await fetch('/api/assignments/download-marks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          assignment_id: assignment.id,
+          supervisor_id: parseInt(userSession.id),
+          columns: selectedColumns,
+          format: fileFormat,
+          color: selectedColor, // Include selected color for PDF styling
+          filtered_students: filteredStudents.map(s => s.student_id) // Send only filtered student IDs
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to download marks');
+      }
+
+      // Handle file download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${assignment.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_marks.${fileFormat}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Show success message
+      setError(null);
+      // Could add a success state here if needed
+
+    } catch (error) {
+      console.error('Error downloading marks:', error);
+      setError(error instanceof Error ? error.message : 'Failed to download marks');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleGradeSubmission = (submission: Submission) => {
@@ -503,6 +848,17 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                     Groups ({assignmentDetail.group_stats?.total_groups || 0})
                   </button>
                 )}
+                <button
+                  onClick={() => setActiveTab('download')}
+                  className={`px-6 py-3 font-medium text-sm transition-colors ${
+                    activeTab === 'download'
+                      ? 'text-teal-600 border-b-2 border-teal-600 bg-white'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Download size={16} className="inline mr-2" />
+                  Download Marks
+                </button>
               </div>
 
               {/* Tab Content */}
@@ -971,6 +1327,712 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                         </button>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {activeTab === 'download' && (
+                  <div className="animate-fade-in space-y-6">
+                    <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-green-100 rounded-full">
+                          <Download size={24} className="text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-gray-900 mb-2">Download Student Marks</h3>
+                          <p className="text-gray-600 mb-4">
+                            Export student marks and assignment data to Excel or PDF format. 
+                            Customize which information to include and choose your preferred format.
+                          </p>
+                          
+                          {/* Assignment Info Summary */}
+                          <div className="bg-white/80 rounded-lg p-4 mb-6">
+                            <h4 className="font-semibold text-gray-900 mb-2">Export Information</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-500">Assignment:</span>
+                                <p className="font-medium">{assignmentDetail.title}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Students:</span>
+                                <p className="font-medium">{assignmentDetail.total_invitations} invited</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Submissions:</span>
+                                <p className="font-medium">{assignmentDetail.total_submissions} submitted</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Graded:</span>
+                                <p className="font-medium">{assignmentDetail.graded_submissions} graded</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Student Filtering */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold text-gray-900">Filter Students</h4>
+                        <div className="text-sm text-gray-600">
+                          {filteredStudents.length} of {assignmentDetail?.invitations?.length || 0} students
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {/* Search */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Search by Name or Email
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Enter student name or email..."
+                              value={studentFilters.searchTerm}
+                              onChange={(e) => setStudentFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            />
+                          </div>
+                          
+                          {/* Status */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Status
+                            </label>
+                            <select
+                              value={studentFilters.submissionStatus}
+                              onChange={(e) => setStudentFilters(prev => ({ ...prev, submissionStatus: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            >
+                              <option value="all">All Students</option>
+                              <option value="invite_accepted">Invite Accepted</option>
+                              <option value="invite_pending">Invite Pending</option>
+                              <option value="not_submitted">Not Submitted</option>
+                              <option value="approved">Approved/Graded</option>
+                              <option value="pending">Pending Review</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Score Range Filter */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center gap-3 mb-3">
+                            <input
+                              type="checkbox"
+                              id="enableScoreFilter"
+                              checked={studentFilters.scoreRange.enabled}
+                              onChange={(e) => setStudentFilters(prev => ({
+                                ...prev,
+                                scoreRange: { ...prev.scoreRange, enabled: e.target.checked }
+                              }))}
+                              className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                            />
+                            <label htmlFor="enableScoreFilter" className="text-sm font-medium text-gray-700">
+                              Filter by Score Range
+                            </label>
+                          </div>
+                          
+                          {studentFilters.scoreRange.enabled && (
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Minimum Score</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={assignmentDetail?.max_score || 100}
+                                  value={studentFilters.scoreRange.min}
+                                  onChange={(e) => setStudentFilters(prev => ({
+                                    ...prev,
+                                    scoreRange: { ...prev.scoreRange, min: parseInt(e.target.value) || 0 }
+                                  }))}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Maximum Score</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={assignmentDetail?.max_score || 100}
+                                  value={studentFilters.scoreRange.max}
+                                  onChange={(e) => setStudentFilters(prev => ({
+                                    ...prev,
+                                    scoreRange: { ...prev.scoreRange, max: parseInt(e.target.value) || 100 }
+                                  }))}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Date Range Filter */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center gap-3 mb-3">
+                            <input
+                              type="checkbox"
+                              id="enableDateFilter"
+                              checked={studentFilters.dateRange.enabled}
+                              onChange={(e) => setStudentFilters(prev => ({
+                                ...prev,
+                                dateRange: { ...prev.dateRange, enabled: e.target.checked }
+                              }))}
+                              className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                            />
+                            <label htmlFor="enableDateFilter" className="text-sm font-medium text-gray-700">
+                              Filter by Submission Date Range
+                            </label>
+                          </div>
+                          
+                          {studentFilters.dateRange.enabled && (
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">From Date</label>
+                                <input
+                                  type="date"
+                                  value={studentFilters.dateRange.start}
+                                  onChange={(e) => setStudentFilters(prev => ({
+                                    ...prev,
+                                    dateRange: { ...prev.dateRange, start: e.target.value }
+                                  }))}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">To Date</label>
+                                <input
+                                  type="date"
+                                  value={studentFilters.dateRange.end}
+                                  onChange={(e) => setStudentFilters(prev => ({
+                                    ...prev,
+                                    dateRange: { ...prev.dateRange, end: e.target.value }
+                                  }))}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Group Filter (only for group assignments) */}
+                        {assignmentDetail?.assignment_type === 'group' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Group Filter
+                              </label>
+                              <select
+                                value={studentFilters.groupFilter}
+                                onChange={(e) => setStudentFilters(prev => ({
+                                  ...prev,
+                                  groupFilter: e.target.value,
+                                  specificGroup: e.target.value === 'specific_group' ? prev.specificGroup : ''
+                                }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                              >
+                                <option value="all">All Students</option>
+                                <option value="has_group">Has Group</option>
+                                <option value="no_group">No Group</option>
+                                <option value="specific_group">Specific Group</option>
+                              </select>
+                            </div>
+                            
+                            {studentFilters.groupFilter === 'specific_group' && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Group Name
+                                </label>
+                                <select
+                                  value={studentFilters.specificGroup}
+                                  onChange={(e) => setStudentFilters(prev => ({ ...prev, specificGroup: e.target.value }))}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                >
+                                  <option value="">Select a group...</option>
+                                  {[...new Set(assignmentDetail?.submissions?.map(s => s.group_name).filter(Boolean))].map(groupName => (
+                                    <option key={groupName} value={groupName}>{groupName}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Sort Options */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Sort By
+                            </label>
+                            <select
+                              value={studentFilters.sortBy}
+                              onChange={(e) => setStudentFilters(prev => ({ ...prev, sortBy: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            >
+                              <option value="name">Student Name</option>
+                              <option value="email">Email</option>
+                              <option value="score">Score</option>
+                              <option value="submission_date">Submission Date</option>
+                            </select>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Sort Order
+                            </label>
+                            <select
+                              value={studentFilters.sortOrder}
+                              onChange={(e) => setStudentFilters(prev => ({ ...prev, sortOrder: e.target.value as 'asc' | 'desc' }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            >
+                              <option value="asc">Ascending</option>
+                              <option value="desc">Descending</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Clear Filters Button */}
+                        <div className="flex justify-end pt-2">
+                          <button
+                            onClick={() => setStudentFilters({
+                              searchTerm: '',
+                              submissionStatus: 'all',
+                              scoreRange: { min: 0, max: assignmentDetail?.max_score || 100, enabled: false },
+                              dateRange: { start: '', end: '', enabled: false },
+                              groupFilter: 'all',
+                              specificGroup: '',
+                              sortBy: 'name',
+                              sortOrder: 'asc'
+                            })}
+                            className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                          >
+                            Clear All Filters
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Column Selection */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold text-gray-900">Select Columns to Include</h4>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleSelectAllColumns}
+                            className="px-3 py-1 text-sm bg-teal-100 text-teal-700 rounded hover:bg-teal-200 transition-colors"
+                          >
+                            Select All
+                          </button>
+                          <button
+                            onClick={handleDeselectAllColumns}
+                            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                          >
+                            Clear All
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {availableColumns.map((column) => {
+                          // Filter out group-specific columns for individual assignments
+                          if (column.id === 'group_name' && assignmentDetail.assignment_type !== 'group') {
+                            return null;
+                          }
+                          
+                          const isSelected = selectedColumns.includes(column.id);
+                          return (
+                            <label
+                              key={column.id}
+                              className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                                isSelected
+                                  ? 'border-teal-500 bg-teal-50 text-teal-700'
+                                  : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleColumnToggle(column.id)}
+                                className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500 mt-0.5"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{column.label}</p>
+                                <p className="text-xs text-gray-500 mt-1">{column.description}</p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-700">
+                          <strong>{selectedColumns.length} columns selected</strong>
+                          {selectedColumns.length === 0 && (
+                            <span className="text-red-600 ml-2">⚠️ Please select at least one column</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Format Selection */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Choose File Format</h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                          fileFormat === 'xlsx'
+                            ? 'border-teal-500 bg-teal-50 text-teal-700'
+                            : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                        }`}>
+                          <input
+                            type="radio"
+                            value="xlsx"
+                            checked={fileFormat === 'xlsx'}
+                            onChange={(e) => setFileFormat(e.target.value as 'xlsx' | 'pdf')}
+                            className="w-4 h-4 text-teal-600"
+                          />
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 rounded">
+                              <FileText size={20} className="text-green-600" />
+                            </div>
+                            <div>
+                              <p className="font-semibold">Excel Spreadsheet (.xlsx)</p>
+                              <p className="text-sm text-gray-500">
+                                Best for data analysis, calculations, and further editing
+                              </p>
+                            </div>
+                          </div>
+                        </label>
+
+                        <label className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                          fileFormat === 'pdf'
+                            ? 'border-teal-500 bg-teal-50 text-teal-700'
+                            : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                        }`}>
+                          <input
+                            type="radio"
+                            value="pdf"
+                            checked={fileFormat === 'pdf'}
+                            onChange={(e) => setFileFormat(e.target.value as 'xlsx' | 'pdf')}
+                            className="w-4 h-4 text-teal-600"
+                          />
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-red-100 rounded">
+                              <FileText size={20} className="text-red-600" />
+                            </div>
+                            <div>
+                              <p className="font-semibold">PDF Document (.pdf)</p>
+                              <p className="text-sm text-gray-500">
+                                Perfect for sharing, printing, and professional reports
+                              </p>
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+
+                      {/* Color Picker for PDF - Only show when PDF is selected */}
+                      {fileFormat === 'pdf' && (
+                        <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+                          <h5 className="text-md font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <div className="w-4 h-4 rounded" style={{ backgroundColor: selectedColor }}></div>
+                            Choose PDF Theme Color
+                          </h5>
+                          <p className="text-sm text-gray-600 mb-4">
+                            Select a color for the PDF headers, title, and styling. Default is your brand color.
+                          </p>
+                          
+                          <div className="grid grid-cols-10 gap-2 mb-4">
+                            {colorPalette.map((colorOption, index) => (
+                              <button
+                                key={index}
+                                onClick={() => setSelectedColor(colorOption.color)}
+                                className={`w-8 h-8 rounded-lg border-2 transition-all duration-200 hover:scale-110 ${
+                                  selectedColor === colorOption.color 
+                                    ? 'border-gray-800 scale-110 shadow-lg' 
+                                    : 'border-gray-300 hover:border-gray-500'
+                                }`}
+                                style={{ backgroundColor: colorOption.color }}
+                                title={colorOption.name}
+                              />
+                            ))}
+                            {/* Custom Color Picker Button */}
+                            <button
+                              onClick={() => setShowCustomColorPicker(true)}
+                              className="w-8 h-8 rounded-lg border-2 border-dashed border-gray-400 transition-all duration-200 hover:scale-110 hover:border-gray-600 flex items-center justify-center bg-white"
+                              title="Custom Color"
+                            >
+                              <span className="text-gray-500 font-bold text-lg">+</span>
+                            </button>
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-600">Selected:</span>
+                              <div className="flex items-center gap-2 px-3 py-1 bg-white rounded-lg border border-gray-200">
+                                <div className="w-3 h-3 rounded" style={{ backgroundColor: selectedColor }}></div>
+                                <span className="font-medium text-gray-900">
+                                  {colorPalette.find(c => c.color === selectedColor)?.name || 'Custom Color'}
+                                </span>
+                                <span className="text-gray-500 font-mono text-xs">{selectedColor}</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setSelectedColor('#009688')}
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              Reset to Brand Color
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Custom Color Picker Modal */}
+                    {showCustomColorPicker && (
+                      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900">Custom Color Picker</h3>
+                            <button
+                              onClick={() => setShowCustomColorPicker(false)}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
+                          
+                          <div className="space-y-4">
+                            {/* Color Square (Saturation/Brightness) */}
+                            <div className="relative w-full h-48 rounded-lg border border-gray-300 overflow-hidden cursor-crosshair"
+                                 style={{
+                                   background: `linear-gradient(to right, #ffffff, hsl(${customHue}, 100%, 50%)), linear-gradient(to top, #000000, transparent)`
+                                 }}
+                                 onClick={(e) => {
+                                   const rect = e.currentTarget.getBoundingClientRect();
+                                   const x = e.clientX - rect.left;
+                                   const y = e.clientY - rect.top;
+                                   const saturation = Math.round((x / rect.width) * 100);
+                                   const brightness = Math.round(100 - (y / rect.height) * 100);
+                                   setCustomSaturation(saturation);
+                                   setCustomBrightness(brightness);
+                                 }}
+                            >
+                              {/* Color Square Overlay */}
+                              <div
+                                className="absolute w-full h-full"
+                                style={{
+                                  background: `linear-gradient(to right, #ffffff, hsl(${customHue}, 100%, 50%))`
+                                }}
+                              >
+                                <div
+                                  className="absolute w-full h-full"
+                                  style={{
+                                    background: 'linear-gradient(to top, #000000, transparent)'
+                                  }}
+                                />
+                              </div>
+                              
+                              {/* Selection Indicator */}
+                              <div
+                                className="absolute w-4 h-4 border-2 border-white rounded-full shadow-lg transform -translate-x-2 -translate-y-2 pointer-events-none"
+                                style={{
+                                  left: `${customSaturation}%`,
+                                  top: `${100 - customBrightness}%`,
+                                  backgroundColor: hsvToHex(customHue, customSaturation, customBrightness)
+                                }}
+                              />
+                            </div>
+                            
+                            {/* Hue Slider */}
+                            <div className="relative w-full h-6 rounded-lg overflow-hidden cursor-pointer"
+                                 style={{
+                                   background: 'linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)'
+                                 }}
+                                 onClick={(e) => {
+                                   const rect = e.currentTarget.getBoundingClientRect();
+                                   const x = e.clientX - rect.left;
+                                   const hue = Math.round((x / rect.width) * 360);
+                                   setCustomHue(hue);
+                                 }}
+                            >
+                              {/* Hue Slider Indicator */}
+                              <div
+                                className="absolute w-1 h-full bg-white shadow-lg transform -translate-x-0.5"
+                                style={{
+                                  left: `${(customHue / 360) * 100}%`
+                                }}
+                              />
+                            </div>
+                            
+                            {/* Color Preview and Values */}
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-12 h-12 rounded-lg border border-gray-300"
+                                  style={{
+                                    backgroundColor: hsvToHex(customHue, customSaturation, customBrightness)
+                                  }}
+                                />
+                                <div className="text-sm">
+                                  <div className="font-mono text-gray-700">
+                                    {hsvToHex(customHue, customSaturation, customBrightness)}
+                                  </div>
+                                  <div className="text-gray-500 text-xs">
+                                    H:{customHue}° S:{customSaturation}% V:{customBrightness}%
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="flex gap-3 pt-4">
+                              <button
+                                onClick={() => {
+                                  setSelectedColor(hsvToHex(customHue, customSaturation, customBrightness));
+                                  setShowCustomColorPicker(false);
+                                }}
+                                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                Apply Color
+                              </button>
+                              <button
+                                onClick={() => setShowCustomColorPicker(false)}
+                                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Preview Section */}
+                    {selectedColumns.length > 0 && (
+                      <div className="bg-white border border-gray-200 rounded-lg p-6">
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Preview</h4>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full border border-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                {selectedColumns.map((columnId) => {
+                                  const column = availableColumns.find(c => c.id === columnId);
+                                  return (
+                                    <th key={columnId} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                      {column?.label || columnId}
+                                    </th>
+                                  );
+                                })}
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {filteredStudents.slice(0, 3).map((submission, index) => (
+                                <tr key={submission.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                  {selectedColumns.map((columnId) => {
+                                    let value = '';
+                                    switch (columnId) {
+                                      case 'student_name':
+                                        value = submission.student_name;
+                                        break;
+                                      case 'student_email':
+                                        value = submission.student_email;
+                                        break;
+                                      case 'student_id':
+                                        value = submission.student_id?.toString() || 'N/A';
+                                        break;
+                                      case 'invite_status':
+                                        value = submission.invitation_status ? submission.invitation_status.charAt(0).toUpperCase() + submission.invitation_status.slice(1) : 'Pending';
+                                        break;
+                                      case 'score':
+                                        value = (submission.score !== null && submission.score !== undefined) ? submission.score.toString() : 'Not Graded';
+                                        break;
+                                      case 'max_score':
+                                        value = assignmentDetail.max_score.toString();
+                                        break;
+                                      case 'percentage':
+                                        value = (submission.score !== null && submission.score !== undefined) ? Math.round((submission.score / assignmentDetail.max_score) * 100) + '%' : 'N/A';
+                                        break;
+                                      case 'status':
+                                        value = submission.status ? submission.status.charAt(0).toUpperCase() + submission.status.slice(1) : 'No Status';
+                                        break;
+                                      case 'submitted_at':
+                                        value = submission.submitted_at ? new Date(submission.submitted_at).toLocaleDateString() : 'Not Submitted';
+                                        break;
+                                      case 'graded_at':
+                                        value = submission.graded_at ? new Date(submission.graded_at).toLocaleDateString() : 'Not Graded';
+                                        break;
+                                      case 'feedback':
+                                        value = submission.feedback ? 'Has feedback' : 'No feedback';
+                                        break;
+                                      case 'group_name':
+                                        value = submission.group_name || 'No Group';
+                                        break;
+                                      default:
+                                        value = 'N/A';
+                                    }
+                                    return (
+                                      <td key={columnId} className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200 truncate max-w-32">
+                                        {value}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                              {filteredStudents.length > 3 && (
+                                <tr>
+                                  <td colSpan={selectedColumns.length} className="px-3 py-2 text-center text-sm text-gray-500 italic">
+                                    ... and {filteredStudents.length - 3} more students
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          This preview shows the first 3 students from your filtered selection. The full download will include all {filteredStudents.length} filtered students.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Download Button */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-900">Ready to Download</h4>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Export {selectedColumns.length} columns for {filteredStudents.length} filtered students in {fileFormat.toUpperCase()} format
+                          </p>
+                          {assignmentDetail.submissions.length === 0 && (
+                            <p className="text-sm text-amber-600 mt-1 flex items-center gap-1">
+                              <AlertCircle size={14} />
+                              No submissions yet - file will show invited students with empty grades
+                            </p>
+                          )}
+                        </div>
+                        
+                        <button
+                          onClick={handleDownloadMarks}
+                          disabled={selectedColumns.length === 0 || isDownloading}
+                          className={`inline-flex items-center gap-3 px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
+                            selectedColumns.length === 0 || isDownloading
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-gradient-to-r from-teal-600 to-blue-600 text-white hover:from-teal-700 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105'
+                          }`}
+                        >
+                          {isDownloading ? (
+                            <>
+                              <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+                              Generating {fileFormat.toUpperCase()}...
+                            </>
+                          ) : (
+                            <>
+                              <Download size={20} />
+                              Download {fileFormat.toUpperCase()}
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
