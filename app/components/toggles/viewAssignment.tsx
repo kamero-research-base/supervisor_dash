@@ -791,7 +791,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
     <>
       <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div className="relative bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-90vh overflow-hidden z-50">
-          <div className="bg-gradient-to-r from-teal-500 to-blue-500 p-6 text-white">
+          <div>
             {/* Header */}
             <div className="relative bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 p-6 text-white">
               <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-300 hover:scale-110 z-10" type="button">
@@ -849,7 +849,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
             </div>
             
             {/* Content */}
-            <div className="flex flex-col h-[calc(90vh-240px)]">
+            <div className="flex flex-col h-[calc(90vh-240px)] bg-white">
               {/* Tab Navigation */}
               <div className="flex border-b border-gray-200 bg-gray-50">
                 <button
@@ -908,7 +908,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
               </div>
 
               {/* Tab Content */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-6 bg-white">
                 {activeTab === 'overview' && (
                   <div className="space-y-6 animate-fade-in">
                     {/* Assignment Info */}
