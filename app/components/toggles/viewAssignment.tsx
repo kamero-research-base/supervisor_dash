@@ -1900,7 +1900,11 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                             
                             return orderedCols.map((column) => {
                             // Filter out group-specific columns for individual assignments
-                            if (column.id === 'group_name' && assignmentDetail.assignment_type !== 'group') {
+                            if (column && column.id === 'group_name' && assignmentDetail.assignment_type !== 'group') {
+                              return null;
+                            }
+                            
+                            if (!column) {
                               return null;
                             }
                             

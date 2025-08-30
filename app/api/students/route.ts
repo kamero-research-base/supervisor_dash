@@ -123,7 +123,7 @@ export async function GET(req: Request) {
     const result = await client.query(query, params);
     
     console.log(`✅ [STUDENTS API] Found ${result.rows.length} students in department ${supervisorDepartment}:`, {
-      students: result.rows.map(s => ({
+      students: result.rows.map((s: any) => ({
         id: s.id,
         name: `${s.first_name} ${s.last_name}`,
         relationship: s.relationship_type,

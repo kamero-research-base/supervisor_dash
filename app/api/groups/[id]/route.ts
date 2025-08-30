@@ -64,9 +64,10 @@ const validateMembers = (members: string[]): string | null => {
 // Get specific group details
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
+    const params = await context.params;
     const groupId = params.id;
 
     if (!groupId) {
@@ -135,11 +136,12 @@ export async function GET(
 // Update group details
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   let dbClient;
   
   try {
+    const params = await context.params;
     const groupId = params.id;
     const body = await req.json();
 
@@ -384,11 +386,12 @@ export async function PUT(
 // Delete group
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   let dbClient;
   
   try {
+    const params = await context.params;
     const groupId = params.id;
 
     if (!groupId) {
