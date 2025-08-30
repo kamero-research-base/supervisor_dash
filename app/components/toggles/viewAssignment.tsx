@@ -274,8 +274,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
     if (studentFilters.searchTerm) {
       const searchLower = studentFilters.searchTerm.toLowerCase();
       filtered = filtered.filter(student => 
-        student.student_name?.toLowerCase().includes(searchLower) ||
-        student.student_email?.toLowerCase().includes(searchLower)
+        student.student_id?.toString().includes(searchLower)
       );
     }
 
@@ -336,16 +335,17 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
 
     // Sort results
     filtered.sort((a, b) => {
-      let aValue, bValue;
+      let aValue: number | string;
+      let bValue: number | string;
       
       switch (studentFilters.sortBy) {
         case 'name':
-          aValue = a.student_name || '';
-          bValue = b.student_name || '';
+          aValue = a.student_id || 0;
+          bValue = b.student_id || 0;
           break;
         case 'email':
-          aValue = a.student_email || '';
-          bValue = b.student_email || '';
+          aValue = a.student_id || 0;
+          bValue = b.student_id || 0;
           break;
         case 'score':
           aValue = a.score || 0;
@@ -356,19 +356,17 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
           bValue = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
           break;
         default:
-          aValue = a.student_name || '';
-          bValue = b.student_name || '';
+          aValue = a.student_id || 0;
+          bValue = b.student_id || 0;
       }
 
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return studentFilters.sortOrder === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      } else {
-        return studentFilters.sortOrder === 'asc' 
-          ? (aValue as number) - (bValue as number)
-          : (bValue as number) - (aValue as number);
-      }
+      // Since we're now only dealing with numbers, simplify the comparison
+      const numA = typeof aValue === 'number' ? aValue : Number(aValue) || 0;
+      const numB = typeof bValue === 'number' ? bValue : Number(bValue) || 0;
+      
+      return studentFilters.sortOrder === 'asc' 
+        ? numA - numB
+        : numB - numA;
     });
 
     setFilteredStudents(filtered);
@@ -405,9 +403,9 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
   
   // Available columns for download
   const availableColumns = [
-    { id: 'student_name', label: 'Student Name', description: 'Full name of the student' },
-    { id: 'student_email', label: 'Student Email', description: 'Email address of the student' },
-    { id: 'student_id', label: 'Student ID', description: 'Unique student identifier' },
+    { id: 'student_name', label: 'Student ID', description: 'Anonymous student identifier' },
+    { id: 'student_email', label: 'Assignment', description: 'Assignment title/subject' },
+    { id: 'student_id', label: 'Student Number', description: 'Unique student number' },
     { id: 'invite_status', label: 'Invite Status', description: 'Whether student accepted or is pending invitation' },
     { id: 'score', label: 'Score', description: 'Assignment score or grade' },
     { id: 'percentage', label: 'Percentage', description: 'Score as percentage' },
@@ -1149,11 +1147,16 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                                     <div className="min-w-0 flex-1">
                                       <h4 className="font-medium text-gray-900 text-sm truncate">
                                         {assignmentDetail.assignment_type === 'group' && submission.group_name ? 
-                                          `${submission.group_name} (${submission.student_name})` : 
-                                          submission.student_name
+                                          (() => {
+                                            // Find the group to get member count
+                                            const group = assignmentDetail.groups?.find(g => g.group_name === submission.group_name);
+                                            const memberCount = group?.member_count || 1;
+                                            return `${submission.group_name} (${memberCount} student${memberCount !== 1 ? 's' : ''})`;
+                                          })() : 
+                                          `Student #${submission.student_id}`
                                         }
                                       </h4>
-                                      <p className="text-xs text-gray-500 truncate">{submission.student_email}</p>
+                                      <p className="text-xs text-gray-500 truncate">{assignmentDetail.title}</p>
                                     </div>
                                   </div>
                                   <div className="flex-shrink-0 ml-2">
@@ -1184,8 +1187,18 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                                   <div className="flex items-center gap-3">
                                     <User size={20} className="text-gray-500" />
                                     <div>
-                                      <h4 className="font-semibold text-gray-900">{selectedSubmission.student_name}</h4>
-                                      <p className="text-sm text-gray-500">{selectedSubmission.student_email}</p>
+                                      <h4 className="font-semibold text-gray-900">
+                                        {assignmentDetail.assignment_type === 'group' && selectedSubmission.group_name ? 
+                                          (() => {
+                                            // Find the group to get member count
+                                            const group = assignmentDetail.groups?.find(g => g.group_name === selectedSubmission.group_name);
+                                            const memberCount = group?.member_count || 1;
+                                            return `${selectedSubmission.group_name} (${memberCount} student${memberCount !== 1 ? 's' : ''})`;
+                                          })() : 
+                                          `Student #${selectedSubmission.student_id}`
+                                        }
+                                      </h4>
+                                      <p className="text-sm text-gray-500">{assignmentDetail.title}</p>
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-3">
@@ -1332,8 +1345,8 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                               <div className="flex items-center gap-3">
                                 <User size={20} className="text-gray-500" />
                                 <div>
-                                  <h4 className="font-medium text-gray-900">{invitation.student_name}</h4>
-                                  <p className="text-sm text-gray-500">{invitation.student_email}</p>
+                                  <h4 className="font-medium text-gray-900">Student #{invitation.student_id}</h4>
+                                  <p className="text-sm text-gray-500">{assignmentDetail.title}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
@@ -2249,10 +2262,10 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                                     let value = '';
                                     switch (columnId) {
                                       case 'student_name':
-                                        value = submission.student_name;
+                                        value = `Student #${submission.student_id}`;
                                         break;
                                       case 'student_email':
-                                        value = submission.student_email;
+                                        value = assignmentDetail.title;
                                         break;
                                       case 'student_id':
                                         value = submission.student_id?.toString() || 'N/A';
