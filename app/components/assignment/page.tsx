@@ -96,11 +96,20 @@ const formatDueDateTime = (dateString: string): string => {
 };
 
 const getStatusBadge = (assignment: Assignment) => {
-  // Only show activity status (active/inactive) in the status column
+  const now = new Date();
+  const dueDate = new Date(assignment.due_date);
+  
+  // If assignment is not active, show as inactive
   if (!assignment.is_active) {
     return <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border bg-gray-50 text-gray-700 border-gray-200">Inactive</span>;
   }
   
+  // If assignment is active but overdue, show as past due
+  if (assignment.is_active && dueDate < now) {
+    return <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border bg-red-50 text-red-700 border-red-200">Past Due</span>;
+  }
+  
+  // If assignment is active and not overdue, show as active
   return <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border bg-green-50 text-green-700 border-green-200">Active</span>;
 };
 
