@@ -131,7 +131,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
   
   // Download states
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'student_name', 'student_email', 'invite_status', 'score', 'status', 'submitted_at'
+    'student_id', 'score'
   ]);
   const [fileFormat, setFileFormat] = useState<'xlsx' | 'pdf'>('xlsx');
   const [isDownloading, setIsDownloading] = useState(false);
@@ -385,7 +385,6 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
     { id: 'student_id', label: 'Student ID', description: 'Unique student identifier' },
     { id: 'invite_status', label: 'Invite Status', description: 'Whether student accepted or is pending invitation' },
     { id: 'score', label: 'Score', description: 'Assignment score or grade' },
-    { id: 'max_score', label: 'Maximum Score', description: 'Maximum possible score' },
     { id: 'percentage', label: 'Percentage', description: 'Score as percentage' },
     { id: 'status', label: 'Status', description: 'Submission status (submitted, graded, etc.)' },
     { id: 'submitted_at', label: 'Submission Date', description: 'When the assignment was submitted' },
@@ -502,7 +501,32 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
   };
 
   // Column selection handlers
-  const handleColumnToggle = (columnId: string) => {
+
+  // Required columns that can't be removed
+  const requiredColumns = ['student_id', 'score'];
+  
+  // Get optional columns (all columns except required ones)
+  const getOptionalColumns = () => {
+    return availableColumns.filter(col => !requiredColumns.includes(col.id));
+  };
+
+  // Get ordered columns with student_id first, score last, and optional columns in between
+  // Special rule: percentage always comes immediately after score when both are selected
+  const getOrderedColumns = () => {
+    const optionalSelected = selectedColumns.filter(col => !requiredColumns.includes(col));
+    
+    // Handle percentage column special positioning
+    if (optionalSelected.includes('percentage')) {
+      const otherOptional = optionalSelected.filter(col => col !== 'percentage');
+      return ['student_id', ...otherOptional, 'score', 'percentage'];
+    }
+    
+    return ['student_id', ...optionalSelected, 'score'];
+  };
+
+  const handleOptionalColumnToggle = (columnId: string) => {
+    if (requiredColumns.includes(columnId)) return; // Can't toggle required columns
+    
     setSelectedColumns(prev => {
       if (prev.includes(columnId)) {
         return prev.filter(id => id !== columnId);
@@ -513,11 +537,54 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
   };
 
   const handleSelectAllColumns = () => {
-    setSelectedColumns(availableColumns.map(col => col.id));
+    setSelectedColumns([...requiredColumns, ...getOptionalColumns().map(col => col.id)]);
   };
 
   const handleDeselectAllColumns = () => {
-    setSelectedColumns([]);
+    setSelectedColumns([...requiredColumns]); // Keep only required columns
+  };
+
+  // Drag and drop handlers for column reordering
+  const handleDragStart = (e: React.DragEvent, columnId: string) => {
+    if (requiredColumns.includes(columnId) || columnId === 'percentage') {
+      e.preventDefault(); // Don't allow dragging required columns or percentage
+      return;
+    }
+    e.dataTransfer.setData('text/plain', columnId);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
+    e.preventDefault();
+    const draggedColumnId = e.dataTransfer.getData('text/plain');
+    
+    if (requiredColumns.includes(draggedColumnId) || requiredColumns.includes(targetColumnId) || 
+        draggedColumnId === 'percentage' || targetColumnId === 'percentage') {
+      return; // Don't allow reordering required columns or percentage
+    }
+
+    setSelectedColumns(prev => {
+      const reorderableCols = prev.filter(col => !requiredColumns.includes(col) && col !== 'percentage');
+      const draggedIndex = reorderableCols.indexOf(draggedColumnId);
+      const targetIndex = reorderableCols.indexOf(targetColumnId);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return prev;
+      
+      const newReorderableCols = [...reorderableCols];
+      const [draggedItem] = newReorderableCols.splice(draggedIndex, 1);
+      newReorderableCols.splice(targetIndex, 0, draggedItem);
+      
+      // Reconstruct the full array maintaining percentage position
+      const hasPercentage = prev.includes('percentage');
+      if (hasPercentage) {
+        return [...requiredColumns, ...newReorderableCols, 'percentage'];
+      } else {
+        return [...requiredColumns, ...newReorderableCols];
+      }
+    });
   };
 
   // Download handler
@@ -546,7 +613,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
         body: JSON.stringify({
           assignment_id: assignment.id,
           supervisor_id: parseInt(userSession.id),
-          columns: selectedColumns,
+          columns: getOrderedColumns(),
           format: fileFormat,
           color: selectedColor, // Include selected color for PDF styling
           filtered_students: filteredStudents.map(s => s.student_id) // Send only filtered student IDs
@@ -653,8 +720,8 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
         {error && <AlertNotification message={error} type="error" />}
         
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center p-4">
-          <div className="gradient-border w-full max-w-6xl max-h-[90vh]">
-            <div className="glass-effect rounded-2xl overflow-hidden">
+          <div className="bg-gradient-to-br from-teal-500 via-blue-500 to-indigo-500 p-0.5 rounded-2xl w-full max-w-6xl max-h-[90vh]">
+            <div className="bg-white/95 backdrop-blur-lg border border-white/20 rounded-2xl overflow-hidden">
               <div className="relative bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 p-6 text-white">
                 <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-300 hover:scale-110" type="button">
                   <X size={20} />
@@ -676,10 +743,6 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
           </div>
         </div>
         
-        <style jsx>{`
-          .gradient-border { background: linear-gradient(135deg, #14b8a6 0%, #0891b2 50%, #6366f1 100%); padding: 2px; border-radius: 1rem; }
-          .glass-effect { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.18); }
-        `}</style>
       </>
     );
   }
@@ -690,8 +753,8 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
         {error && <AlertNotification message={error} type="error" />}
         
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center p-4">
-          <div className="gradient-border w-full max-w-6xl max-h-[90vh]">
-            <div className="glass-effect rounded-2xl overflow-hidden">
+          <div className="bg-gradient-to-br from-teal-500 via-blue-500 to-indigo-500 p-0.5 rounded-2xl w-full max-w-6xl max-h-[90vh]">
+            <div className="bg-white/95 backdrop-blur-lg border border-white/20 rounded-2xl overflow-hidden">
               <div className="relative bg-gradient-to-r from-red-500 via-pink-500 to-purple-500 p-6 text-white">
                 <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-300 hover:scale-110" type="button">
                   <X size={20} />
@@ -720,32 +783,15 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
           </div>
         </div>
         
-        <style jsx>{`
-          .gradient-border { background: linear-gradient(135deg, #14b8a6 0%, #0891b2 50%, #6366f1 100%); padding: 2px; border-radius: 1rem; }
-          .glass-effect { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.18); }
-        `}</style>
       </>
     );
   }
 
   return (
     <>
-      <style jsx>{`
-        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes scale-in { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .animate-fade-in { animation: fade-in 0.4s ease-out; }
-        .animate-scale-in { animation: scale-in 0.3s ease-out; }
-        .gradient-border { background: linear-gradient(135deg, #14b8a6 0%, #0891b2 50%, #6366f1 100%); padding: 2px; border-radius: 1rem; }
-        .glass-effect { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.18); }
-        .floating { animation: float 3s ease-in-out infinite; }
-      `}</style>
-
-      {error && <AlertNotification message={error} type="error" />}
-      
-      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center p-4 animate-fade-in">
-        <div className="gradient-border w-full max-w-6xl max-h-[90vh] animate-scale-in">
-          <div className="glass-effect rounded-2xl overflow-hidden">
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-90vh overflow-hidden z-50">
+          <div className="bg-gradient-to-r from-teal-500 to-blue-500 p-6 text-white">
             {/* Header */}
             <div className="relative bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 p-6 text-white">
               <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-300 hover:scale-110 z-10" type="button">
@@ -1621,55 +1667,184 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                             onClick={handleSelectAllColumns}
                             className="px-3 py-1 text-sm bg-teal-100 text-teal-700 rounded hover:bg-teal-200 transition-colors"
                           >
-                            Select All
+                            Add All Optional
                           </button>
                           <button
                             onClick={handleDeselectAllColumns}
                             className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
                           >
-                            Clear All
+                            Remove All Optional
                           </button>
                         </div>
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {availableColumns.map((column) => {
-                          // Filter out group-specific columns for individual assignments
-                          if (column.id === 'group_name' && assignmentDetail.assignment_type !== 'group') {
-                            return null;
-                          }
-                          
-                          const isSelected = selectedColumns.includes(column.id);
-                          return (
-                            <label
-                              key={column.id}
-                              className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-                                isSelected
-                                  ? 'border-teal-500 bg-teal-50 text-teal-700'
-                                  : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => handleColumnToggle(column.id)}
-                                className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500 mt-0.5"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">{column.label}</p>
-                                <p className="text-xs text-gray-500 mt-1">{column.description}</p>
+
+                      {/* Required Columns */}
+                      <div className="mb-6">
+                        <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                          Required Columns (Always Included)
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {requiredColumns.map((columnId) => {
+                            const column = availableColumns.find(col => col.id === columnId);
+                            if (!column) return null;
+                            
+                            return (
+                              <div
+                                key={column.id}
+                                className="flex items-start gap-3 p-3 rounded-lg border-2 border-red-200 bg-red-50"
+                              >
+                                <div className="w-4 h-4 mt-0.5 flex items-center justify-center">
+                                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm text-red-700">{column.label}</p>
+                                    <span className="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded">
+                                      {columnId === 'student_id' ? 'FIRST' : 'LAST'}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-red-600 mt-1">{column.description}</p>
+                                </div>
                               </div>
-                            </label>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
+
+                      {/* Optional Columns */}
+                      <div>
+                        <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
+                          Optional Columns (Drag to Reorder)
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {(() => {
+                            const optionalCols = getOptionalColumns();
+                            const selectedOptional = selectedColumns.filter(colId => 
+                              !requiredColumns.includes(colId) && colId !== 'percentage'
+                            );
+                            const unselectedOptional = optionalCols.filter(col => 
+                              !selectedColumns.includes(col.id) && 
+                              (col.id !== 'group_name' || assignmentDetail?.assignment_type === 'group')
+                            );
+                            
+                            // Show percentage at the end if selected
+                            const percentageCol = optionalCols.find(col => col.id === 'percentage');
+                            const showPercentageLast = selectedColumns.includes('percentage');
+                            
+                            // Combine: selected (in order) + unselected + percentage (if selected)
+                            const orderedCols = [
+                              // Selected columns in their dragged order
+                              ...selectedOptional.map(colId => optionalCols.find(col => col.id === colId)).filter(Boolean),
+                              // Unselected columns
+                              ...unselectedOptional,
+                              // Percentage column at the end if selected
+                              ...(showPercentageLast && percentageCol ? [percentageCol] : [])
+                            ];
+                            
+                            return orderedCols.map((column) => {
+                            // Filter out group-specific columns for individual assignments
+                            if (column.id === 'group_name' && assignmentDetail.assignment_type !== 'group') {
+                              return null;
+                            }
+                            
+                            const isSelected = selectedColumns.includes(column.id);
+                            const isOptionalSelected = selectedColumns.filter(col => !requiredColumns.includes(col));
+                            const dragIndex = isOptionalSelected.indexOf(column.id);
+                            const isPercentage = column.id === 'percentage';
+                            const isDraggable = isSelected && !isPercentage;
+                            
+                            return (
+                              <div
+                                key={column.id}
+                                draggable={isDraggable}
+                                onDragStart={(e) => handleDragStart(e, column.id)}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDrop(e, column.id)}
+                                className={`flex items-start gap-3 p-3 rounded-lg border-2 transition-all duration-200 ${
+                                  isSelected
+                                    ? isPercentage 
+                                      ? 'border-orange-500 bg-orange-50 text-orange-700'
+                                      : 'border-teal-500 bg-teal-50 text-teal-700 cursor-move'
+                                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
+                                }`}
+                                onClick={() => !isSelected && handleOptionalColumnToggle(column.id)}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleOptionalColumnToggle(column.id)}
+                                  className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500 mt-0.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm truncate">{column.label}</p>
+                                    {isSelected && isPercentage && (
+                                      <span className="text-xs bg-orange-600 text-white px-1.5 py-0.5 rounded">
+                                        AFTER SCORE
+                                      </span>
+                                    )}
+                                    {isSelected && dragIndex >= 0 && !isPercentage && (
+                                      <span className="text-xs bg-teal-600 text-white px-1.5 py-0.5 rounded font-mono">
+                                        #{dragIndex + 2}
+                                      </span>
+                                    )}
+                                    {isSelected && !isPercentage && (
+                                      <span className="text-xs text-teal-600">↕️</span>
+                                    )}
+                                    {isSelected && isPercentage && (
+                                      <span className="text-xs text-orange-600">🔒</span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {column.description}
+                                    {isPercentage && isSelected && (
+                                      <span className="block text-orange-600 font-medium">
+                                        • Always appears after Score column
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                            });
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* Column Order Preview */}
+                      {selectedColumns.length > 2 && (
+                        <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                          <h6 className="text-sm font-semibold text-gray-700 mb-2">Column Order Preview:</h6>
+                          <div className="flex flex-wrap gap-2">
+                            {getOrderedColumns().map((columnId, index) => {
+                              const column = availableColumns.find(col => col.id === columnId);
+                              const isRequired = requiredColumns.includes(columnId);
+                              return (
+                                <div
+                                  key={columnId}
+                                  className={`px-2 py-1 text-xs rounded ${
+                                    isRequired 
+                                      ? 'bg-red-100 text-red-700 border border-red-300'
+                                      : 'bg-teal-100 text-teal-700 border border-teal-300'
+                                  }`}
+                                >
+                                  {index + 1}. {column?.label || columnId}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-sm text-blue-700">
                           <strong>{selectedColumns.length} columns selected</strong>
-                          {selectedColumns.length === 0 && (
-                            <span className="text-red-600 ml-2">⚠️ Please select at least one column</span>
-                          )}
+                          <span className="ml-2 text-gray-600">
+                            ({requiredColumns.length} required + {selectedColumns.length - requiredColumns.length} optional)
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -1915,7 +2090,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                           <table className="min-w-full border border-gray-200">
                             <thead className="bg-gray-50">
                               <tr>
-                                {selectedColumns.map((columnId) => {
+                                {getOrderedColumns().map((columnId) => {
                                   const column = availableColumns.find(c => c.id === columnId);
                                   return (
                                     <th key={columnId} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
@@ -1928,7 +2103,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                             <tbody className="bg-white divide-y divide-gray-200">
                               {filteredStudents.slice(0, 3).map((submission, index) => (
                                 <tr key={submission.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                  {selectedColumns.map((columnId) => {
+                                  {getOrderedColumns().map((columnId) => {
                                     let value = '';
                                     switch (columnId) {
                                       case 'student_name':
@@ -1945,9 +2120,6 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                                         break;
                                       case 'score':
                                         value = (submission.score !== null && submission.score !== undefined) ? submission.score.toString() : 'Not Graded';
-                                        break;
-                                      case 'max_score':
-                                        value = assignmentDetail.max_score.toString();
                                         break;
                                       case 'percentage':
                                         value = (submission.score !== null && submission.score !== undefined) ? Math.round((submission.score / assignmentDetail.max_score) * 100) + '%' : 'N/A';

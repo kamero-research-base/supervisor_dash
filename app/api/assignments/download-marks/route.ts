@@ -214,7 +214,6 @@ async function generateExcelFile(assignment: any, supervisor: any, studentData: 
     student_id: 'Student ID',
     invite_status: 'Invite Status',
     score: 'Score',
-    max_score: 'Max Score',
     percentage: 'Percentage (%)',
     status: 'Status',
     submitted_at: 'Submission Date',
@@ -254,9 +253,6 @@ async function generateExcelFile(assignment: any, supervisor: any, studentData: 
           break;
         case 'score':
           cell.value = student.score !== null ? student.score : 'Not Graded';
-          break;
-        case 'max_score':
-          cell.value = assignment.max_score;
           break;
         case 'percentage':
           cell.value = student.score !== null ? Math.round((student.score / assignment.max_score) * 100) : 'N/A';
@@ -427,8 +423,6 @@ async function generatePDFFile(assignment: any, supervisor: any, studentData: an
           return student.invitation_status ? student.invitation_status.charAt(0).toUpperCase() + student.invitation_status.slice(1) : 'Pending';
         case 'score':
           return student.score !== null ? student.score.toString() : 'Not Graded';
-        case 'max_score':
-          return assignment.max_score.toString();
         case 'percentage':
           return student.score !== null ? Math.round((student.score / assignment.max_score) * 100) + '%' : 'N/A';
         case 'status':
@@ -459,7 +453,6 @@ async function generatePDFFile(assignment: any, supervisor: any, studentData: an
       case 'student_id': return 1.5;
       case 'invite_status': return 2; // Medium for invite status
       case 'score': return 1.2;
-      case 'max_score': return 1.2;
       case 'percentage': return 1.5;
       case 'status': return 2.5;
       case 'submitted_at': return 2.5;
