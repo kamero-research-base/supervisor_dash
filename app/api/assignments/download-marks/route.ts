@@ -74,36 +74,109 @@ export async function POST(req: NextRequest) {
     const assignment = assignmentResult.rows[0];
 
     // Get student data with submissions
-    let studentDataQuery = `
-      SELECT DISTINCT
-        s.id as student_id,
-        s.first_name,
-        s.last_name,
-        s.email,
-        ai.status as invitation_status,
-        COALESCE(sub.score, NULL) as score,
-        COALESCE(sub.status, 'not_submitted') as status,
-        sub.submitted_at,
-        sub.graded_at,
-        sub.feedback,
-        CASE WHEN ag.group_name IS NOT NULL THEN ag.group_name ELSE NULL END as group_name,
-        ai.invited_at
-      FROM assignment_invitations ai
-      JOIN students s ON ai.student_id = s.id
-      LEFT JOIN assignment_submissions sub ON ai.assignment_id = sub.assignment_id AND s.id = sub.student_id
-      LEFT JOIN assignment_groups ag ON sub.group_id = ag.id
-      WHERE ai.assignment_id = $1
-    `;
+    // Use a more precise approach to avoid duplicates
+    let studentDataQuery;
+    
+    if (assignment.assignment_type === 'individual') {
+      // For individual assignments, use the simple direct approach
+      studentDataQuery = `
+        SELECT DISTINCT
+          s.id as student_id,
+          s.first_name,
+          s.last_name,
+          s.email,
+          ai.status as invitation_status,
+          sub.score,
+          COALESCE(sub.status, 'not_submitted') as status,
+          sub.submitted_at,
+          sub.graded_at,
+          sub.feedback,
+          NULL as group_name,
+          ai.invited_at
+        FROM assignment_invitations ai
+        JOIN students s ON ai.student_id = s.id
+        LEFT JOIN assignment_submissions sub ON ai.assignment_id = sub.assignment_id AND s.id = sub.student_id
+        WHERE ai.assignment_id = $1
+      `;
+    } else {
+      // For group assignments, use a more careful approach to get group data for all members
+      studentDataQuery = `
+        WITH student_base AS (
+          -- Get all invited students first
+          SELECT DISTINCT
+            s.id as student_id,
+            s.first_name,
+            s.last_name,
+            s.email,
+            ai.status as invitation_status,
+            ai.invited_at
+          FROM assignment_invitations ai
+          JOIN students s ON ai.student_id = s.id
+          WHERE ai.assignment_id = $1
+        ),
+        student_groups AS (
+          -- Get each student's group info (exactly one row per student)
+          SELECT DISTINCT
+            sb.student_id,
+            sb.first_name,
+            sb.last_name,
+            sb.email,
+            sb.invitation_status,
+            sb.invited_at,
+            MAX(ag.id) as group_id,
+            MAX(ag.group_name) as group_name
+          FROM student_base sb
+          LEFT JOIN assignment_group_members agm ON sb.student_id = agm.student_id
+          LEFT JOIN assignment_groups ag ON agm.group_id = ag.id AND ag.assignment_id = $1
+          GROUP BY sb.student_id, sb.first_name, sb.last_name, sb.email, sb.invitation_status, sb.invited_at
+        ),
+        group_submissions AS (
+          -- Get group submissions
+          SELECT DISTINCT
+            sub.group_id,
+            sub.score,
+            sub.status,
+            sub.submitted_at,
+            sub.graded_at,
+            sub.feedback
+          FROM assignment_submissions sub
+          WHERE sub.assignment_id = $1 AND sub.group_id IS NOT NULL
+        )
+        SELECT DISTINCT
+          sg.student_id,
+          sg.first_name,
+          sg.last_name,
+          sg.email,
+          sg.invitation_status,
+          COALESCE(gs.score, NULL) as score,
+          COALESCE(gs.status, 'not_submitted') as status,
+          gs.submitted_at,
+          gs.graded_at,
+          gs.feedback,
+          sg.group_name,
+          sg.invited_at
+        FROM student_groups sg
+        LEFT JOIN group_submissions gs ON sg.group_id = gs.group_id
+      `;
+    }
     
     let queryParams: any[] = [assignment_id];
     
     // Add filtering by student IDs if provided
     if (filtered_students && filtered_students.length > 0) {
-      studentDataQuery += ` AND s.id = ANY($2)`;
+      if (assignment.assignment_type === 'individual') {
+        studentDataQuery += ` AND s.id = ANY($2)`;
+      } else {
+        studentDataQuery += ` AND sg.student_id = ANY($2)`;
+      }
       queryParams.push(filtered_students);
     }
     
-    studentDataQuery += ` ORDER BY s.last_name ASC, s.first_name ASC`;
+    if (assignment.assignment_type === 'individual') {
+      studentDataQuery += ` ORDER BY s.last_name ASC, s.first_name ASC`;
+    } else {
+      studentDataQuery += ` ORDER BY sg.last_name ASC, sg.first_name ASC`;
+    }
 
     const studentDataResult = await client.query(studentDataQuery, queryParams);
     const studentData = studentDataResult.rows;

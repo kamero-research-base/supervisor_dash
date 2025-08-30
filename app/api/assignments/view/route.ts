@@ -162,6 +162,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         SELECT 
           asub.id,
           asub.student_id,
+          asub.group_id,
           asub.submission_text,
           asub.attachments,
           asub.status,
@@ -170,9 +171,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           asub.submitted_at AT TIME ZONE 'UTC' as submitted_at,
           asub.graded_at AT TIME ZONE 'UTC' as graded_at,
           COALESCE(st.first_name || ' ' || st.last_name, 'Unknown Student') as student_name,
-          COALESCE(st.email, 'No email') as student_email
+          COALESCE(st.email, 'No email') as student_email,
+          ag.group_name
         FROM assignment_submissions asub
         LEFT JOIN students st ON st.id = asub.student_id
+        LEFT JOIN assignment_groups ag ON asub.group_id = ag.id
         WHERE asub.assignment_id = $1
         ORDER BY asub.submitted_at DESC
       `;

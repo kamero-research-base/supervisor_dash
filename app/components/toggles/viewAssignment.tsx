@@ -221,7 +221,30 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
 
     // Merge submissions with invitation data to get complete student info
     const allStudents = assignmentDetail.invitations?.map(invitation => {
-      const submission = assignmentDetail.submissions?.find(sub => sub.student_id === invitation.student_id);
+      let submission;
+      
+      if (assignmentDetail.assignment_type === 'individual') {
+        // For individual assignments, find direct submission
+        submission = assignmentDetail.submissions?.find(sub => sub.student_id === invitation.student_id);
+      } else if (assignmentDetail.assignment_type === 'group') {
+        // For group assignments, find the student's group first, then get that group's submission
+        const studentGroup = assignmentDetail.groups?.find(group => 
+          group.members?.some(member => member.student_id === invitation.student_id)
+        );
+        
+        if (studentGroup) {
+          // Find the group's submission (any submission with this group_id)
+          submission = assignmentDetail.submissions?.find(sub => sub.group_id === studentGroup.id);
+          // If we found a group submission, make sure to include the group name
+          if (submission && !submission.group_name) {
+            submission = { ...submission, group_name: studentGroup.group_name };
+          }
+        } else {
+          // Student is not in any group, look for direct submission (fallback)
+          submission = assignmentDetail.submissions?.find(sub => sub.student_id === invitation.student_id);
+        }
+      }
+      
       return {
         // Base invitation data
         id: invitation.id,
