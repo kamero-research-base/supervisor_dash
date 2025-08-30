@@ -1,7 +1,7 @@
 // app/components/modals/viewAssignment.tsx
 "use client";
 import React, { useEffect, useState } from "react";
-import { X, Calendar, Clock, Users, FileText, CheckCircle, AlertCircle, User, Award, BookOpen, Eye, Download, Edit, Star, Settings } from "lucide-react";
+import { X, Calendar, Clock, Users, FileText, CheckCircle, AlertCircle, User, Award, BookOpen, Eye, Download, Edit, Star, Settings, Lock } from "lucide-react";
 import GradeSubmission from './gradeSubmission';
 import ManageGroups from './manageGroups';
 
@@ -135,6 +135,8 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
   ]);
   const [fileFormat, setFileFormat] = useState<'xlsx' | 'pdf'>('xlsx');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailAddress, setEmailAddress] = useState('');
   const [selectedColor, setSelectedColor] = useState('#009688'); // Default brand color
   const [showCustomColorPicker, setShowCustomColorPicker] = useState(false);
   const [customHue, setCustomHue] = useState(174); // Default hue for brand color #009688
@@ -587,8 +589,20 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
     });
   };
 
+  // Check if download is allowed based on due date
+  const isDownloadAllowed = () => {
+    if (!assignmentDetail?.due_date) return true; // If no due date, allow download
+    const now = new Date();
+    const dueDate = new Date(assignmentDetail.due_date);
+    return now >= dueDate;
+  };
+
   // Download handler
   const handleDownloadMarks = async () => {
+    if (!isDownloadAllowed()) {
+      setError('Download is not available until the assignment due date is reached');
+      return;
+    }
     if (selectedColumns.length === 0) {
       setError('Please select at least one column to download');
       return;
@@ -645,6 +659,72 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
       setError(error instanceof Error ? error.message : 'Failed to download marks');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailAddress.trim()) {
+      setError('Please enter an email address');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailAddress)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setIsSendingEmail(true);
+    setError(null);
+    
+    try {
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) {
+        throw new Error("No supervisor session found");
+      }
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+      
+      const response = await fetch('/api/assignments/email-marks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          assignment_id: assignment.id,
+          supervisor_id: userSession.id,
+          columns: getOrderedColumns(),
+          fileFormat: fileFormat,
+          color: selectedColor,
+          studentFilters: {
+            ...studentFilters,
+            studentIds: filteredStudents.map(s => s.student_id)
+          },
+          emailAddress: emailAddress.trim()
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send email');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        // Show success message or notification
+        setError(null);
+        // Optionally reset email field
+        setEmailAddress('');
+        // Could add a success notification here
+      } else {
+        throw new Error(data.message || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      setError(error instanceof Error ? error.message : 'Failed to send email');
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -895,15 +975,25 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                   </button>
                 )}
                 <button
-                  onClick={() => setActiveTab('download')}
+                  onClick={() => isDownloadAllowed() && setActiveTab('download')}
                   className={`px-6 py-3 font-medium text-sm transition-colors ${
                     activeTab === 'download'
                       ? 'text-teal-600 border-b-2 border-teal-600 bg-white'
                       : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  } ${!isDownloadAllowed() ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  disabled={!isDownloadAllowed()}
                 >
-                  <Download size={16} className="inline mr-2" />
+                  {isDownloadAllowed() ? (
+                    <Download size={16} className="inline mr-2" />
+                  ) : (
+                    <Lock size={16} className="inline mr-2" />
+                  )}
                   Download Marks
+                  {!isDownloadAllowed() && (
+                    <span className="ml-2 text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">
+                      Locked
+                    </span>
+                  )}
                 </button>
               </div>
 
@@ -1378,17 +1468,47 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
 
                 {activeTab === 'download' && (
                   <div className="animate-fade-in space-y-6">
-                    <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="p-3 bg-green-100 rounded-full">
-                          <Download size={24} className="text-green-600" />
+                    {!isDownloadAllowed() ? (
+                      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="p-3 bg-amber-100 rounded-full">
+                            <Lock size={24} className="text-amber-600" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Download Locked</h3>
+                            <p className="text-gray-600 mb-4">
+                              Student marks download is locked until the assignment due date is reached.
+                            </p>
+                            <div className="bg-white border border-amber-200 rounded-lg p-4">
+                              <div className="flex items-center gap-2 text-amber-800">
+                                <Calendar size={16} />
+                                <span className="font-medium">Due Date:</span>
+                                <span>{new Date(assignmentDetail.due_date).toLocaleString()}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-gray-600 mt-2">
+                                <Clock size={16} />
+                                <span className="font-medium">Current Time:</span>
+                                <span>{new Date().toLocaleString()}</span>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-4">
+                              This prevents premature access to student marks before the assignment submission deadline.
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold text-gray-900 mb-2">Download Student Marks</h3>
-                          <p className="text-gray-600 mb-4">
-                            Export student marks and assignment data to Excel or PDF format. 
-                            Customize which information to include and choose your preferred format.
-                          </p>
+                      </div>
+                    ) : (
+                      <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="p-3 bg-green-100 rounded-full">
+                            <Download size={24} className="text-green-600" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Download Student Marks</h3>
+                            <p className="text-gray-600 mb-4">
+                              Export student marks and assignment data to Excel or PDF format. 
+                              Customize which information to include and choose your preferred format.
+                            </p>
                           
                           {/* Assignment Info Summary */}
                           <div className="bg-white/80 rounded-lg p-4 mb-6">
@@ -1414,7 +1534,6 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                           </div>
                         </div>
                       </div>
-                    </div>
 
                     {/* Student Filtering */}
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -1595,7 +1714,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                                 >
                                   <option value="">Select a group...</option>
-                                  {[...new Set(assignmentDetail?.submissions?.map(s => s.group_name).filter(Boolean))].map(groupName => (
+                                  {Array.from(new Set(assignmentDetail?.submissions?.map(s => s.group_name).filter(Boolean))).map(groupName => (
                                     <option key={groupName} value={groupName}>{groupName}</option>
                                   ))}
                                 </select>
@@ -2166,45 +2285,103 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                       </div>
                     )}
 
-                    {/* Download Button */}
+                    {/* Download & Email Options */}
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-900">Ready to Download</h4>
-                          <p className="text-sm text-gray-500 mt-1">
-                            Export {selectedColumns.length} columns for {filteredStudents.length} filtered students in {fileFormat.toUpperCase()} format
+                      <div className="mb-4">
+                        <h4 className="text-lg font-semibold text-gray-900">Export Options</h4>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Export {selectedColumns.length} columns for {filteredStudents.length} filtered students in {fileFormat.toUpperCase()} format
+                        </p>
+                        {assignmentDetail.submissions.length === 0 && (
+                          <p className="text-sm text-amber-600 mt-1 flex items-center gap-1">
+                            <AlertCircle size={14} />
+                            No submissions yet - file will show invited students with empty grades
                           </p>
-                          {assignmentDetail.submissions.length === 0 && (
-                            <p className="text-sm text-amber-600 mt-1 flex items-center gap-1">
-                              <AlertCircle size={14} />
-                              No submissions yet - file will show invited students with empty grades
-                            </p>
-                          )}
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Download Option */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h5 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                            <Download size={18} />
+                            Download to Device
+                          </h5>
+                          <p className="text-sm text-gray-500 mb-3">
+                            Save the file directly to your computer
+                          </p>
+                          <button
+                            onClick={handleDownloadMarks}
+                            disabled={selectedColumns.length === 0 || isDownloading}
+                            className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                              selectedColumns.length === 0 || isDownloading
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-teal-600 to-blue-600 text-white hover:from-teal-700 hover:to-blue-700 shadow-lg hover:shadow-xl'
+                            }`}
+                          >
+                            {isDownloading ? (
+                              <>
+                                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Download size={16} />
+                                Download {fileFormat.toUpperCase()}
+                              </>
+                            )}
+                          </button>
                         </div>
-                        
-                        <button
-                          onClick={handleDownloadMarks}
-                          disabled={selectedColumns.length === 0 || isDownloading}
-                          className={`inline-flex items-center gap-3 px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-                            selectedColumns.length === 0 || isDownloading
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-gradient-to-r from-teal-600 to-blue-600 text-white hover:from-teal-700 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105'
-                          }`}
-                        >
-                          {isDownloading ? (
-                            <>
-                              <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
-                              Generating {fileFormat.toUpperCase()}...
-                            </>
-                          ) : (
-                            <>
-                              <Download size={20} />
-                              Download {fileFormat.toUpperCase()}
-                            </>
-                          )}
-                        </button>
+
+                        {/* Email Option */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h5 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            Send to Email
+                          </h5>
+                          <p className="text-sm text-gray-500 mb-3">
+                            Email the file as an attachment
+                          </p>
+                          <div className="space-y-2">
+                            <input
+                              type="email"
+                              value={emailAddress}
+                              onChange={(e) => setEmailAddress(e.target.value)}
+                              placeholder="Enter email address"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                              disabled={isSendingEmail}
+                            />
+                            <button
+                              onClick={handleSendEmail}
+                              disabled={selectedColumns.length === 0 || isSendingEmail || !emailAddress.trim()}
+                              className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                                selectedColumns.length === 0 || isSendingEmail || !emailAddress.trim()
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl'
+                              }`}
+                            >
+                              {isSendingEmail ? (
+                                <>
+                                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                                  Sending...
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                  </svg>
+                                  Send Email
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

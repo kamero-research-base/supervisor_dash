@@ -132,6 +132,12 @@ export async function POST(req: NextRequest) {
 }
 
 async function generateExcelFile(assignment: any, supervisor: any, studentData: any[], columns: string[]) {
+  // Helper function to strip HTML tags
+  const stripHtmlTags = (text: string): string => {
+    if (!text) return '';
+    return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Student Marks');
 
@@ -268,7 +274,7 @@ async function generateExcelFile(assignment: any, supervisor: any, studentData: 
           cell.value = student.graded_at ? new Date(student.graded_at).toLocaleString() : 'Not Graded';
           break;
         case 'feedback':
-          cell.value = student.feedback || 'No feedback';
+          cell.value = stripHtmlTags(student.feedback) || 'No feedback';
           break;
         case 'group_name':
           cell.value = student.group_name || 'No Group';
