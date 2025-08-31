@@ -419,6 +419,16 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
     { id: 'group_name', label: 'Group Name', description: 'Name of the group (for group assignments)' },
   ];
 
+  // Update document title when component mounts
+  useEffect(() => {
+    document.title = 'Assignments';
+    
+    // Restore original title when component unmounts
+    return () => {
+      // The layout will handle title updates when navigating
+    };
+  }, []);
+
   useEffect(() => {
     const fetchAssignmentDetails = async () => {
       try {

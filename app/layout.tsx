@@ -11,6 +11,11 @@ interface RootLayoutProps {
 }
 
 const manipulateUrl = (url: string) => {
+  // Handle specific routes first
+  if (url === '/assignments') {
+    return "Assignments";
+  }
+  
   // Remove the '/i/' prefix
   if (url.startsWith('/auth/')) {
     url = url.replace('/auth/', '');
