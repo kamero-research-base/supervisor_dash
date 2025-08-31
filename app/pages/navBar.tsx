@@ -117,11 +117,6 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
       icon: "bi bi-person-circle"
     },
     { 
-      name: "Settings", 
-      url: "/settings", 
-      icon: "bi bi-gear"
-    },
-    { 
       name: "Log out", 
       url: "/auth/logout", 
       icon: "bi bi-box-arrow-right"

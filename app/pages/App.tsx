@@ -782,59 +782,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button 
-          onClick={toggleAddAssignment}
-          className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer text-left"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-200 transition-colors">
-              <i className="bi bi-plus-lg text-teal-600 text-xl"></i>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">Create Assignment</h3>
-              <p className="text-sm text-gray-600">Add new task</p>
-            </div>
-          </div>
-        </button>
-
-        <Link href="/students" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-              <i className="bi bi-person-plus text-blue-600 text-xl"></i>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">Manage Students</h3>
-              <p className="text-sm text-gray-600">View all students</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link href="/reports" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-              <i className="bi bi-graph-up text-purple-600 text-xl"></i>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">View Reports</h3>
-              <p className="text-sm text-gray-600">Analytics & insights</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link href="/messages" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
-              <i className="bi bi-chat-dots text-green-600 text-xl"></i>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">Messages</h3>
-              <p className="text-sm text-gray-600">Check inbox</p>
-            </div>
-          </div>
-        </Link>
-      </div>
     </div>
   );
 }
