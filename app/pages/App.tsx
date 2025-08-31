@@ -34,13 +34,13 @@ interface AssignmentAnalytics {
   };
 }
 
-interface RecentActivity {
+interface RecentItem {
   id: number;
-  type: 'assignment' | 'research' | 'attendance' | 'message';
   title: string;
-  description: string;
-  time: string;
-  status?: 'completed' | 'pending' | 'urgent';
+  created_at: string;
+  due_date?: string; // For assignments
+  year?: number; // For research
+  type: 'assignment' | 'research';
 }
 
 
@@ -83,7 +83,7 @@ export default function App() {
   const [assignmentAnalytics, setAssignmentAnalytics] = useState<AssignmentAnalytics | null>(null);
   const [showAddResearch, setShowAddResearch] = useState(false);
   const [showAddAssignment, setShowAddAssignment] = useState(false);
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<UpcomingDeadline[]>([]);
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -188,6 +188,89 @@ export default function App() {
       }
     } catch (error) {
       console.error("Error fetching research data:", error);
+    }
+  };
+
+  // Fetch recent assignments and research
+  const fetchRecentItems = async () => {
+    try {
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+      const recentItems: RecentItem[] = [];
+
+      // Fetch recent assignments
+      try {
+        const assignmentResponse = await fetch(`/api/assignments/list`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+        });
+
+        if (assignmentResponse.ok) {
+          const assignmentData = await assignmentResponse.json();
+          if (assignmentData.success && assignmentData.data && assignmentData.data.assignments) {
+            // Get the 5 most recent assignments
+            const assignments = assignmentData.data.assignments
+              .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+              .slice(0, 5)
+              .map((assignment: any) => ({
+                id: assignment.id,
+                title: assignment.title,
+                created_at: assignment.created_at,
+                due_date: assignment.due_date,
+                type: 'assignment' as const
+              }));
+            recentItems.push(...assignments);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching recent assignments:", error);
+      }
+
+      // Fetch recent research
+      try {
+        const researchResponse = await fetch(`/api/researches/list`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+        });
+
+        if (researchResponse.ok) {
+          const researchData = await researchResponse.json();
+          if (researchData.success && researchData.data && researchData.data.researches) {
+            // Get the 5 most recent research projects
+            const researches = researchData.data.researches
+              .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+              .slice(0, 5)
+              .map((research: any) => ({
+                id: research.id,
+                title: research.title,
+                created_at: research.created_at,
+                year: research.year,
+                type: 'research' as const
+              }));
+            recentItems.push(...researches);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching recent research:", error);
+      }
+
+      // Sort all items by creation date and take the most recent 10
+      const sortedItems = recentItems
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 10);
+
+      setRecentItems(sortedItems);
+
+    } catch (error) {
+      console.error("Error fetching recent items:", error);
     }
   };
     const [currentGreeting, setCurrentGreeting] = useState<TimeBasedGreeting>({
@@ -345,6 +428,7 @@ export default function App() {
     fetchAssignmentAnalytics();
     fetchStudentsData();
     fetchResearchData();
+    fetchRecentItems();
     
     // Simulate loading other data
     setTimeout(() => {
@@ -352,23 +436,24 @@ export default function App() {
     }, 1000);
   }, []);
 
-  const getActivityIcon = (type: string) => {
-    switch(type) {
-      case 'assignment': return 'bi-clipboard-check';
-      case 'research': return 'bi-journal-text';
-      case 'attendance': return 'bi-calendar-check';
-      case 'message': return 'bi-envelope';
-      default: return 'bi-activity';
-    }
+  // Helper function to format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
   };
 
-  const getStatusColor = (status?: string) => {
-    switch(status) {
-      case 'completed': return 'text-green-600 bg-green-50';
-      case 'pending': return 'text-yellow-600 bg-yellow-50';
-      case 'urgent': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
-    }
+  // Helper function to format due date
+  const formatDueDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   const toggleAddResearch = () => {
@@ -487,10 +572,15 @@ export default function App() {
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Recent Activities</h2>
-              <Link href="/supervisor/activity" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
-                View All
-              </Link>
+              <h2 className="text-lg font-semibold text-gray-900">Recent Researches and Assignments</h2>
+              <div className="flex items-center space-x-4">
+                <Link href="/researches" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
+                  View Researches
+                </Link>
+                <Link href="/assignments" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
+                  View Assignments
+                </Link>
+              </div>
             </div>
           </div>
           <div className="p-6">
@@ -508,44 +598,71 @@ export default function App() {
                   </div>
                 ))}
               </div>
-            ) : recentActivities.length > 0 ? (
-              <div className="space-y-4">
-                {recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      activity.type === 'assignment' ? 'bg-blue-100' :
-                      activity.type === 'research' ? 'bg-purple-100' :
-                      activity.type === 'attendance' ? 'bg-orange-100' :
-                      'bg-green-100'
-                    }`}>
-                      <i className={`bi ${getActivityIcon(activity.type)} ${
-                        activity.type === 'assignment' ? 'text-blue-600' :
-                        activity.type === 'research' ? 'text-purple-600' :
-                        activity.type === 'attendance' ? 'text-orange-600' :
-                        'text-green-600'
-                      }`}></i>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                          <p className="text-sm text-gray-600 mt-0.5">{activity.description}</p>
-                          <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                        </div>
-                        {activity.status && (
-                          <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(activity.status)}`}>
-                            {activity.status}
+            ) : recentItems.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b border-gray-200">
+                    <tr>
+                      <th className="text-left py-3 px-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th className="text-left py-3 px-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Date Created
+                      </th>
+                      <th className="text-left py-3 px-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Date Due/Year
+                      </th>
+                      <th className="text-left py-3 px-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Type
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {recentItems.map((item) => (
+                      <tr key={`${item.type}-${item.id}`} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-2">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              item.type === 'assignment' ? 'bg-blue-100' : 'bg-purple-100'
+                            }`}>
+                              <i className={`bi ${
+                                item.type === 'assignment' ? 'bi-clipboard-check text-blue-600' : 'bi-journal-text text-purple-600'
+                              } text-sm`}></i>
+                            </div>
+                            <span className="text-sm font-medium text-gray-900 truncate max-w-xs" title={item.title}>
+                              {item.title}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {formatDate(item.created_at)}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {item.type === 'assignment' && item.due_date 
+                            ? formatDueDate(item.due_date)
+                            : item.type === 'research' && item.year
+                            ? item.year.toString()
+                            : 'N/A'
+                          }
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            item.type === 'assignment' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {item.type === 'assignment' ? 'Assignment' : 'Research'}
                           </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <div className="text-center py-8">
                 <i className="bi bi-inbox text-4xl text-gray-300"></i>
-                <p className="mt-2 text-sm text-gray-500">No recent activities</p>
+                <p className="mt-2 text-sm text-gray-500">No recent items found</p>
               </div>
             )}
           </div>
