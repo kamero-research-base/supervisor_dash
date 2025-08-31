@@ -7,11 +7,8 @@ import AddAssignment from "../components/toggles/addAssignment";
 
 interface DashboardStats {
   totalStudents: number;
-  activeAssignments: number;
-  pendingReviews: number;
-  attendanceRate: number;
+  totalAssignments: number;
   researchProjects: number;
-  unreadMessages: number;
 }
 
 interface AssignmentAnalytics {
@@ -37,13 +34,13 @@ interface AssignmentAnalytics {
   };
 }
 
-interface RecentActivity {
+interface RecentItem {
   id: number;
-  type: 'assignment' | 'research' | 'attendance' | 'message';
   title: string;
-  description: string;
-  time: string;
-  status?: 'completed' | 'pending' | 'urgent';
+  created_at: string;
+  due_date?: string; // For assignments
+  year?: number; // For research
+  type: 'assignment' | 'research';
 }
 
 
@@ -79,21 +76,22 @@ interface TimeBasedGreeting {
 export default function App() {
   const [stats, setStats] = useState<DashboardStats>({
     totalStudents: 0,
-    activeAssignments: 0,
-    pendingReviews: 0,
-    attendanceRate: 0,
-    researchProjects: 0,
-    unreadMessages: 0
+    totalAssignments: 0,
+    researchProjects: 0
   });
   
   const [assignmentAnalytics, setAssignmentAnalytics] = useState<AssignmentAnalytics | null>(null);
   const [showAddResearch, setShowAddResearch] = useState(false);
   const [showAddAssignment, setShowAddAssignment] = useState(false);
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<UpcomingDeadline[]>([]);
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [studentsLoading, setStudentsLoading] = useState(true);
+  const [researchLoading, setResearchLoading] = useState(true);
+  const [recentItemsLoading, setRecentItemsLoading] = useState(true);
+  const [upcomingDeadlinesLoading, setUpcomingDeadlinesLoading] = useState(true);
 
   // Fetch assignment analytics
   const fetchAssignmentAnalytics = async () => {
@@ -125,7 +123,7 @@ export default function App() {
         // Update the stats with real assignment data
         setStats(prev => ({
           ...prev,
-          activeAssignments: data.data.active_assignments
+          totalAssignments: data.data.total_assignments
         }));
       } else {
         console.error("Invalid analytics data structure:", data);
@@ -134,6 +132,214 @@ export default function App() {
       console.error("Error fetching assignment analytics:", error);
     } finally {
       setAnalyticsLoading(false);
+    }
+  };
+
+  // Fetch students data
+  const fetchStudentsData = async () => {
+    try {
+      setStudentsLoading(true);
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+      
+      const response = await fetch(`/api/students`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.students) {
+          setStats(prev => ({
+            ...prev,
+            totalStudents: data.students.length
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching students data:", error);
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
+
+  // Fetch research data
+  const fetchResearchData = async () => {
+    try {
+      setResearchLoading(true);
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+      
+      const response = await fetch(`/api/researches/list`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data && data.data.researches) {
+          setStats(prev => ({
+            ...prev,
+            researchProjects: data.data.researches.length
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching research data:", error);
+    } finally {
+      setResearchLoading(false);
+    }
+  };
+
+  // Fetch recent assignments and research
+  const fetchRecentItems = async () => {
+    try {
+      setRecentItemsLoading(true);
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+      const recentItems: RecentItem[] = [];
+
+      // Fetch recent assignments
+      try {
+        const assignmentResponse = await fetch(`/api/assignments/list`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+        });
+
+        if (assignmentResponse.ok) {
+          const assignmentData = await assignmentResponse.json();
+          if (assignmentData.success && assignmentData.data && assignmentData.data.assignments) {
+            // Get the 5 most recent assignments
+            const assignments = assignmentData.data.assignments
+              .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+              .slice(0, 5)
+              .map((assignment: any) => ({
+                id: assignment.id,
+                title: assignment.title,
+                created_at: assignment.created_at,
+                due_date: assignment.due_date,
+                type: 'assignment' as const
+              }));
+            recentItems.push(...assignments);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching recent assignments:", error);
+      }
+
+      // Fetch recent research
+      try {
+        const researchResponse = await fetch(`/api/researches/list`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+        });
+
+        if (researchResponse.ok) {
+          const researchData = await researchResponse.json();
+          if (researchData.success && researchData.data && researchData.data.researches) {
+            // Get the 5 most recent research projects
+            const researches = researchData.data.researches
+              .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+              .slice(0, 5)
+              .map((research: any) => ({
+                id: research.id,
+                title: research.title,
+                created_at: research.created_at,
+                year: research.year,
+                type: 'research' as const
+              }));
+            recentItems.push(...researches);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching recent research:", error);
+      }
+
+      // Sort all items by creation date and take the most recent 10
+      const sortedItems = recentItems
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 10);
+
+      setRecentItems(sortedItems);
+
+    } catch (error) {
+      console.error("Error fetching recent items:", error);
+    } finally {
+      setRecentItemsLoading(false);
+    }
+  };
+
+  // Fetch upcoming deadlines (assignments due in next 24 hours)
+  const fetchUpcomingDeadlines = async () => {
+    try {
+      setUpcomingDeadlinesLoading(true);
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+      
+      const response = await fetch(`/api/assignments/list`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data && data.data.assignments) {
+          const now = new Date();
+          const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          
+          // Filter assignments due in the next 24 hours
+          const upcomingAssignments = data.data.assignments
+            .filter((assignment: any) => {
+              if (!assignment.due_date) return false;
+              const dueDate = new Date(assignment.due_date);
+              return dueDate >= now && dueDate <= next24Hours;
+            })
+            .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+            .slice(0, 10)
+            .map((assignment: any) => ({
+              id: assignment.id,
+              title: assignment.title,
+              course: assignment.course || "General",
+              dueDate: new Date(assignment.due_date).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              }),
+              submissions: assignment.total_submissions || 0,
+              total: assignment.students_invited || 0
+            }));
+
+          setUpcomingDeadlines(upcomingAssignments);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching upcoming deadlines:", error);
+    } finally {
+      setUpcomingDeadlinesLoading(false);
     }
   };
     const [currentGreeting, setCurrentGreeting] = useState<TimeBasedGreeting>({
@@ -287,32 +493,38 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Fetch assignment analytics on component mount
+    // Fetch all data on component mount
     fetchAssignmentAnalytics();
-    
-    // Simulate loading other data
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+    fetchStudentsData();
+    fetchResearchData();
+    fetchRecentItems();
+    fetchUpcomingDeadlines();
   }, []);
 
-  const getActivityIcon = (type: string) => {
-    switch(type) {
-      case 'assignment': return 'bi-clipboard-check';
-      case 'research': return 'bi-journal-text';
-      case 'attendance': return 'bi-calendar-check';
-      case 'message': return 'bi-envelope';
-      default: return 'bi-activity';
-    }
+  // Check if all data has loaded
+  useEffect(() => {
+    const allDataLoaded = !analyticsLoading && !studentsLoading && !researchLoading && !recentItemsLoading && !upcomingDeadlinesLoading;
+    setIsLoading(!allDataLoaded);
+  }, [analyticsLoading, studentsLoading, researchLoading, recentItemsLoading, upcomingDeadlinesLoading]);
+
+  // Helper function to format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
   };
 
-  const getStatusColor = (status?: string) => {
-    switch(status) {
-      case 'completed': return 'text-green-600 bg-green-50';
-      case 'pending': return 'text-yellow-600 bg-yellow-50';
-      case 'urgent': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
-    }
+  // Helper function to format due date
+  const formatDueDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   const toggleAddResearch = () => {
@@ -322,6 +534,108 @@ export default function App() {
   const closeAddResearch = () => {
     setShowAddResearch(false);
   }
+
+  // Skeleton Components
+  const WelcomeSkeleton = () => (
+    <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-4 animate-pulse">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gray-200 rounded"></div>
+          <div>
+            <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-64"></div>
+          </div>
+        </div>
+        <div className="mt-4 md:mt-0 flex items-center space-x-3">
+          <div className="h-10 bg-gray-200 rounded-lg w-32"></div>
+          <div className="h-10 bg-gray-200 rounded-lg w-32"></div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const StatCardSkeleton = () => (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
+      <div className="flex items-center justify-between mb-4">
+        <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+      </div>
+      <div className="h-8 bg-gray-200 rounded w-16 mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded w-24"></div>
+    </div>
+  );
+
+  const TableSkeleton = () => (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 animate-pulse">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="h-6 bg-gray-200 rounded w-48"></div>
+          <div className="flex items-center space-x-4">
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+          </div>
+        </div>
+      </div>
+      <div className="p-6">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b border-gray-200">
+              <tr>
+                {[1, 2, 3, 4].map((i) => (
+                  <th key={i} className="text-left py-3 px-2">
+                    <div className="h-3 bg-gray-200 rounded w-16"></div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <tr key={i}>
+                  {[1, 2, 3, 4].map((j) => (
+                    <td key={j} className="py-3 px-2">
+                      <div className="h-4 bg-gray-200 rounded w-20"></div>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const UpcomingDeadlinesSkeleton = () => (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 animate-pulse">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="h-6 bg-gray-200 rounded w-40"></div>
+          <div className="h-4 bg-gray-200 rounded w-16"></div>
+        </div>
+      </div>
+      <div className="p-6">
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="p-3 border border-gray-100 rounded-lg">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-200 rounded w-32 mb-1"></div>
+                  <div className="h-3 bg-gray-200 rounded w-20"></div>
+                </div>
+                <div className="h-6 bg-gray-200 rounded w-16"></div>
+              </div>
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="h-3 bg-gray-200 rounded w-20"></div>
+                  <div className="h-3 bg-gray-200 rounded w-12"></div>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   const toggleAddAssignment = () => {
     setShowAddAssignment(true);
@@ -333,19 +647,38 @@ export default function App() {
 
   const handleAssignmentSuccess = () => {
     setShowAddAssignment(false);
-    // Refresh assignment analytics after successful creation
+    // Refresh assignment analytics and upcoming deadlines after successful creation
     fetchAssignmentAnalytics();
+    fetchUpcomingDeadlines();
   }
 
-  const renderPercentageChange = (value: number) => {
-    if (value === 0) return null;
-    const isPositive = value > 0;
+
+  if (isLoading) {
     return (
-      <span className={`text-xs px-2 py-1 rounded-full ${isPositive ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
-        {isPositive ? '+' : ''}{value}%
-      </span>
+      <div className="space-y-6">
+        {/* Welcome Section Skeleton */}
+        <WelcomeSkeleton />
+
+        {/* Statistics Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <StatCardSkeleton />
+          <StatCardSkeleton />
+          <StatCardSkeleton />
+        </div>
+
+        {/* Main Content Grid Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Recent Activities Table Skeleton - 2 columns wide */}
+          <div className="lg:col-span-2">
+            <TableSkeleton />
+          </div>
+
+          {/* Upcoming Deadlines Skeleton - 1 column wide */}
+          <UpcomingDeadlinesSkeleton />
+        </div>
+      </div>
     );
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -392,78 +725,30 @@ export default function App() {
         </div>
       </div>
 
-      {/* Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
+      {/* Statistics Grid - Updated with only 3 cards for better alignment */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Total Students */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <i className="bi bi-people text-blue-600 text-xl"></i>
             </div>
-            <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
-              +12%
-            </span>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.totalStudents || "245"}</h3>
+          <h3 className="text-2xl font-bold text-gray-900">{stats.totalStudents || 0}</h3>
           <p className="text-sm text-gray-600 mt-1">Total Students</p>
         </div>
 
-        {/* Active Assignments - Using Real Data */}
+        {/* Total Assignments - Using Real Data */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
               <i className="bi bi-clipboard-check text-teal-600 text-xl"></i>
             </div>
-            {analyticsLoading ? (
-              <div className="w-12 h-4 bg-gray-200 rounded animate-pulse"></div>
-            ) : (
-              assignmentAnalytics && renderPercentageChange(assignmentAnalytics.percentage_change.active_assignments)
-            )}
           </div>
-          {analyticsLoading ? (
-            <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
-          ) : (
-            <h3 className="text-2xl font-bold text-gray-900">
-              {assignmentAnalytics?.active_assignments || 0}
-            </h3>
-          )}
-          <p className="text-sm text-gray-600 mt-1">Active Assignments</p>
-        </div>
-
-        {/* Pending Reviews - Using Real Data */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <i className="bi bi-hourglass-split text-orange-600 text-xl"></i>
-            </div>
-            {analyticsLoading ? (
-              <div className="w-12 h-4 bg-gray-200 rounded animate-pulse"></div>
-            ) : (
-              assignmentAnalytics && renderPercentageChange(assignmentAnalytics.percentage_change.pending_submissions)
-            )}
-          </div>
-          {analyticsLoading ? (
-            <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
-          ) : (
-            <h3 className="text-2xl font-bold text-gray-900">
-              {assignmentAnalytics?.pending_submissions || 0}
-            </h3>
-          )}
-          <p className="text-sm text-gray-600 mt-1">Pending Submissions</p>
-        </div>
-
-        {/* Attendance Rate */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <i className="bi bi-calendar-check text-green-600 text-xl"></i>
-            </div>
-            <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded-full">
-              -3%
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.attendanceRate || "87"}%</h3>
-          <p className="text-sm text-gray-600 mt-1">Attendance Rate</p>
+          <h3 className="text-2xl font-bold text-gray-900">
+            {stats.totalAssignments || 0}
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">Total Assignments</p>
         </div>
 
         {/* Research Projects */}
@@ -472,26 +757,9 @@ export default function App() {
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <i className="bi bi-journal-text text-purple-600 text-xl"></i>
             </div>
-            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
-              Ongoing
-            </span>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.researchProjects || "24"}</h3>
+          <h3 className="text-2xl font-bold text-gray-900">{stats.researchProjects || 0}</h3>
           <p className="text-sm text-gray-600 mt-1">Research Projects</p>
-        </div>
-
-        {/* Messages */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-              <i className="bi bi-envelope text-indigo-600 text-xl"></i>
-            </div>
-            <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
-              New
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.unreadMessages || "7"}</h3>
-          <p className="text-sm text-gray-600 mt-1">Unread Messages</p>
         </div>
       </div>
 
@@ -501,65 +769,83 @@ export default function App() {
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Recent Activities</h2>
-              <Link href="/supervisor/activity" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
-                View All
-              </Link>
+              <h2 className="text-lg font-semibold text-gray-900">Recent Researches and Assignments</h2>
+              <div className="flex items-center space-x-4">
+                <Link href="/researches" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
+                  View Researches
+                </Link>
+                <Link href="/assignments" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
+                  View Assignments
+                </Link>
+              </div>
             </div>
           </div>
           <div className="p-6">
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2 mt-2"></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : recentActivities.length > 0 ? (
-              <div className="space-y-4">
-                {recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      activity.type === 'assignment' ? 'bg-blue-100' :
-                      activity.type === 'research' ? 'bg-purple-100' :
-                      activity.type === 'attendance' ? 'bg-orange-100' :
-                      'bg-green-100'
-                    }`}>
-                      <i className={`bi ${getActivityIcon(activity.type)} ${
-                        activity.type === 'assignment' ? 'text-blue-600' :
-                        activity.type === 'research' ? 'text-purple-600' :
-                        activity.type === 'attendance' ? 'text-orange-600' :
-                        'text-green-600'
-                      }`}></i>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                          <p className="text-sm text-gray-600 mt-0.5">{activity.description}</p>
-                          <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                        </div>
-                        {activity.status && (
-                          <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(activity.status)}`}>
-                            {activity.status}
+            {recentItems.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b border-gray-200">
+                    <tr>
+                      <th className="text-left py-3 px-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th className="text-left py-3 px-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Date Created
+                      </th>
+                      <th className="text-left py-3 px-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Date Due/Year
+                      </th>
+                      <th className="text-left py-3 px-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Type
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {recentItems.map((item) => (
+                      <tr key={`${item.type}-${item.id}`} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-2">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              item.type === 'assignment' ? 'bg-blue-100' : 'bg-purple-100'
+                            }`}>
+                              <i className={`bi ${
+                                item.type === 'assignment' ? 'bi-clipboard-check text-blue-600' : 'bi-journal-text text-purple-600'
+                              } text-sm`}></i>
+                            </div>
+                            <span className="text-sm font-medium text-gray-900 truncate max-w-xs" title={item.title}>
+                              {item.title}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {formatDate(item.created_at)}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {item.type === 'assignment' && item.due_date 
+                            ? formatDueDate(item.due_date)
+                            : item.type === 'research' && item.year
+                            ? item.year.toString()
+                            : 'N/A'
+                          }
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            item.type === 'assignment' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {item.type === 'assignment' ? 'Assignment' : 'Research'}
                           </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <div className="text-center py-8">
                 <i className="bi bi-inbox text-4xl text-gray-300"></i>
-                <p className="mt-2 text-sm text-gray-500">No recent activities</p>
+                <p className="mt-2 text-sm text-gray-500">No recent items found</p>
               </div>
             )}
           </div>
@@ -576,17 +862,7 @@ export default function App() {
             </div>
           </div>
           <div className="p-6">
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2 mt-2"></div>
-                    <div className="h-2 bg-gray-200 rounded-full mt-3"></div>
-                  </div>
-                ))}
-              </div>
-            ) : upcomingDeadlines.length > 0 ? (
+            {upcomingDeadlines.length > 0 ? (
               <div className="space-y-4">
                 {upcomingDeadlines.map((deadline) => (
                   <div key={deadline.id} className="p-3 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors">
@@ -624,59 +900,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button 
-          onClick={toggleAddAssignment}
-          className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer text-left"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-200 transition-colors">
-              <i className="bi bi-plus-lg text-teal-600 text-xl"></i>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">Create Assignment</h3>
-              <p className="text-sm text-gray-600">Add new task</p>
-            </div>
-          </div>
-        </button>
-
-        <Link href="/students" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-              <i className="bi bi-person-plus text-blue-600 text-xl"></i>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">Manage Students</h3>
-              <p className="text-sm text-gray-600">View all students</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link href="/reports" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-              <i className="bi bi-graph-up text-purple-600 text-xl"></i>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">View Reports</h3>
-              <p className="text-sm text-gray-600">Analytics & insights</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link href="/messages" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow group cursor-pointer">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
-              <i className="bi bi-chat-dots text-green-600 text-xl"></i>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">Messages</h3>
-              <p className="text-sm text-gray-600">Check inbox</p>
-            </div>
-          </div>
-        </Link>
-      </div>
     </div>
   );
 }

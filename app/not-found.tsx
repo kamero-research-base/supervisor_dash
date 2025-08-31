@@ -42,7 +42,7 @@ export default function NotFound() {
 
         {/* Help Text */}
         <p className="mt-8 text-sm text-gray-400">
-          Need help? <Link href="/supervisor/help" className="text-teal-600 hover:text-teal-700 font-medium">Contact Support</Link>
+          Need help? <Link href="https://www.kamero.rw/~/help" className="text-teal-600 hover:text-teal-700 font-medium">Contact Support</Link>
         </p>
       </div>
     </div>

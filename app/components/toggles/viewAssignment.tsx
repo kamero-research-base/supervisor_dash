@@ -89,6 +89,7 @@ interface Invitation {
   student_id: number;
   student_name: string;
   student_email: string;
+  student_phone: string;
   status: string;
   invited_at: string;
   responded_at: string;
@@ -251,6 +252,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
         student_id: invitation.student_id,
         student_name: invitation.student_name,
         student_email: invitation.student_email,
+        student_phone: invitation.student_phone,
         invitation_status: invitation.status,
         invited_at: invitation.invited_at,
         responded_at: invitation.responded_at,
@@ -403,8 +405,9 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
   
   // Available columns for download
   const availableColumns = [
-    { id: 'student_name', label: 'Student ID', description: 'Anonymous student identifier' },
-    { id: 'student_email', label: 'Assignment', description: 'Assignment title/subject' },
+    { id: 'student_name', label: 'Student Name', description: 'Full name of the student' },
+    { id: 'student_email', label: 'Email Address', description: 'Student email address' },
+    { id: 'student_phone', label: 'Phone Number', description: 'Student phone number' },
     { id: 'student_id', label: 'Student Number', description: 'Unique student number' },
     { id: 'invite_status', label: 'Invite Status', description: 'Whether student accepted or is pending invitation' },
     { id: 'score', label: 'Score', description: 'Assignment score or grade' },
@@ -415,6 +418,16 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
     { id: 'feedback', label: 'Feedback', description: 'Instructor feedback' },
     { id: 'group_name', label: 'Group Name', description: 'Name of the group (for group assignments)' },
   ];
+
+  // Update document title when component mounts
+  useEffect(() => {
+    document.title = 'Assignments';
+    
+    // Restore original title when component unmounts
+    return () => {
+      // The layout will handle title updates when navigating
+    };
+  }, []);
 
   useEffect(() => {
     const fetchAssignmentDetails = async () => {
@@ -2266,10 +2279,13 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                                     let value = '';
                                     switch (columnId) {
                                       case 'student_name':
-                                        value = `Student #${submission.student_id}`;
+                                        value = submission.student_name || `Student #${submission.student_id}`;
                                         break;
                                       case 'student_email':
-                                        value = assignmentDetail.title;
+                                        value = submission.student_email || 'N/A';
+                                        break;
+                                      case 'student_phone':
+                                        value = submission.student_phone || 'N/A';
                                         break;
                                       case 'student_id':
                                         value = submission.student_id?.toString() || 'N/A';

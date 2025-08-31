@@ -315,7 +315,7 @@ const LoginForm = () => {
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               Don't have an account?{" "}
-              <Link href="/auth/register" className="text-teal-600 font-medium hover:text-teal-700 transition-colors">
+              <Link href="https://www.kamero.rw/contact-us" className="text-teal-600 font-medium hover:text-teal-700 transition-colors">
                 Contact Sales
               </Link>
             </p>
