@@ -99,11 +99,6 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
       name: "Researches", 
       url: "/researches", 
       icon: "bi bi-journal-text",
-    },
-  {
-    name: "Notifications", 
-      url: "/notifications", 
-      icon: "bi bi-bell",
     }
   ];
 
