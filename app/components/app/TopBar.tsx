@@ -26,23 +26,12 @@ interface SupervisorInfo {
   loginTime: string;
 }
 
-interface Notification {
-  id: number;
-  type: 'assignment' | 'research' | 'attendance' | 'message' | 'alert';
-  title: string;
-  description: string;
-  time: string;
-  isRead: boolean;
-  priority?: 'high' | 'medium' | 'low';
-}
 
 const TopBar = ({ pageTitle }: TopBarProps) => {
   const [supervisorInfo, setSupervisorInfo] = useState<SupervisorInfo | null>(null);
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDate, setCurrentDate] = useState<string>("");
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
-  const [showNotifications, setShowNotifications] = useState<boolean>(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -230,6 +219,7 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
     return breadcrumbs;
   };
 
+
   const getNotificationIcon = (type: string) => {
     switch(type) {
       case 'assignment': return 'bi-clipboard-check';
@@ -319,6 +309,35 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
                 </span>
               </div>
             ))}
+
+  const breadcrumbs = generateBreadcrumbs();
+
+  return (
+    <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
+      <div className="px-6 py-3">
+        <div className="flex items-center justify-between">
+          {/* Left Section - Page Title & Breadcrumbs */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2 text-sm text-gray-500 mb-1">
+              {breadcrumbs.map((breadcrumb, index) => (
+                <div key={breadcrumb.path} className="flex items-center">
+                  {index > 0 && <i className="bi bi-chevron-right mx-1.5 text-xs"></i>}
+                  {index === breadcrumbs.length - 1 ? (
+                    <span className="text-teal-600 font-medium">
+                      {breadcrumb.name}
+                    </span>
+                  ) : (
+                    <Link href={breadcrumb.path}>
+                      <span className="hover:text-teal-600 cursor-pointer transition-colors">
+                        {breadcrumb.name}
+                      </span>
+                    </Link>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+
           </div>
         </div>
 
@@ -335,6 +354,7 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
               <span className="font-medium">{currentTime}</span>
             </div>
           </div>
+
 
           {/* Mobile Search Button */}
           <button className="md:hidden p-2 text-gray-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all">
@@ -447,6 +467,24 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
                     <button className="text-sm text-teal-600 hover:text-teal-700 font-medium w-full text-center">
                       View all notifications
                     </button>
+          {/* Right Section - Actions & User */}
+          <div className="flex items-center space-x-3">
+            {/* User Profile */}
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-50 rounded-lg transition-all"
+              >
+                {supervisorInfo?.profile ? (
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center">
+                    <img src={supervisorInfo.profile} alt="Profile" className="w-full h-full object-cover rounded-lg" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-semibold text-sm">
+                      {supervisorInfo?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'SU'}
+                    </span>
+
                   </div>
                 )}
               </div>
@@ -522,6 +560,24 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
                       </p>
                     </div>
                   </div>
+
+                  
+                  <div className="py-2">
+                    <Link href="/profile" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <i className="bi bi-person-circle text-gray-400"></i>
+                      <span>My Profile</span>
+                    </Link>
+                    <div className="border-t border-gray-200 my-2"></div>
+                    <Link href="https://www.kamero.rw/~/help" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <i className="bi bi-question-circle text-gray-400"></i>
+                      <span>Help & Support</span>
+                    </Link>
+                    <Link href="/auth/logout" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                      <i className="bi bi-box-arrow-right text-red-500"></i>
+                      <span>Sign Out</span>
+                    </Link>
+                  </div>
+
                 </div>
                 
                 <div className="py-2">

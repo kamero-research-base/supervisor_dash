@@ -11,6 +11,11 @@ interface RootLayoutProps {
 }
 
 const manipulateUrl = (url: string) => {
+  // Handle specific routes first
+  if (url === '/assignments') {
+    return "Assignments";
+  }
+  
   // Remove the '/i/' prefix
   if (url.startsWith('/auth/')) {
     url = url.replace('/auth/', '');
@@ -78,10 +83,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
               {/* Scrollable Content Area - Below TopBar */}
               <main className="min-h-[calc(100vh-73px)]">
                 <div className="p-6">
-                  {/* Content Container with max width for better readability */}
-                  <div className="max-w-7xl mx-auto">
-                    {children}
-                  </div>
+                  {children}
                 </div>
               </main>
               
@@ -91,9 +93,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
                   <div className="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-500">
                     <p>&copy; {new Date().getFullYear()} Kamero Research Base. All rights reserved.</p>
                     <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-                      <a href="/terms" className="hover:text-teal-600 transition-colors">Terms</a>
-                      <a href="/privacy" className="hover:text-teal-600 transition-colors">Privacy</a>
-                      <a href="/support" className="hover:text-teal-600 transition-colors">Support</a>
+                      <a href="https://www.kamero.rw/~/terms_of_services" className="hover:text-teal-600 transition-colors">Terms</a>
+                      <a href="https://www.kamero.rw/~/privacy" className="hover:text-teal-600 transition-colors">Privacy</a>
+                      <a href="https://www.kamero.rw/~/help" className="hover:text-teal-600 transition-colors">Support</a>
                     </div>
                   </div>
                 </div>

@@ -11,8 +11,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
       const {id} = requestBody;
 
-      console.log("Research ID:", id);
-      
       if (!id) {
           return NextResponse.json({ message: "Research ID is required." }, { status: 400 });
       }

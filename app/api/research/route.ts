@@ -46,8 +46,7 @@ export async function POST(req: Request) {
       FROM researches r
       JOIN institutions i ON CAST(i.id AS TEXT) = r.institution
       JOIN schools s ON CAST(s.id AS TEXT) = r.school
-      WHERE r.user_id = ANY($1)
-      ORDER BY r.id DESC`; // Default ordering by latest first
+      WHERE r.user_id = ANY($1)`;
 
     const result = await client.query(query, [allUserIds]);
 

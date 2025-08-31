@@ -1,7 +1,7 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { X, FileText, User, Building2, Calendar, Tag, GraduationCap, Clock, ExternalLink, Check, AlertTriangle, Pause, Eye, Download } from "lucide-react";
+import { X, FileText, User, Building2, Check, AlertTriangle, Pause, Eye, Download, MessageCircle, Send, MoreVertical, Edit, Trash2, Reply, Heart, Flag } from "lucide-react";
 
 // Interface updated to include the new is_public field
 interface FormData {
@@ -17,20 +17,37 @@ interface FormData {
   document: string;
   document_type: string;
   hashed_id: string;
-  is_public: boolean; // Add visibility field
+  is_public: boolean;
   created_at: string;
+}
+
+// Comment interface
+interface Comment {
+  id: number;
+  content: string;
+  user_id: number;
+  research_id: number;
+  parent_id?: number;
+  identifier: string;
+  created_at: string;
+  updated_at: string;
+  is_edited: boolean;
+  is_deleted: boolean;
+  first_name?: string;
+  last_name?: string;
+  user_email?: string;
 }
 
 const buttons = [
   { name: "overview", icon: Eye },
   { name: "details", icon: FileText },
-  { name: "supervisors", icon: User },
-  { name: "institution", icon: Building2 },
+  { name: "comments", icon: MessageCircle },
 ];
 
 interface ViewResearchProps {
   ResearchId: string;
   onClose: () => void;
+  sessionId?: string;
 }
 
 function formatDate(dateString: any) {
@@ -60,6 +77,47 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
   const [success, setSuccess] = useState<string | null>(null);
   const [research, setResearch] = useState<FormData | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Comment-related state
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [postingComment, setPostingComment] = useState(false);
+  
+  // Comment action states
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [editingComment, setEditingComment] = useState(false);
+  const [replyingToId, setReplyingToId] = useState<number | null>(null);
+  const [replyContent, setReplyContent] = useState("");
+  const [postingReply, setPostingReply] = useState(false);
+  const [showActionsId, setShowActionsId] = useState<number | null>(null);
+  const [deletingComment, setDeletingComment] = useState<number | null>(null);
+  const [likingComment, setLikingComment] = useState<number | null>(null);
+
+  // Action loading states
+  const [approvingResearch, setApprovingResearch] = useState(false);
+  const [rejectingResearch, setRejectingResearch] = useState(false);
+  const [holdingResearch, setHoldingResearch] = useState(false);
+  const [reviewingResearch, setReviewingResearch] = useState(false);
+
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Ref to handle click outside for dropdowns
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  //session fetching
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+       const userSession = JSON.parse(localStorage.getItem("supervisorSession") || "{}");
+        setSessionId(userSession.id);
+      } catch (error) {
+        setError("An error occurred while fetching session.");
+      }
+    };
+    fetchSession();
+  }, [ResearchId, newComment]);
 
   // Clear messages after 10 seconds
   useEffect(() => {
@@ -71,6 +129,17 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       return () => clearTimeout(timer);
     }
   }, [error, success]);
+
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowActionsId(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch Research
   useEffect(() => {
@@ -85,17 +154,24 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
           },
           body: JSON.stringify({ id: ResearchId }),
         });
-        if (!response.ok) throw new Error("Failed to fetch researches");
+        if (!response.ok) throw new Error("Failed to fetch research");
         const data = await response.json();
         setResearch(data);
-        setLoading(false);
       } catch (error) {
-        setError("An error occurred while fetching researches.");
+        setError("An error occurred while fetching research.");
+      } finally {
         setLoading(false);
       }
     };
     fetchResearch();
   }, [ResearchId]);
+
+  // Fetch Comments when comments tab is active
+  useEffect(() => {
+    if (activeTab === 2 && research) {
+      fetchComments();
+    }
+  }, [activeTab, research]);
  
   // Set abstract content in DOM
   useEffect(() => {
@@ -107,119 +183,275 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
     }
   }, [research]);
 
-  const handleApprove = async (id: any) => {
-    setLoading(true);
-    const response = await fetch(`/api/research/approve`, {
-      method: 'PUT',
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ id: id }),
-    });
+  // Fetch comments function
+  const fetchComments = async () => {
+    if (!research || !sessionId) return;
+    
+    setCommentsLoading(true);
+    try {
+      const response = await fetch(`/api/research/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ 
+          session_id: sessionId,
+          research_id: research.hashed_id 
+        }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to fetch comments");
+      const data = await response.json();
+      setComments(data);
+    } catch (error) {
+      setError("Failed to fetch comments.");
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
 
-    if (!response.ok) {
-      setLoading(false);
-      let errorData;
-      try {
-        errorData = await response.json();
-        setError(errorData.message)
-      } catch (err) {
-        setError("Failed to approve. Server returned an error without JSON.");
-        return;
+  // Post new comment
+  const handlePostComment = async () => {
+   
+    if (!newComment.trim() || !research || !sessionId) return;
+    
+    setPostingComment(true);
+    try {
+      const response = await fetch(`/api/add/comment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          content: newComment.trim(),
+          session_id: sessionId,
+          research_id: research.hashed_id,
+          identifier: sessionId
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to post comment");
       }
-      setError(errorData.message || "Failed to approve");
-      return;
-    } else {
-      setLoading(false);
-      setSuccess("Request approved!")
+
+      setNewComment("");
+      setSuccess("Comment posted successfully!");
+      await fetchComments();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to post comment.");
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
+  // Edit comment
+  const handleEditComment = async (commentId: number, newContent: string) => {
+    if (!newContent.trim() || !sessionId) return;
+
+    setEditingComment(true);
+    try {
+      const response = await fetch(`/api/research/comments/manage`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          comment_id: commentId,
+          content: newContent.trim(),
+          session_id: sessionId,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to edit comment");
+
+      setEditingCommentId(null);
+      setEditingContent("");
+      setSuccess("Comment updated successfully!");
+      await fetchComments();
+    } catch (error) {
+      setError("Failed to edit comment.");
+    } finally {
+      setEditingComment(false);
+    }
+  };
+
+  // Delete comment
+  const handleDeleteComment = async (commentId: number) => {
+    if (!sessionId) return;
+
+    setDeletingComment(commentId);
+    try {
+      const response = await fetch(`/api/research/comments/manage`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          comment_id: commentId,
+          session_id: sessionId,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to delete comment");
+
+      setSuccess("Comment deleted successfully!");
+      await fetchComments();
+    } catch (error) {
+      setError("Failed to delete comment.");
+    } finally {
+      setDeletingComment(null);
+      setShowActionsId(null);
+    }
+  };
+
+  // Reply to comment
+  const handleReplyToComment = async (parentId: number) => {
+    if (!replyContent.trim() || !research || !sessionId) return;
+
+    setPostingReply(true);
+    try {
+      const response = await fetch(`/api/add/comment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          content: replyContent.trim(),
+          session_id: sessionId,
+          research_id: research.hashed_id,
+          parent_id: parentId,
+          identifier: sessionId,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to post reply");
+
+      setReplyingToId(null);
+      setReplyContent("");
+      setSuccess("Reply posted successfully!");
+      await fetchComments();
+    } catch (error) {
+      setError("Failed to post reply.");
+    } finally {
+      setPostingReply(false);
+    }
+  };
+
+  const startEdit = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingContent(comment.content);
+    setShowActionsId(null);
+  };
+
+  const startReply = (commentId: number) => {
+    setReplyingToId(commentId);
+    setShowActionsId(null);
+  };
+
+  // Research action handlers with loading states
+  const handleApprove = async (id: any) => {
+    setApprovingResearch(true);
+    try {
+      const response = await fetch(`/api/research/approve`, {
+        method: 'PUT',
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ id: id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to approve");
+      }
+      
+      setSuccess("Request approved!");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to approve research.");
+    } finally {
+      setApprovingResearch(false);
     }
   };
 
   const handleReject = async (id: any) => {
-    setLoading(true);
-    const response = await fetch(`/api/research/reject`, {
-      method: 'PUT',
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ id: id }),
-    });
+    setRejectingResearch(true);
+    try {
+      const response = await fetch(`/api/research/reject`, {
+        method: 'PUT',
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ id: id }),
+      });
 
-    if (!response.ok) {
-      setLoading(false);
-      let errorData;
-      try {
-        errorData = await response.json();
-        setError(errorData.message)
-      } catch (err) {
-        setError("Failed to reject. Server returned an error without JSON.");
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to reject");
       }
-      setError(errorData.message || "Failed to reject");
-      return;
-    } else {
-      setLoading(false);
-      setSuccess("Request rejected!")
+      
+      setSuccess("Request rejected!");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to reject research.");
+    } finally {
+      setRejectingResearch(false);
     }
   };
 
   const handleReview = async (id: any) => {
-    setLoading(true);
-    const response = await fetch(`/api/research/review`, {
-      method: 'PUT',
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ id: id }),
-    });
+    setReviewingResearch(true);
+    try {
+      const response = await fetch(`/api/research/review`, {
+        method: 'PUT',
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ id: id }),
+      });
 
-    if (!response.ok) {
-      setLoading(false);
-      let errorData;
-      try {
-        errorData = await response.json();
-        setError(errorData.message)
-      } catch (err) {
-        setError("Failed to review. Server returned an error without JSON.");
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to review");
       }
-      setError(errorData.message || "Failed to review");
-      return;
-    } else {
-      setLoading(false);
-      setSuccess("Request under review!")
+      
+      setSuccess("Request under review!");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to put under review.");
+    } finally {
+      setReviewingResearch(false);
     }
   };
 
   const handleHold = async (id: any) => {
-    setLoading(true);
-    const response = await fetch(`/api/research/hold`, {
-      method: 'PUT',
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ id: id }),
-    });
+    setHoldingResearch(true);
+    try {
+      const response = await fetch(`/api/research/hold`, {
+        method: 'PUT',
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ id: id }),
+      });
 
-    if (!response.ok) {
-      setLoading(false);
-      let errorData;
-      try {
-        errorData = await response.json();
-        setError(errorData.message)
-      } catch (err) {
-        setError("Failed to hold. Server returned an error without JSON.");
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to hold");
       }
-      setError(errorData.message || "Failed to hold");
-      return;
-    } else {
-      setLoading(false);
-      setSuccess("Request put on hold!")
+      
+      setSuccess("Request put on hold!");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to put on hold.");
+    } finally {
+      setHoldingResearch(false);
     }
   };
 
@@ -237,7 +469,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
     if (action === 'approve') handleApprove(research?.hashed_id);
     if (action === 'reject') handleReject(research?.hashed_id);
     if (action === 'hold') handleHold(research?.hashed_id);
-    if (action === 'review') handleReview(research?.hashed_id);
+    if (action === 'review' && research?.status.toLocaleLowerCase() === 'pending') handleReview(research?.hashed_id);
   };
 
   return (
@@ -318,6 +550,11 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                 >
                   <Icon size={16} />
                   {button.name}
+                  {button.name === 'comments' && comments.length > 0 && (
+                    <span className="bg-teal-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.2rem] text-center">
+                      {comments.length}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -340,7 +577,6 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                 
                 <div>
                   <h3 className="font-semibold text-slate-800 mb-2">Document</h3>
-                  {/* Conditional rendering based on is_public field */}
                   {research?.is_public ? (
                     <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-lg border border-teal-200">
                       <FileText className="text-teal-600" size={20} />
@@ -404,11 +640,271 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
               </div>
             )}
 
-            {(activeTab === 2 || activeTab === 3) && (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center text-slate-500">
-                  <FileText size={48} className="mx-auto mb-3 text-slate-300" />
-                  <p className="text-sm">Content for {buttons[activeTab].name} will be displayed here</p>
+            {/* Enhanced Comments Tab */}
+            {activeTab === 2 && (
+              <div className="space-y-4 h-full flex flex-col">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-800">Comments</h3>
+                  <span className="text-xs text-slate-500">{comments.length} comment{comments.length !== 1 ? 's' : ''}</span>
+                </div>
+
+                {/* Add Comment Form */}
+                <div className="bg-slate-50 p-4 rounded-lg border">
+                  <div className="space-y-3">
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Add a comment as supervisor..."
+                      className="w-full p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                      rows={3}
+                      disabled={postingComment}
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handlePostComment}
+                        disabled={!newComment.trim() || postingComment}
+                        className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:bg-slate-300 text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        {postingComment ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        ) : (
+                          <Send size={16} />
+                        )}
+                        {postingComment ? 'Posting...' : 'Post Comment'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Comments List */}
+                <div className="flex-1 space-y-3 overflow-y-auto">
+                  {commentsLoading ? (
+                    <div className="flex items-center justify-center h-32">
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-teal-500 border-t-transparent"></div>
+                    </div>
+                  ) : comments.length === 0 ? (
+                    <div className="text-center text-slate-500 py-8">
+                      <MessageCircle size={32} className="mx-auto mb-2 text-slate-300" />
+                      <p className="text-sm">No comments yet</p>
+                      <p className="text-xs mt-1">Be the first to comment on this research</p>
+                    </div>
+                  ) : (
+                    comments
+                      .filter(comment => !comment.parent_id)
+                      .map((comment) => (
+                        <div key={comment.id} className="bg-white rounded-lg border">
+                          <div className="p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center">
+                                  <User size={14} className="text-teal-600" />
+                                </div>
+                                <span className="text-sm font-medium text-slate-700">
+                                  {comment.first_name ? `${comment.first_name} ${comment.last_name}` : `${research?.researcher}`}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-500">
+                                  {formatDate(comment.created_at)}
+                                  {comment.is_edited && <span className="ml-1">(edited)</span>}
+                                </span>
+                                {/* Actions Dropdown */}
+                                <div className="relative" ref={dropdownRef}>
+                                  <button
+                                    onClick={() => setShowActionsId(showActionsId === comment.id ? null : comment.id)}
+                                    className="p-1 hover:bg-slate-100 rounded transition-colors"
+                                  >
+                                    <MoreVertical size={14} className="text-slate-400" />
+                                  </button>
+                                  {showActionsId === comment.id && (
+                                    <div className="absolute right-0 top-6 bg-white rounded-lg shadow-lg border py-1 z-10 min-w-[120px]">
+                                      <button
+                                        onClick={() => startReply(comment.id)}
+                                        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                      >
+                                        <Reply size={14} />
+                                        Reply
+                                      </button>
+                                      <button
+                                        onClick={() => startEdit(comment)}
+                                        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                      >
+                                        <Edit size={14} />
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteComment(comment.id)}
+                                        disabled={deletingComment === comment.id}
+                                        className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50"
+                                      >
+                                        {deletingComment === comment.id ? (
+                                          <div className="animate-spin rounded-full h-3 w-3 border border-red-600 border-t-transparent"></div>
+                                        ) : (
+                                          <Trash2 size={14} />
+                                        )}
+                                        {deletingComment === comment.id ? 'Deleting...' : 'Delete'}
+                                      </button>
+                                      <hr className="my-1" />
+                                      <button
+                                        onClick={() => setShowActionsId(null)}
+                                        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                      >
+                                        <Flag size={14} />
+                                        Report
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Comment Content */}
+                            <div className="ml-8">
+                              {editingCommentId === comment.id ? (
+                                <div className="space-y-2">
+                                  <textarea
+                                    value={editingContent}
+                                    onChange={(e) => setEditingContent(e.target.value)}
+                                    className="w-full p-2 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                                    rows={2}
+                                    disabled={editingComment}
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleEditComment(comment.id, editingContent)}
+                                      disabled={editingComment || !editingContent.trim()}
+                                      className="flex items-center gap-1 px-3 py-1 bg-teal-500 text-white text-xs rounded hover:bg-teal-600 disabled:opacity-50"
+                                    >
+                                      {editingComment ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
+                                          Saving...
+                                        </>
+                                      ) : (
+                                        'Save'
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setEditingCommentId(null);
+                                        setEditingContent("");
+                                      }}
+                                      disabled={editingComment}
+                                      className="px-3 py-1 bg-slate-300 text-slate-700 text-xs rounded hover:bg-slate-400 disabled:opacity-50"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-sm text-slate-700 leading-relaxed">
+                                  {comment.is_deleted ? (
+                                    <em className="text-slate-400">This comment has been deleted</em>
+                                  ) : (
+                                    comment.content
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Reply Form */}
+                              {replyingToId === comment.id && (
+                                <div className="mt-3 space-y-2">
+                                  <textarea
+                                    value={replyContent}
+                                    onChange={(e) => setReplyContent(e.target.value)}
+                                    placeholder={`Reply to ${comment.first_name || 'user'}...`}
+                                    className="w-full p-2 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                                    rows={2}
+                                    disabled={postingReply}
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleReplyToComment(comment.id)}
+                                      disabled={postingReply || !replyContent.trim()}
+                                      className="flex items-center gap-1 px-3 py-1 bg-teal-500 text-white text-xs rounded hover:bg-teal-600 disabled:opacity-50"
+                                    >
+                                      {postingReply ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
+                                          Replying...
+                                        </>
+                                      ) : (
+                                        'Reply'
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setReplyingToId(null);
+                                        setReplyContent("");
+                                      }}
+                                      disabled={postingReply}
+                                      className="px-3 py-1 bg-slate-300 text-slate-700 text-xs rounded hover:bg-slate-400 disabled:opacity-50"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Action Buttons */}
+                              <div className="flex items-center gap-3 mt-2 text-xs">
+                                <button 
+                                  onClick={() => startReply(comment.id)}
+                                  className="text-slate-500 hover:text-teal-600 flex items-center gap-1"
+                                >
+                                  <Reply size={12} />
+                                  Reply
+                                </button>
+                                <button 
+                                  onClick={() => setLikingComment(comment.id)}
+                                  disabled={likingComment === comment.id}
+                                  className="text-slate-500 hover:text-red-500 flex items-center gap-1 disabled:opacity-50"
+                                >
+                                  {likingComment === comment.id ? (
+                                    <div className="animate-spin rounded-full h-3 w-3 border border-red-500 border-t-transparent"></div>
+                                  ) : (
+                                    <Heart size={12} />
+                                  )}
+                                  Like
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Show nested replies */}
+                          {comments.filter(reply => reply.parent_id === comment.id).length > 0 && (
+                            <div className="pl-10 pb-4 space-y-2">
+                              {comments
+                                .filter(reply => reply.parent_id === comment.id)
+                                .map(reply => (
+                                  <div key={reply.id} className="bg-slate-50 p-3 rounded border-l-2 border-teal-200">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-5 h-5 bg-teal-100 rounded-full flex items-center justify-center">
+                                          <User size={12} className="text-teal-600" />
+                                        </div>
+                                        <span className="text-xs font-medium text-slate-700">
+                                          {reply.first_name ? `${reply.first_name} ${reply.last_name}` : `User ${reply.user_id}`}
+                                        </span>
+                                      </div>
+                                      <span className="text-xs text-slate-500">
+                                        {formatDate(reply.created_at)}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-slate-700 ml-7">
+                                      {reply.is_deleted ? (
+                                        <em className="text-slate-400">This reply has been deleted</em>
+                                      ) : (
+                                        reply.content
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                  )}
                 </div>
               </div>
             )}
@@ -447,27 +943,54 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                 <h4 className="text-sm font-semibold text-slate-700 mb-3">Actions</h4>
                 <button
                   onClick={() => handleAction('approve')}
-                  disabled={loading}
+                  disabled={approvingResearch}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                 >
-                  <Check size={16} />
-                  Approve
+                  {approvingResearch ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Approving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      Approve
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => handleAction('reject')}
-                  disabled={loading}
+                  disabled={rejectingResearch}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-900 hover:bg-amber-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                 >
-                  <X size={16} />
-                  Reject
+                  {rejectingResearch ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Rejecting...
+                    </>
+                  ) : (
+                    <>
+                      <X size={16} />
+                      Reject
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => handleAction('hold')}
-                  disabled={loading}
+                  disabled={holdingResearch}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                 >
-                  <Pause size={16} />
-                  Hold
+                  {holdingResearch ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Holding...
+                    </>
+                  ) : (
+                    <>
+                      <Pause size={16} />
+                      Hold
+                    </>
+                  )}
                 </button>
               </div>
             </div>
