@@ -7,11 +7,8 @@ import AddAssignment from "../components/toggles/addAssignment";
 
 interface DashboardStats {
   totalStudents: number;
-  activeAssignments: number;
-  pendingReviews: number;
-  attendanceRate: number;
+  totalAssignments: number;
   researchProjects: number;
-  unreadMessages: number;
 }
 
 interface AssignmentAnalytics {
@@ -79,11 +76,8 @@ interface TimeBasedGreeting {
 export default function App() {
   const [stats, setStats] = useState<DashboardStats>({
     totalStudents: 0,
-    activeAssignments: 0,
-    pendingReviews: 0,
-    attendanceRate: 0,
-    researchProjects: 0,
-    unreadMessages: 0
+    totalAssignments: 0,
+    researchProjects: 0
   });
   
   const [assignmentAnalytics, setAssignmentAnalytics] = useState<AssignmentAnalytics | null>(null);
@@ -125,7 +119,7 @@ export default function App() {
         // Update the stats with real assignment data
         setStats(prev => ({
           ...prev,
-          activeAssignments: data.data.active_assignments
+          totalAssignments: data.data.total_assignments
         }));
       } else {
         console.error("Invalid analytics data structure:", data);
@@ -134,6 +128,66 @@ export default function App() {
       console.error("Error fetching assignment analytics:", error);
     } finally {
       setAnalyticsLoading(false);
+    }
+  };
+
+  // Fetch students data
+  const fetchStudentsData = async () => {
+    try {
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+      
+      const response = await fetch(`/api/students`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.students) {
+          setStats(prev => ({
+            ...prev,
+            totalStudents: data.students.length
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching students data:", error);
+    }
+  };
+
+  // Fetch research data
+  const fetchResearchData = async () => {
+    try {
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+      
+      const response = await fetch(`/api/researches/list`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data && data.data.researches) {
+          setStats(prev => ({
+            ...prev,
+            researchProjects: data.data.researches.length
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching research data:", error);
     }
   };
     const [currentGreeting, setCurrentGreeting] = useState<TimeBasedGreeting>({
@@ -287,8 +341,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Fetch assignment analytics on component mount
+    // Fetch all data on component mount
     fetchAssignmentAnalytics();
+    fetchStudentsData();
+    fetchResearchData();
     
     // Simulate loading other data
     setTimeout(() => {
@@ -337,15 +393,6 @@ export default function App() {
     fetchAssignmentAnalytics();
   }
 
-  const renderPercentageChange = (value: number) => {
-    if (value === 0) return null;
-    const isPositive = value > 0;
-    return (
-      <span className={`text-xs px-2 py-1 rounded-full ${isPositive ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
-        {isPositive ? '+' : ''}{value}%
-      </span>
-    );
-  };
 
   return (
     <div className="space-y-6">
@@ -392,78 +439,34 @@ export default function App() {
         </div>
       </div>
 
-      {/* Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
+      {/* Statistics Grid - Updated with only 3 cards for better alignment */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Total Students */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <i className="bi bi-people text-blue-600 text-xl"></i>
             </div>
-            <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
-              +12%
-            </span>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.totalStudents || "245"}</h3>
+          <h3 className="text-2xl font-bold text-gray-900">{stats.totalStudents || 0}</h3>
           <p className="text-sm text-gray-600 mt-1">Total Students</p>
         </div>
 
-        {/* Active Assignments - Using Real Data */}
+        {/* Total Assignments - Using Real Data */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
               <i className="bi bi-clipboard-check text-teal-600 text-xl"></i>
             </div>
-            {analyticsLoading ? (
-              <div className="w-12 h-4 bg-gray-200 rounded animate-pulse"></div>
-            ) : (
-              assignmentAnalytics && renderPercentageChange(assignmentAnalytics.percentage_change.active_assignments)
-            )}
           </div>
           {analyticsLoading ? (
             <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
           ) : (
             <h3 className="text-2xl font-bold text-gray-900">
-              {assignmentAnalytics?.active_assignments || 0}
+              {stats.totalAssignments || 0}
             </h3>
           )}
-          <p className="text-sm text-gray-600 mt-1">Active Assignments</p>
-        </div>
-
-        {/* Pending Reviews - Using Real Data */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <i className="bi bi-hourglass-split text-orange-600 text-xl"></i>
-            </div>
-            {analyticsLoading ? (
-              <div className="w-12 h-4 bg-gray-200 rounded animate-pulse"></div>
-            ) : (
-              assignmentAnalytics && renderPercentageChange(assignmentAnalytics.percentage_change.pending_submissions)
-            )}
-          </div>
-          {analyticsLoading ? (
-            <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
-          ) : (
-            <h3 className="text-2xl font-bold text-gray-900">
-              {assignmentAnalytics?.pending_submissions || 0}
-            </h3>
-          )}
-          <p className="text-sm text-gray-600 mt-1">Pending Submissions</p>
-        </div>
-
-        {/* Attendance Rate */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <i className="bi bi-calendar-check text-green-600 text-xl"></i>
-            </div>
-            <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded-full">
-              -3%
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.attendanceRate || "87"}%</h3>
-          <p className="text-sm text-gray-600 mt-1">Attendance Rate</p>
+          <p className="text-sm text-gray-600 mt-1">Total Assignments</p>
         </div>
 
         {/* Research Projects */}
@@ -472,26 +475,9 @@ export default function App() {
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <i className="bi bi-journal-text text-purple-600 text-xl"></i>
             </div>
-            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
-              Ongoing
-            </span>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.researchProjects || "24"}</h3>
+          <h3 className="text-2xl font-bold text-gray-900">{stats.researchProjects || 0}</h3>
           <p className="text-sm text-gray-600 mt-1">Research Projects</p>
-        </div>
-
-        {/* Messages */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-              <i className="bi bi-envelope text-indigo-600 text-xl"></i>
-            </div>
-            <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
-              New
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.unreadMessages || "7"}</h3>
-          <p className="text-sm text-gray-600 mt-1">Unread Messages</p>
         </div>
       </div>
 
