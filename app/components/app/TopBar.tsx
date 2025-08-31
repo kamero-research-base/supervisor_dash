@@ -142,11 +142,17 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
               {breadcrumbs.map((breadcrumb, index) => (
                 <div key={breadcrumb.path} className="flex items-center">
                   {index > 0 && <i className="bi bi-chevron-right mx-1.5 text-xs"></i>}
-                  <span className={index === breadcrumbs.length - 1 
-                    ? 'text-teal-600 font-medium' 
-                    : 'hover:text-teal-600 cursor-pointer transition-colors'}>
-                    {breadcrumb.name}
-                  </span>
+                  {index === breadcrumbs.length - 1 ? (
+                    <span className="text-teal-600 font-medium">
+                      {breadcrumb.name}
+                    </span>
+                  ) : (
+                    <Link href={breadcrumb.path}>
+                      <span className="hover:text-teal-600 cursor-pointer transition-colors">
+                        {breadcrumb.name}
+                      </span>
+                    </Link>
+                  )}
                 </div>
               ))}
             </div>
