@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import AddResearch from "../components/toggles/addResearch";
 import AddAssignment from "../components/toggles/addAssignment";
+import ViewAssignment from "../components/toggles/viewAssignment";
 
 interface DashboardStats {
   totalStudents: number;
@@ -51,13 +52,14 @@ interface UserInfo {
   email: string;
 }
 
-interface UpcomingDeadline {
+interface RecentSubmission {
   id: number;
-  title: string;
-  course: string;
-  dueDate: string;
-  submissions: number;
-  total: number;
+  assignmentId: number;
+  assignmentTitle: string;
+  studentName: string;
+  submittedAt: string;
+  status: string;
+  score?: number;
 }
 
 interface UserSession {
@@ -83,15 +85,17 @@ export default function App() {
   const [assignmentAnalytics, setAssignmentAnalytics] = useState<AssignmentAnalytics | null>(null);
   const [showAddResearch, setShowAddResearch] = useState(false);
   const [showAddAssignment, setShowAddAssignment] = useState(false);
+  const [showViewAssignment, setShowViewAssignment] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<any | null>(null);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
-  const [upcomingDeadlines, setUpcomingDeadlines] = useState<UpcomingDeadline[]>([]);
+  const [recentSubmissions, setRecentSubmissions] = useState<RecentSubmission[]>([]);
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [researchLoading, setResearchLoading] = useState(true);
   const [recentItemsLoading, setRecentItemsLoading] = useState(true);
-  const [upcomingDeadlinesLoading, setUpcomingDeadlinesLoading] = useState(true);
+  const [recentSubmissionsLoading, setRecentSubmissionsLoading] = useState(true);
 
   // Fetch assignment analytics
   const fetchAssignmentAnalytics = async () => {
@@ -287,16 +291,16 @@ export default function App() {
     }
   };
 
-  // Fetch upcoming deadlines (assignments due in next 24 hours)
-  const fetchUpcomingDeadlines = async () => {
+  // Fetch recent ungraded submissions (latest 10 ungraded submissions)
+  const fetchRecentSubmissions = async () => {
     try {
-      setUpcomingDeadlinesLoading(true);
+      setRecentSubmissionsLoading(true);
       const userSessionData = localStorage.getItem("supervisorSession");
       if (!userSessionData) return;
 
       const userSession: UserSession = JSON.parse(userSessionData);
       
-      const response = await fetch(`/api/assignments/list`, {
+      const response = await fetch(`/api/assignments/submissions/recent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -306,40 +310,28 @@ export default function App() {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.data && data.data.assignments) {
-          const now = new Date();
-          const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-          
-          // Filter assignments due in the next 24 hours
-          const upcomingAssignments = data.data.assignments
-            .filter((assignment: any) => {
-              if (!assignment.due_date) return false;
-              const dueDate = new Date(assignment.due_date);
-              return dueDate >= now && dueDate <= next24Hours;
-            })
-            .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+        if (data.success && data.data && data.data.submissions) {
+          // Get the 10 most recent submissions
+          const submissions = data.data.submissions
+            .sort((a: any, b: any) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())
             .slice(0, 10)
-            .map((assignment: any) => ({
-              id: assignment.id,
-              title: assignment.title,
-              course: assignment.course || "General",
-              dueDate: new Date(assignment.due_date).toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              }),
-              submissions: assignment.total_submissions || 0,
-              total: assignment.students_invited || 0
+            .map((submission: any) => ({
+              id: submission.id,
+              assignmentId: submission.assignment_id,
+              assignmentTitle: submission.assignment_title,
+              studentName: submission.student_name,
+              submittedAt: formatTimeAgo(submission.submitted_at),
+              status: submission.status || 'submitted',
+              score: submission.score
             }));
 
-          setUpcomingDeadlines(upcomingAssignments);
+          setRecentSubmissions(submissions);
         }
       }
     } catch (error) {
-      console.error("Error fetching upcoming deadlines:", error);
+      console.error("Error fetching recent submissions:", error);
     } finally {
-      setUpcomingDeadlinesLoading(false);
+      setRecentSubmissionsLoading(false);
     }
   };
     const [currentGreeting, setCurrentGreeting] = useState<TimeBasedGreeting>({
@@ -498,14 +490,14 @@ export default function App() {
     fetchStudentsData();
     fetchResearchData();
     fetchRecentItems();
-    fetchUpcomingDeadlines();
+    fetchRecentSubmissions();
   }, []);
 
   // Check if all data has loaded
   useEffect(() => {
-    const allDataLoaded = !analyticsLoading && !studentsLoading && !researchLoading && !recentItemsLoading && !upcomingDeadlinesLoading;
+    const allDataLoaded = !analyticsLoading && !studentsLoading && !researchLoading && !recentItemsLoading && !recentSubmissionsLoading;
     setIsLoading(!allDataLoaded);
-  }, [analyticsLoading, studentsLoading, researchLoading, recentItemsLoading, upcomingDeadlinesLoading]);
+  }, [analyticsLoading, studentsLoading, researchLoading, recentItemsLoading, recentSubmissionsLoading]);
 
   // Helper function to format date
   const formatDate = (dateString: string) => {
@@ -515,6 +507,19 @@ export default function App() {
       month: 'short', 
       day: 'numeric' 
     });
+  };
+
+  // Helper function to format time ago
+  const formatTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    return `${Math.floor(diffInSeconds / 604800)} weeks ago`;
   };
 
   // Helper function to format due date
@@ -604,31 +609,26 @@ export default function App() {
     </div>
   );
 
-  const UpcomingDeadlinesSkeleton = () => (
+  const RecentSubmissionsSkeleton = () => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 animate-pulse">
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <div className="h-6 bg-gray-200 rounded w-40"></div>
+          <div className="h-6 bg-gray-200 rounded w-32"></div>
           <div className="h-4 bg-gray-200 rounded w-16"></div>
         </div>
+        <div className="h-3 bg-gray-200 rounded w-64 mt-1"></div>
       </div>
       <div className="p-6">
         <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="p-3 border border-gray-100 rounded-lg">
-              <div className="flex items-start justify-between mb-2">
+              <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="h-4 bg-gray-200 rounded w-32 mb-1"></div>
-                  <div className="h-3 bg-gray-200 rounded w-20"></div>
+                  <div className="h-4 bg-gray-200 rounded w-36 mb-1"></div>
+                  <div className="h-3 bg-gray-200 rounded w-24 mb-1"></div>
+                  <div className="h-3 bg-gray-200 rounded w-16"></div>
                 </div>
-                <div className="h-6 bg-gray-200 rounded w-16"></div>
-              </div>
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="h-3 bg-gray-200 rounded w-20"></div>
-                  <div className="h-3 bg-gray-200 rounded w-12"></div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2"></div>
+                <div className="h-8 bg-gray-200 rounded w-16"></div>
               </div>
             </div>
           ))}
@@ -647,9 +647,45 @@ export default function App() {
 
   const handleAssignmentSuccess = () => {
     setShowAddAssignment(false);
-    // Refresh assignment analytics and upcoming deadlines after successful creation
+    // Refresh assignment analytics after successful creation
     fetchAssignmentAnalytics();
-    fetchUpcomingDeadlines();
+    // No need to refresh submissions since new assignments won't have submissions yet
+  }
+
+  const handleReviewSubmission = async (assignmentId: number) => {
+    try {
+      // Fetch assignment details to pass to the ViewAssignment component
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession = JSON.parse(userSessionData);
+      
+      const response = await fetch(`/api/assignments/list`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data && data.data.assignments) {
+          const assignment = data.data.assignments.find((a: any) => a.id === assignmentId);
+          if (assignment) {
+            setSelectedAssignment(assignment);
+            setShowViewAssignment(true);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching assignment details:", error);
+    }
+  }
+
+  const closeViewAssignment = () => {
+    setShowViewAssignment(false);
+    setSelectedAssignment(null);
   }
 
 
@@ -673,8 +709,8 @@ export default function App() {
             <TableSkeleton />
           </div>
 
-          {/* Upcoming Deadlines Skeleton - 1 column wide */}
-          <UpcomingDeadlinesSkeleton />
+          {/* Recent Submissions Skeleton - 1 column wide */}
+          <RecentSubmissionsSkeleton />
         </div>
       </div>
     );
@@ -691,6 +727,13 @@ export default function App() {
           assignment={null} 
           onClose={closeAddAssignment} 
           onSuccess={handleAssignmentSuccess} 
+        />
+      )}
+
+      {showViewAssignment && selectedAssignment && (
+        <ViewAssignment 
+          assignment={selectedAssignment}
+          onClose={closeViewAssignment}
         />
       )}
        {/* Welcome Section with Time-Based Greeting */}
@@ -851,49 +894,49 @@ export default function App() {
           </div>
         </div>
 
-        {/* Upcoming Deadlines - 1 column wide */}
+        {/* Recent Submissions - 1 column wide */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Upcoming Deadlines</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Pending Reviews</h2>
               <Link href="/assignments" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
                 View All
               </Link>
             </div>
+            <p className="text-sm text-gray-500 mt-1">Ungraded submissions requiring your attention</p>
           </div>
           <div className="p-6">
-            {upcomingDeadlines.length > 0 ? (
+            {recentSubmissions.length > 0 ? (
               <div className="space-y-4">
-                {upcomingDeadlines.map((deadline) => (
-                  <div key={deadline.id} className="p-3 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors">
+                {recentSubmissions.map((submission) => (
+                  <div key={submission.id} className="p-3 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">{deadline.title}</h4>
-                        <p className="text-xs text-gray-600 mt-0.5">{deadline.course}</p>
+                        <h4 className="text-sm font-medium text-gray-900">{submission.assignmentTitle}</h4>
+                        <p className="text-xs text-gray-600 mt-0.5">By {submission.studentName}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{submission.submittedAt}</p>
                       </div>
-                      <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                        {deadline.dueDate}
-                      </span>
+                      <button 
+                        className="px-3 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shadow-sm"
+                        onClick={() => handleReviewSubmission(submission.assignmentId)}
+                      >
+                        <i className="bi bi-eye text-xs mr-1"></i>
+                        Review
+                      </button>
                     </div>
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                        <span>Submissions</span>
-                        <span>{deadline.submissions}/{deadline.total}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-teal-600 h-2 rounded-full" 
-                          style={{ width: `${(deadline.submissions / deadline.total) * 100}%` }}
-                        ></div>
-                      </div>
+                    <div className="mt-2">
+                      <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                        Pending Review
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-center py-8">
-                <i className="bi bi-calendar-x text-4xl text-gray-300"></i>
-                <p className="mt-2 text-sm text-gray-500">No upcoming deadlines</p>
+                <i className="bi bi-clipboard-check text-4xl text-gray-300"></i>
+                <p className="mt-2 text-sm text-gray-500">No pending reviews</p>
+                <p className="text-xs text-gray-400 mt-1">All submissions are up to date!</p>
               </div>
             )}
           </div>
