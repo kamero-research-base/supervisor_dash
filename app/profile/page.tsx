@@ -1,4 +1,3 @@
-//app/profile/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -175,6 +174,12 @@ export default function SupervisorProfilePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Add state to track if profile image has been changed
+  const [profileImageChanged, setProfileImageChanged] = useState(false);
+  
+  // Add state to track if image should be removed
+  const [imageRemoved, setImageRemoved] = useState(false);
 
   // Form state for editing
   const [editForm, setEditForm] = useState({
@@ -360,6 +365,7 @@ export default function SupervisorProfilePage() {
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
+      setImageRemoved(false);
       
       // Create preview URL
       const reader = new FileReader();
@@ -367,6 +373,28 @@ export default function SupervisorProfilePage() {
         setPreviewUrl(e.target?.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCancelImageSelection = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    // Reset the file input
+    const fileInput = document.getElementById('photo-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
+  const handleRemoveExistingImage = () => {
+    setImageRemoved(true);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setProfileImageChanged(true);
+    // Reset the file input
+    const fileInput = document.getElementById('photo-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
     }
   };
 
@@ -386,13 +414,26 @@ export default function SupervisorProfilePage() {
       const result = await response.json();
       
       if (result.success) {
+        // Add timestamp to prevent caching issues
+        const newPhotoUrl = result.photo_url + '?t=' + new Date().getTime();
+        
         setSupervisorProfile({
           ...supervisorProfile,
-          photo_url: result.photo_url
+          photo_url: newPhotoUrl
         });
         setUploadSuccess('Photo uploaded successfully!');
         setSelectedFile(null);
         setPreviewUrl(null);
+        setImageRemoved(false);
+        
+        // Set the flag that profile image has been changed
+        setProfileImageChanged(true);
+        
+        // Reset the file input
+        const fileInput = document.getElementById('photo-upload') as HTMLInputElement;
+        if (fileInput) {
+          fileInput.value = '';
+        }
         
         setTimeout(() => setUploadSuccess(null), 3000);
       } else {
@@ -409,10 +450,12 @@ export default function SupervisorProfilePage() {
   const handleSaveProfile = async () => {
     if (!supervisorProfile) return;
 
-    // Check if any changes were made
-    const hasChanges = Object.keys(editForm).some(key => 
+    // Check if any changes were made (including profile image changes)
+    const hasFormChanges = Object.keys(editForm).some(key => 
       editForm[key as keyof typeof editForm] !== originalForm[key as keyof typeof originalForm]
     );
+    
+    const hasChanges = hasFormChanges || profileImageChanged || imageRemoved;
 
     if (!hasChanges) {
       setError("No changes detected");
@@ -567,8 +610,10 @@ export default function SupervisorProfilePage() {
         setEditForm(updatedFormData);
         setOriginalForm(updatedFormData);
         
-        // Clear modal states
+        // Clear modal states and image change flags
         setNewEmailForOtp("");
+        setProfileImageChanged(false);
+        setImageRemoved(false);
         
         // Update localStorage
         const updatedSupervisorInfo = {
@@ -632,6 +677,17 @@ export default function SupervisorProfilePage() {
     }
     setIsEditing(false);
     setError(null);
+    // Reset all image-related states
+    setProfileImageChanged(false);
+    setImageRemoved(false);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    
+    // Reset the file input
+    const fileInput = document.getElementById('photo-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
   };
 
   if (isLoading) {
@@ -709,13 +765,22 @@ export default function SupervisorProfilePage() {
                 
                 {/* Profile Picture */}
                 <div className="relative mb-6">
-                  {previewUrl || supervisorProfile.photo_url ? (
+                  {previewUrl ? (
+                    // Show preview of selected file
                     <img
-                      src={previewUrl || supervisorProfile.photo_url}
+                      src={previewUrl}
+                      alt="Preview"
+                      className="w-24 h-24 rounded-full mx-auto border-4 border-white/30 shadow-lg object-cover"
+                    />
+                  ) : (!imageRemoved && supervisorProfile.photo_url) ? (
+                    // Show existing profile photo with cache-busting timestamp
+                    <img
+                      src={`${supervisorProfile.photo_url}${supervisorProfile.photo_url.includes('?') ? '&' : '?'}t=${new Date().getTime()}`}
                       alt={`${supervisorProfile.first_name} ${supervisorProfile.last_name}`}
                       className="w-24 h-24 rounded-full mx-auto border-4 border-white/30 shadow-lg object-cover"
                     />
                   ) : (
+                    // Show initials placeholder
                     <div className="w-24 h-24 bg-white/20 rounded-full mx-auto border-4 border-white/30 shadow-lg flex items-center justify-center">
                       <span className="text-white text-2xl font-bold">
                         {getInitials(supervisorProfile.first_name, supervisorProfile.last_name)}
@@ -748,12 +813,47 @@ export default function SupervisorProfilePage() {
                     {selectedFile && (
                       <div className="space-y-2">
                         <p className="text-white/80 text-sm">{selectedFile.name}</p>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={handlePhotoUpload}
+                            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg font-medium transition-all"
+                          >
+                            <i className="bi bi-upload mr-1"></i>
+                            Upload
+                          </button>
+                          <button
+                            onClick={handleCancelImageSelection}
+                            className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg font-medium transition-all"
+                          >
+                            <i className="bi bi-x-lg mr-1"></i>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {!selectedFile && !imageRemoved && supervisorProfile.photo_url && (
+                      <button
+                        onClick={handleRemoveExistingImage}
+                        className="block w-full bg-red-500/80 hover:bg-red-600/80 border border-red-400/50 text-white px-4 py-2 rounded-lg font-medium transition-all"
+                      >
+                        <i className="bi bi-trash mr-2"></i>
+                        Remove Current Photo
+                      </button>
+                    )}
+                    
+                    {imageRemoved && (
+                      <div className="text-center">
+                        <p className="text-white/80 text-sm mb-2">Photo will be removed when you save changes</p>
                         <button
-                          onClick={handlePhotoUpload}
-                          className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium transition-all"
+                          onClick={() => {
+                            setImageRemoved(false);
+                            setProfileImageChanged(false);
+                          }}
+                          className="bg-blue-500/80 hover:bg-blue-600/80 border border-blue-400/50 text-white px-4 py-2 rounded-lg font-medium transition-all"
                         >
-                          <i className="bi bi-upload mr-2"></i>
-                          Upload Photo
+                          <i className="bi bi-arrow-counterclockwise mr-2"></i>
+                          Undo Remove
                         </button>
                       </div>
                     )}
@@ -890,17 +990,6 @@ export default function SupervisorProfilePage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-gray-700 text-sm font-semibold mb-2">
-                      Supervisor ID
-                    </label>
-                    <input
-                      type="text"
-                      value={`#${supervisorProfile.id}`}
-                      disabled
-                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-gray-600 cursor-not-allowed"
-                    />
-                  </div>
                 </div>
 
                 <div className="mt-6">
