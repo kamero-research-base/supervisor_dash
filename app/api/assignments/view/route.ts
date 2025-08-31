@@ -172,6 +172,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           asub.graded_at AT TIME ZONE 'UTC' as graded_at,
           COALESCE(st.first_name || ' ' || st.last_name, 'Unknown Student') as student_name,
           COALESCE(st.email, 'No email') as student_email,
+          COALESCE(st.phone, 'No phone') as student_phone,
           ag.group_name
         FROM assignment_submissions asub
         LEFT JOIN students st ON st.id = asub.student_id
@@ -198,7 +199,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         ai.invited_at AT TIME ZONE 'UTC' as invited_at,
         ai.responded_at AT TIME ZONE 'UTC' as responded_at,
         COALESCE(st.first_name || ' ' || st.last_name, 'Unknown Student') as student_name,
-        COALESCE(st.email, 'No email') as student_email
+        COALESCE(st.email, 'No email') as student_email,
+        COALESCE(st.phone, 'No phone') as student_phone
       FROM assignment_invitations ai
       LEFT JOIN students st ON st.id = ai.student_id
       WHERE ai.assignment_id = $1

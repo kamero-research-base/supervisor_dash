@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
           s.first_name,
           s.last_name,
           s.email,
+          s.phone,
           ai.status as invitation_status,
           sub.score,
           COALESCE(sub.status, 'not_submitted') as status,
@@ -108,6 +109,7 @@ export async function POST(req: NextRequest) {
             s.first_name,
             s.last_name,
             s.email,
+            s.phone,
             ai.status as invitation_status,
             ai.invited_at
           FROM assignment_invitations ai
@@ -121,6 +123,7 @@ export async function POST(req: NextRequest) {
             sb.first_name,
             sb.last_name,
             sb.email,
+            sb.phone,
             sb.invitation_status,
             sb.invited_at,
             MAX(ag.id) as group_id,
@@ -128,7 +131,7 @@ export async function POST(req: NextRequest) {
           FROM student_base sb
           LEFT JOIN assignment_group_members agm ON sb.student_id = agm.student_id
           LEFT JOIN assignment_groups ag ON agm.group_id = ag.id AND ag.assignment_id = $1
-          GROUP BY sb.student_id, sb.first_name, sb.last_name, sb.email, sb.invitation_status, sb.invited_at
+          GROUP BY sb.student_id, sb.first_name, sb.last_name, sb.email, sb.phone, sb.invitation_status, sb.invited_at
         ),
         group_submissions AS (
           -- Get group submissions
@@ -147,6 +150,7 @@ export async function POST(req: NextRequest) {
           sg.first_name,
           sg.last_name,
           sg.email,
+          sg.phone,
           sg.invitation_status,
           COALESCE(gs.score, NULL) as score,
           COALESCE(gs.status, 'not_submitted') as status,
@@ -290,6 +294,7 @@ async function generateExcelFile(assignment: any, supervisor: any, studentData: 
   const columnHeaders: { [key: string]: string } = {
     student_name: 'Student Name',
     student_email: 'Email Address',
+    student_phone: 'Phone Number',
     student_id: 'Student ID',
     invite_status: 'Invite Status',
     score: 'Score',
@@ -323,6 +328,9 @@ async function generateExcelFile(assignment: any, supervisor: any, studentData: 
           break;
         case 'student_email':
           cell.value = student.email;
+          break;
+        case 'student_phone':
+          cell.value = student.phone || 'N/A';
           break;
         case 'student_id':
           cell.value = student.student_id;
@@ -402,6 +410,7 @@ async function generatePDFFile(assignment: any, supervisor: any, studentData: an
   const columnHeaders: { [key: string]: string } = {
     student_name: 'Student Name',
     student_email: 'Email Address', 
+    student_phone: 'Phone Number',
     student_id: 'Student ID',
     score: 'Score',
     max_score: 'Max Score',
@@ -496,6 +505,8 @@ async function generatePDFFile(assignment: any, supervisor: any, studentData: an
           return `${student.first_name} ${student.last_name}`;
         case 'student_email':
           return student.email;
+        case 'student_phone':
+          return student.phone || 'N/A';
         case 'student_id':
           return student.student_id?.toString() || 'N/A';
         case 'invite_status':
@@ -529,6 +540,7 @@ async function generatePDFFile(assignment: any, supervisor: any, studentData: an
     switch (columnId) {
       case 'student_name': return 3.5; // Larger for names
       case 'student_email': return 4; // Largest for email addresses
+      case 'student_phone': return 3; // Medium size for phone numbers
       case 'student_id': return 1.5;
       case 'invite_status': return 2; // Medium for invite status
       case 'score': return 1.2;
