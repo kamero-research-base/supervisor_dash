@@ -451,7 +451,7 @@ const AddAssignment: React.FC<AddAssignmentProps> = ({ assignment = null, onClos
     if (!supervisorId) return [];
 
     try {
-      const url = new URL('/api/students', window.location.origin);
+      const url = new URL('/api/students/for_assignments', window.location.origin);
       url.searchParams.append('supervisor_id', supervisorId);
       if (inputValue) {
         url.searchParams.append('search', inputValue);
