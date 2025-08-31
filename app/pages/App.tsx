@@ -273,6 +273,59 @@ export default function App() {
       console.error("Error fetching recent items:", error);
     }
   };
+
+  // Fetch upcoming deadlines (assignments due in next 24 hours)
+  const fetchUpcomingDeadlines = async () => {
+    try {
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession: UserSession = JSON.parse(userSessionData);
+      
+      const response = await fetch(`/api/assignments/list`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data && data.data.assignments) {
+          const now = new Date();
+          const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          
+          // Filter assignments due in the next 24 hours
+          const upcomingAssignments = data.data.assignments
+            .filter((assignment: any) => {
+              if (!assignment.due_date) return false;
+              const dueDate = new Date(assignment.due_date);
+              return dueDate >= now && dueDate <= next24Hours;
+            })
+            .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+            .slice(0, 10)
+            .map((assignment: any) => ({
+              id: assignment.id,
+              title: assignment.title,
+              course: assignment.course || "General",
+              dueDate: new Date(assignment.due_date).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              }),
+              submissions: assignment.total_submissions || 0,
+              total: assignment.students_invited || 0
+            }));
+
+          setUpcomingDeadlines(upcomingAssignments);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching upcoming deadlines:", error);
+    }
+  };
     const [currentGreeting, setCurrentGreeting] = useState<TimeBasedGreeting>({
     greeting: "Welcome back",
     message: "Here's an overview of your institution's activities",
@@ -429,6 +482,7 @@ export default function App() {
     fetchStudentsData();
     fetchResearchData();
     fetchRecentItems();
+    fetchUpcomingDeadlines();
     
     // Simulate loading other data
     setTimeout(() => {
@@ -474,8 +528,9 @@ export default function App() {
 
   const handleAssignmentSuccess = () => {
     setShowAddAssignment(false);
-    // Refresh assignment analytics after successful creation
+    // Refresh assignment analytics and upcoming deadlines after successful creation
     fetchAssignmentAnalytics();
+    fetchUpcomingDeadlines();
   }
 
 
