@@ -83,10 +83,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
               {/* Scrollable Content Area - Below TopBar */}
               <main className="min-h-[calc(100vh-73px)]">
                 <div className="p-6">
-                  {/* Content Container with max width for better readability */}
-                  <div className="max-w-7xl mx-auto">
-                    {children}
-                  </div>
+                  {children}
                 </div>
               </main>
               
