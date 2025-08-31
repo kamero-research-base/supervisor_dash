@@ -88,6 +88,10 @@ export default function App() {
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [studentsLoading, setStudentsLoading] = useState(true);
+  const [researchLoading, setResearchLoading] = useState(true);
+  const [recentItemsLoading, setRecentItemsLoading] = useState(true);
+  const [upcomingDeadlinesLoading, setUpcomingDeadlinesLoading] = useState(true);
 
   // Fetch assignment analytics
   const fetchAssignmentAnalytics = async () => {
@@ -134,6 +138,7 @@ export default function App() {
   // Fetch students data
   const fetchStudentsData = async () => {
     try {
+      setStudentsLoading(true);
       const userSessionData = localStorage.getItem("supervisorSession");
       if (!userSessionData) return;
 
@@ -158,12 +163,15 @@ export default function App() {
       }
     } catch (error) {
       console.error("Error fetching students data:", error);
+    } finally {
+      setStudentsLoading(false);
     }
   };
 
   // Fetch research data
   const fetchResearchData = async () => {
     try {
+      setResearchLoading(true);
       const userSessionData = localStorage.getItem("supervisorSession");
       if (!userSessionData) return;
 
@@ -188,12 +196,15 @@ export default function App() {
       }
     } catch (error) {
       console.error("Error fetching research data:", error);
+    } finally {
+      setResearchLoading(false);
     }
   };
 
   // Fetch recent assignments and research
   const fetchRecentItems = async () => {
     try {
+      setRecentItemsLoading(true);
       const userSessionData = localStorage.getItem("supervisorSession");
       if (!userSessionData) return;
 
@@ -271,12 +282,15 @@ export default function App() {
 
     } catch (error) {
       console.error("Error fetching recent items:", error);
+    } finally {
+      setRecentItemsLoading(false);
     }
   };
 
   // Fetch upcoming deadlines (assignments due in next 24 hours)
   const fetchUpcomingDeadlines = async () => {
     try {
+      setUpcomingDeadlinesLoading(true);
       const userSessionData = localStorage.getItem("supervisorSession");
       if (!userSessionData) return;
 
@@ -324,6 +338,8 @@ export default function App() {
       }
     } catch (error) {
       console.error("Error fetching upcoming deadlines:", error);
+    } finally {
+      setUpcomingDeadlinesLoading(false);
     }
   };
     const [currentGreeting, setCurrentGreeting] = useState<TimeBasedGreeting>({
@@ -483,12 +499,13 @@ export default function App() {
     fetchResearchData();
     fetchRecentItems();
     fetchUpcomingDeadlines();
-    
-    // Simulate loading other data
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
   }, []);
+
+  // Check if all data has loaded
+  useEffect(() => {
+    const allDataLoaded = !analyticsLoading && !studentsLoading && !researchLoading && !recentItemsLoading && !upcomingDeadlinesLoading;
+    setIsLoading(!allDataLoaded);
+  }, [analyticsLoading, studentsLoading, researchLoading, recentItemsLoading, upcomingDeadlinesLoading]);
 
   // Helper function to format date
   const formatDate = (dateString: string) => {
@@ -518,6 +535,108 @@ export default function App() {
     setShowAddResearch(false);
   }
 
+  // Skeleton Components
+  const WelcomeSkeleton = () => (
+    <div className="bg-gray-50 rounded-xl shadow-sm border border-gray-200 p-4 animate-pulse">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gray-200 rounded"></div>
+          <div>
+            <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-64"></div>
+          </div>
+        </div>
+        <div className="mt-4 md:mt-0 flex items-center space-x-3">
+          <div className="h-10 bg-gray-200 rounded-lg w-32"></div>
+          <div className="h-10 bg-gray-200 rounded-lg w-32"></div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const StatCardSkeleton = () => (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
+      <div className="flex items-center justify-between mb-4">
+        <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+      </div>
+      <div className="h-8 bg-gray-200 rounded w-16 mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded w-24"></div>
+    </div>
+  );
+
+  const TableSkeleton = () => (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 animate-pulse">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="h-6 bg-gray-200 rounded w-48"></div>
+          <div className="flex items-center space-x-4">
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+          </div>
+        </div>
+      </div>
+      <div className="p-6">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b border-gray-200">
+              <tr>
+                {[1, 2, 3, 4].map((i) => (
+                  <th key={i} className="text-left py-3 px-2">
+                    <div className="h-3 bg-gray-200 rounded w-16"></div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <tr key={i}>
+                  {[1, 2, 3, 4].map((j) => (
+                    <td key={j} className="py-3 px-2">
+                      <div className="h-4 bg-gray-200 rounded w-20"></div>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const UpcomingDeadlinesSkeleton = () => (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 animate-pulse">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="h-6 bg-gray-200 rounded w-40"></div>
+          <div className="h-4 bg-gray-200 rounded w-16"></div>
+        </div>
+      </div>
+      <div className="p-6">
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="p-3 border border-gray-100 rounded-lg">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-200 rounded w-32 mb-1"></div>
+                  <div className="h-3 bg-gray-200 rounded w-20"></div>
+                </div>
+                <div className="h-6 bg-gray-200 rounded w-16"></div>
+              </div>
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="h-3 bg-gray-200 rounded w-20"></div>
+                  <div className="h-3 bg-gray-200 rounded w-12"></div>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   const toggleAddAssignment = () => {
     setShowAddAssignment(true);
   }
@@ -533,6 +652,33 @@ export default function App() {
     fetchUpcomingDeadlines();
   }
 
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Welcome Section Skeleton */}
+        <WelcomeSkeleton />
+
+        {/* Statistics Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <StatCardSkeleton />
+          <StatCardSkeleton />
+          <StatCardSkeleton />
+        </div>
+
+        {/* Main Content Grid Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Recent Activities Table Skeleton - 2 columns wide */}
+          <div className="lg:col-span-2">
+            <TableSkeleton />
+          </div>
+
+          {/* Upcoming Deadlines Skeleton - 1 column wide */}
+          <UpcomingDeadlinesSkeleton />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -599,13 +745,9 @@ export default function App() {
               <i className="bi bi-clipboard-check text-teal-600 text-xl"></i>
             </div>
           </div>
-          {analyticsLoading ? (
-            <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
-          ) : (
-            <h3 className="text-2xl font-bold text-gray-900">
-              {stats.totalAssignments || 0}
-            </h3>
-          )}
+          <h3 className="text-2xl font-bold text-gray-900">
+            {stats.totalAssignments || 0}
+          </h3>
           <p className="text-sm text-gray-600 mt-1">Total Assignments</p>
         </div>
 
@@ -639,21 +781,7 @@ export default function App() {
             </div>
           </div>
           <div className="p-6">
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2 mt-2"></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : recentItems.length > 0 ? (
+            {recentItems.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="border-b border-gray-200">
@@ -734,17 +862,7 @@ export default function App() {
             </div>
           </div>
           <div className="p-6">
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2 mt-2"></div>
-                    <div className="h-2 bg-gray-200 rounded-full mt-3"></div>
-                  </div>
-                ))}
-              </div>
-            ) : upcomingDeadlines.length > 0 ? (
+            {upcomingDeadlines.length > 0 ? (
               <div className="space-y-4">
                 {upcomingDeadlines.map((deadline) => (
                   <div key={deadline.id} className="p-3 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors">

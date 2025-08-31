@@ -207,7 +207,7 @@ const TopBar = ({ pageTitle }: TopBarProps) => {
                       <span>My Profile</span>
                     </Link>
                     <div className="border-t border-gray-200 my-2"></div>
-                    <Link href="/help" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <Link href="https://www.kamero.rw/~/help" className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                       <i className="bi bi-question-circle text-gray-400"></i>
                       <span>Help & Support</span>
                     </Link>
