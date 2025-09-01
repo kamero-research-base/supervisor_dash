@@ -1,9 +1,9 @@
-// app/api/students/route.ts
+// app/api/students/for_assignments/route.ts
 
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import client from "../utils/db"; // Adjust path as needed
+import client from "../../utils/db"; // Adjust path as needed
 
 export async function GET(req: Request) {
   try {
@@ -20,9 +20,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: "supervisor ID is required" }, { status: 400 });
     }
 
-    // Get supervisor info for logging
+    // First, get the supervisor's department
     const supervisorQuery = `
-      SELECT first_name, last_name
+      SELECT department, school, first_name, last_name
       FROM supervisors 
       WHERE id = $1
     `;
@@ -34,26 +34,31 @@ export async function GET(req: Request) {
     }
     
     const supervisor = supervisorResult.rows[0];
+    const supervisorDepartment = supervisor.department;
     
-    console.log(`🔍 [STUDENTS API] Fetching students directly assigned to supervisor: ${supervisor.first_name} ${supervisor.last_name}`);
+    console.log(`🔍 [STUDENTS FOR ASSIGNMENTS API] Fetching students from department: ${supervisorDepartment} for assignment creation by supervisor: ${supervisor.first_name} ${supervisor.last_name}`);
     
-    // Fetch only students directly assigned to this supervisor
+    // Fetch all students from the same department as the supervisor
     let query = `
       SELECT 
         s.id, s.first_name, s.last_name, s.email, s.phone, s.password,
         s.status, s.created_at, s.hashed_id, s.profile_picture, s.supervisor_id,
         i.name AS institute, c.name AS college,
-        sc.name AS school, d.name AS department
+        sc.name AS school, d.name AS department,
+        CASE 
+          WHEN s.supervisor_id = $1 THEN 'direct'
+          ELSE 'department'
+        END AS relationship_type
       FROM students s
       LEFT JOIN departments d ON CAST(d.id AS TEXT) = s.department
       LEFT JOIN schools sc ON CAST(sc.id AS TEXT) = d.school
       LEFT JOIN colleges c ON CAST(c.id AS TEXT) = sc.college
       LEFT JOIN institutions i ON CAST(i.id AS TEXT) = c.institution
-      WHERE s.supervisor_id = $1
+      WHERE s.department = $2
     `;
 
-    const params: any[] = [supervisor_id];
-    let paramCount = 1;
+    const params: any[] = [supervisor_id, supervisorDepartment];
+    let paramCount = 2;
 
     // Add search functionality
     if (search && search.trim()) {
@@ -117,17 +122,18 @@ export async function GET(req: Request) {
 
     const result = await client.query(query, params);
     
-    console.log(`✅ [STUDENTS API] Found ${result.rows.length} students directly assigned to supervisor:`, {
+    console.log(`✅ [STUDENTS FOR ASSIGNMENTS API] Found ${result.rows.length} students in department ${supervisorDepartment} for assignment creation:`, {
       students: result.rows.map((s: any) => ({
         id: s.id,
         name: `${s.first_name} ${s.last_name}`,
+        relationship: s.relationship_type,
         status: s.status
       }))
     });
 
     return NextResponse.json(result.rows, { status: 200 });
   } catch (error) {
-    console.error("Error retrieving students:", error);
-    return NextResponse.json({ message: "Server error while retrieving students" }, { status: 500 });
+    console.error("Error retrieving students for assignment creation:", error);
+    return NextResponse.json({ message: "Server error while retrieving students for assignment creation" }, { status: 500 });
   }
 }
