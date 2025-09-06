@@ -79,17 +79,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         // Try to get revocation data separately (in case columns don't exist)
         try {
-          const revocationQuery = `SELECT revoke_approval_reason, approval_revoked_at FROM researches WHERE CAST(id AS TEXT) = $1`;
+          const revocationQuery = `
+            SELECT 
+              r.revoke_approval_reason, 
+              r.approval_revoked_at, 
+              r.revoker_supervisor_id,
+              CONCAT(s.first_name, ' ', s.last_name) as revoker_supervisor_name
+            FROM researches r
+            LEFT JOIN supervisors s ON s.id = r.revoker_supervisor_id
+            WHERE CAST(r.id AS TEXT) = $1
+          `;
           const revocationResult = await client.query(revocationQuery, [id]);
           if (revocationResult.rows.length > 0) {
             researchData.revoke_approval_reason = revocationResult.rows[0].revoke_approval_reason;
             researchData.approval_revoked_at = revocationResult.rows[0].approval_revoked_at;
+            researchData.revoker_supervisor_id = revocationResult.rows[0].revoker_supervisor_id;
+            researchData.revoker_supervisor_name = revocationResult.rows[0].revoker_supervisor_name;
           }
         } catch (revocationError) {
           // Revocation columns don't exist yet - that's okay
           console.log('Revocation columns not found, skipping...');
           researchData.revoke_approval_reason = null;
           researchData.approval_revoked_at = null;
+          researchData.revoker_supervisor_id = null;
+          researchData.revoker_supervisor_name = null;
         }
 
         return NextResponse.json(researchData, { status: 200 });

@@ -22,6 +22,8 @@ interface FormData {
   created_at: string;
   revoke_approval_reason?: string;
   approval_revoked_at?: string;
+  revoker_supervisor_id?: string;
+  revoker_supervisor_name?: string;
 }
 
 // Comment interface
@@ -390,6 +392,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
         body: JSON.stringify({
           id: research.hashed_id,
           reason: revokeReason.trim(),
+          supervisor_id: sessionId,
         }),
       });
 
@@ -915,6 +918,9 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                           <p className="text-sm text-amber-700 mb-2">
                             This research was previously approved but approval was revoked on{' '}
                             <span className="font-medium">{formatDate(research.approval_revoked_at)}</span>
+                            {research.revoker_supervisor_name && (
+                              <span> by <span className="font-medium">{research.revoker_supervisor_name}</span></span>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -1067,6 +1073,9 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                                 </div>
                                 <div className="text-xs text-amber-600 space-y-1">
                                   <p><strong>Date:</strong> {formatDate(research.approval_revoked_at)}</p>
+                                  {research.revoker_supervisor_name && (
+                                    <p><strong>Revoked by:</strong> {research.revoker_supervisor_name}</p>
+                                  )}
                                   <p><strong>Reason:</strong> <span className="italic">"{research.revoke_approval_reason}"</span></p>
                                 </div>
                               </div>
@@ -1127,7 +1136,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                             <label className="text-xs font-semibold text-cyan-600 uppercase tracking-wider mb-2 block">
                               🕒 Upload Date
                             </label>
-                            <p className="text-lg font-semibold text-cyan-800">{formatDate(research?.created_at)}</p>
+                            <p className="text-lg font-semibold text-cyan-800">{research?.created_at ? formatDate(research.created_at) : 'N/A'}</p>
                           </div>
                           
                           <div className="p-4 bg-gradient-to-r from-rose-50 to-pink-50 rounded-lg border border-rose-200">
