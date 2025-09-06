@@ -92,11 +92,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               r.unreject_reason,
               r.unrejected_at,
               r.unrejected_by_id,
-              CONCAT(s3.first_name, ' ', s3.last_name) as unrejected_by_supervisor_name
+              CONCAT(s3.first_name, ' ', s3.last_name) as unrejected_by_supervisor_name,
+              r.hold_reason,
+              r.held_at,
+              r.held_by_id,
+              CONCAT(s4.first_name, ' ', s4.last_name) as held_by_supervisor_name,
+              r.unhold_reason,
+              r.unheld_at,
+              r.unheld_by_id,
+              CONCAT(s5.first_name, ' ', s5.last_name) as unheld_by_supervisor_name
             FROM researches r
             LEFT JOIN supervisors s1 ON s1.id = r.revoker_supervisor_id
             LEFT JOIN supervisors s2 ON s2.id = r.rejected_by_id
             LEFT JOIN supervisors s3 ON s3.id = r.unrejected_by_id
+            LEFT JOIN supervisors s4 ON s4.id = r.held_by_id
+            LEFT JOIN supervisors s5 ON s5.id = r.unheld_by_id
             WHERE CAST(r.id AS TEXT) = $1
           `;
           const revocationResult = await client.query(revocationQuery, [id]);
@@ -113,6 +123,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             researchData.unrejected_at = revocationResult.rows[0].unrejected_at;
             researchData.unrejected_by_id = revocationResult.rows[0].unrejected_by_id;
             researchData.unrejected_by_supervisor_name = revocationResult.rows[0].unrejected_by_supervisor_name;
+            researchData.hold_reason = revocationResult.rows[0].hold_reason;
+            researchData.held_at = revocationResult.rows[0].held_at;
+            researchData.held_by_id = revocationResult.rows[0].held_by_id;
+            researchData.held_by_supervisor_name = revocationResult.rows[0].held_by_supervisor_name;
+            researchData.unhold_reason = revocationResult.rows[0].unhold_reason;
+            researchData.unheld_at = revocationResult.rows[0].unheld_at;
+            researchData.unheld_by_id = revocationResult.rows[0].unheld_by_id;
+            researchData.unheld_by_supervisor_name = revocationResult.rows[0].unheld_by_supervisor_name;
           }
         } catch (revocationError) {
           // Revocation columns don't exist yet - that's okay
@@ -129,6 +147,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           researchData.unrejected_at = null;
           researchData.unrejected_by_id = null;
           researchData.unrejected_by_supervisor_name = null;
+          researchData.hold_reason = null;
+          researchData.held_at = null;
+          researchData.held_by_id = null;
+          researchData.held_by_supervisor_name = null;
+          researchData.unhold_reason = null;
+          researchData.unheld_at = null;
+          researchData.unheld_by_id = null;
+          researchData.unheld_by_supervisor_name = null;
         }
 
         return NextResponse.json(researchData, { status: 200 });

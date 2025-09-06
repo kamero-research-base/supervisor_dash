@@ -32,6 +32,14 @@ interface FormData {
   unrejected_at?: string;
   unrejected_by_id?: string;
   unrejected_by_supervisor_name?: string;
+  hold_reason?: string;
+  held_at?: string;
+  held_by_id?: string;
+  held_by_supervisor_name?: string;
+  unhold_reason?: string;
+  unheld_at?: string;
+  unheld_by_id?: string;
+  unheld_by_supervisor_name?: string;
 }
 
 // Comment interface
@@ -128,6 +136,9 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
   const [showUnrejectModal, setShowUnrejectModal] = useState(false);
   const [unrejectReason, setUnrejectReason] = useState("");
   const [submittingUnreject, setSubmittingUnreject] = useState(false);
+  const [showUnholdModal, setShowUnholdModal] = useState(false);
+  const [unholdReason, setUnholdReason] = useState("");
+  const [submittingUnhold, setSubmittingUnhold] = useState(false);
 
   // Ref to handle click outside for dropdowns
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -364,6 +375,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
         body: JSON.stringify({
           id: research.hashed_id,
           reason: holdReason.trim(),
+          supervisor_id: sessionId,
         }),
       });
 
@@ -469,6 +481,47 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       setTimeout(() => setError(null), 5000);
     } finally {
       setSubmittingUnreject(false);
+    }
+  };
+
+  // Unhold function
+  const submitUnholdReason = async () => {
+    if (!research || !sessionId || !unholdReason.trim()) return;
+    
+    setSubmittingUnhold(true);
+    try {
+      const response = await fetch('/api/research/unhold', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: research.hashed_id,
+          reason: unholdReason.trim(),
+          supervisor_id: sessionId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to reverse hold");
+      }
+
+      setSuccess(`Hold reversed successfully! Reason: ${unholdReason.trim()}`);
+      // Update the research status locally back to pending
+      setResearch(prev => prev ? {...prev, status: 'Pending'} : null);
+      
+      // Close modal and reset
+      setShowUnholdModal(false);
+      setUnholdReason("");
+      
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error reversing hold:', error);
+      setError(error instanceof Error ? error.message : "Failed to reverse hold");
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setSubmittingUnhold(false);
     }
   };
 
@@ -929,6 +982,25 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                     Change Mind
                   </button>
                 </div>
+              ) : research?.status?.toLowerCase() === 'on hold' ? (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-500 rounded-full">
+                      <Pause className="text-white" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-yellow-800">Research On Hold</h3>
+                      <p className="text-sm text-yellow-600">This research has been put on hold by the supervisor</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowUnholdModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors"
+                  >
+                    <Check size={16} />
+                    Change Mind
+                  </button>
+                </div>
               ) : (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6 sm:mb-8 p-3 sm:p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border">
                   <span className="text-sm font-semibold text-slate-700">Quick Actions:</span>
@@ -1040,6 +1112,48 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                             )}:
                           </p>
                           <p className="text-sm text-green-700 italic">"{research.unreject_reason}"</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Hold History Alert */}
+              {research?.hold_reason && research?.held_at && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-200">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-yellow-500 rounded-full flex-shrink-0">
+                      <Pause className="text-white" size={18} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div>
+                          <h4 className="font-semibold text-yellow-800 mb-1">
+                            Research Previously Put On Hold
+                          </h4>
+                          <p className="text-sm text-yellow-700 mb-2">
+                            This research was put on hold on{' '}
+                            <span className="font-medium">{formatDate(research.held_at)}</span>
+                            {research.held_by_supervisor_name && (
+                              <span> by <span className="font-medium">{research.held_by_supervisor_name}</span></span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-yellow-100 rounded-lg p-3 mt-3">
+                        <p className="text-sm font-medium text-yellow-800 mb-1">Hold Reason:</p>
+                        <p className="text-sm text-yellow-700 italic">"{research.hold_reason}"</p>
+                      </div>
+                      {research.unhold_reason && research.unheld_at && (
+                        <div className="bg-green-100 rounded-lg p-3 mt-3 border border-green-200">
+                          <p className="text-sm font-medium text-green-800 mb-1">
+                            Later reversed on {formatDate(research.unheld_at)}
+                            {research.unheld_by_supervisor_name && (
+                              <span> by {research.unheld_by_supervisor_name}</span>
+                            )}:
+                          </p>
+                          <p className="text-sm text-green-700 italic">"{research.unhold_reason}"</p>
                         </div>
                       )}
                     </div>
@@ -1214,6 +1328,31 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                                         <p><strong>Reversed by:</strong> {research.unrejected_by_supervisor_name}</p>
                                       )}
                                       <p><strong>Reason:</strong> <span className="italic">"{research.unreject_reason}"</span></p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            {research?.hold_reason && research?.held_at && (
+                              <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-4">
+                                <div className="text-center mb-2">
+                                  <div className="text-lg font-bold text-yellow-600 mb-1">⏸️</div>
+                                  <p className="text-xs text-yellow-700 font-medium">Research On Hold</p>
+                                </div>
+                                <div className="text-xs text-yellow-600 space-y-1">
+                                  <p><strong>Date:</strong> {formatDate(research.held_at)}</p>
+                                  {research.held_by_supervisor_name && (
+                                    <p><strong>Put on hold by:</strong> {research.held_by_supervisor_name}</p>
+                                  )}
+                                  <p><strong>Reason:</strong> <span className="italic">"{research.hold_reason}"</span></p>
+                                  {research.unhold_reason && research.unheld_at && (
+                                    <div className="mt-2 pt-2 border-t border-yellow-300">
+                                      <p className="text-green-700 font-medium">Later Reversed:</p>
+                                      <p><strong>Date:</strong> {formatDate(research.unheld_at)}</p>
+                                      {research.unheld_by_supervisor_name && (
+                                        <p><strong>Reversed by:</strong> {research.unheld_by_supervisor_name}</p>
+                                      )}
+                                      <p><strong>Reason:</strong> <span className="italic">"{research.unhold_reason}"</span></p>
                                     </div>
                                   )}
                                 </div>
@@ -1838,6 +1977,73 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                     </>
                   ) : (
                     'Reverse Rejection'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unhold Modal */}
+      {showUnholdModal && (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-green-500 text-white p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Check className="text-green-200" size={24} />
+                  <h3 className="text-lg font-bold">Change Mind - Reverse Hold</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowUnholdModal(false);
+                    setUnholdReason("");
+                  }}
+                  className="p-1 hover:bg-green-600 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                This research was previously put on hold. Please provide a reason for reversing the hold:
+              </p>
+              
+              <textarea
+                value={unholdReason}
+                onChange={(e) => setUnholdReason(e.target.value)}
+                placeholder="Enter your reason for reversing the hold..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
+                rows={4}
+              />
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowUnholdModal(false);
+                    setUnholdReason("");
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitUnholdReason}
+                  disabled={submittingUnhold || !unholdReason.trim()}
+                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submittingUnhold ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Reversing...
+                    </>
+                  ) : (
+                    'Reverse Hold'
                   )}
                 </button>
               </div>
