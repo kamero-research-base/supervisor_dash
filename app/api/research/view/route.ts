@@ -84,9 +84,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               r.revoke_approval_reason, 
               r.approval_revoked_at, 
               r.revoker_supervisor_id,
-              CONCAT(s.first_name, ' ', s.last_name) as revoker_supervisor_name
+              CONCAT(s1.first_name, ' ', s1.last_name) as revoker_supervisor_name,
+              r.rejection_reason,
+              r.rejected_at,
+              r.rejected_by_id,
+              CONCAT(s2.first_name, ' ', s2.last_name) as rejected_by_supervisor_name,
+              r.unreject_reason,
+              r.unrejected_at,
+              r.unrejected_by_id,
+              CONCAT(s3.first_name, ' ', s3.last_name) as unrejected_by_supervisor_name
             FROM researches r
-            LEFT JOIN supervisors s ON s.id = r.revoker_supervisor_id
+            LEFT JOIN supervisors s1 ON s1.id = r.revoker_supervisor_id
+            LEFT JOIN supervisors s2 ON s2.id = r.rejected_by_id
+            LEFT JOIN supervisors s3 ON s3.id = r.unrejected_by_id
             WHERE CAST(r.id AS TEXT) = $1
           `;
           const revocationResult = await client.query(revocationQuery, [id]);
@@ -95,6 +105,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             researchData.approval_revoked_at = revocationResult.rows[0].approval_revoked_at;
             researchData.revoker_supervisor_id = revocationResult.rows[0].revoker_supervisor_id;
             researchData.revoker_supervisor_name = revocationResult.rows[0].revoker_supervisor_name;
+            researchData.rejection_reason = revocationResult.rows[0].rejection_reason;
+            researchData.rejected_at = revocationResult.rows[0].rejected_at;
+            researchData.rejected_by_id = revocationResult.rows[0].rejected_by_id;
+            researchData.rejected_by_supervisor_name = revocationResult.rows[0].rejected_by_supervisor_name;
+            researchData.unreject_reason = revocationResult.rows[0].unreject_reason;
+            researchData.unrejected_at = revocationResult.rows[0].unrejected_at;
+            researchData.unrejected_by_id = revocationResult.rows[0].unrejected_by_id;
+            researchData.unrejected_by_supervisor_name = revocationResult.rows[0].unrejected_by_supervisor_name;
           }
         } catch (revocationError) {
           // Revocation columns don't exist yet - that's okay
@@ -103,6 +121,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           researchData.approval_revoked_at = null;
           researchData.revoker_supervisor_id = null;
           researchData.revoker_supervisor_name = null;
+          researchData.rejection_reason = null;
+          researchData.rejected_at = null;
+          researchData.rejected_by_id = null;
+          researchData.rejected_by_supervisor_name = null;
+          researchData.unreject_reason = null;
+          researchData.unrejected_at = null;
+          researchData.unrejected_by_id = null;
+          researchData.unrejected_by_supervisor_name = null;
         }
 
         return NextResponse.json(researchData, { status: 200 });

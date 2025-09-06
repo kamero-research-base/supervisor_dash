@@ -8,7 +8,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_name = 'researches' 
-            AND column_name IN ('revoke_approval_reason', 'approval_revoked_at', 'revoker_supervisor_id');
+            AND column_name IN ('revoke_approval_reason', 'approval_revoked_at', 'revoker_supervisor_id', 'rejected_at', 'rejected_by_id', 'unreject_reason', 'unrejected_at', 'unrejected_by_id');
         `;
         
         const columnsResult = await client.query(checkColumnsQuery);
@@ -25,7 +25,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
         
         if (!existingColumns.includes('revoker_supervisor_id')) {
-            alterQueries.push('ALTER TABLE researches ADD COLUMN revoker_supervisor_id TEXT;');
+            alterQueries.push('ALTER TABLE researches ADD COLUMN revoker_supervisor_id INT;');
+        }
+        
+        if (!existingColumns.includes('rejected_at')) {
+            alterQueries.push('ALTER TABLE researches ADD COLUMN rejected_at TIMESTAMP;');
+        }
+        
+        if (!existingColumns.includes('rejected_by_id')) {
+            alterQueries.push('ALTER TABLE researches ADD COLUMN rejected_by_id INT;');
+        }
+        
+        if (!existingColumns.includes('unreject_reason')) {
+            alterQueries.push('ALTER TABLE researches ADD COLUMN unreject_reason TEXT;');
+        }
+        
+        if (!existingColumns.includes('unrejected_at')) {
+            alterQueries.push('ALTER TABLE researches ADD COLUMN unrejected_at TIMESTAMP;');
+        }
+        
+        if (!existingColumns.includes('unrejected_by_id')) {
+            alterQueries.push('ALTER TABLE researches ADD COLUMN unrejected_by_id INT;');
         }
         
         // Execute alter queries if needed

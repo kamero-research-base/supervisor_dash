@@ -24,6 +24,14 @@ interface FormData {
   approval_revoked_at?: string;
   revoker_supervisor_id?: string;
   revoker_supervisor_name?: string;
+  rejection_reason?: string;
+  rejected_at?: string;
+  rejected_by_id?: string;
+  rejected_by_supervisor_name?: string;
+  unreject_reason?: string;
+  unrejected_at?: string;
+  unrejected_by_id?: string;
+  unrejected_by_supervisor_name?: string;
 }
 
 // Comment interface
@@ -117,6 +125,9 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [revokeReason, setRevokeReason] = useState("");
   const [submittingRevoke, setSubmittingRevoke] = useState(false);
+  const [showUnrejectModal, setShowUnrejectModal] = useState(false);
+  const [unrejectReason, setUnrejectReason] = useState("");
+  const [submittingUnreject, setSubmittingUnreject] = useState(false);
 
   // Ref to handle click outside for dropdowns
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -312,6 +323,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
         body: JSON.stringify({
           id: research.hashed_id,
           reason: rejectReason.trim(),
+          supervisor_id: sessionId,
         }),
       });
 
@@ -416,6 +428,47 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       setTimeout(() => setError(null), 5000);
     } finally {
       setSubmittingRevoke(false);
+    }
+  };
+
+  // Unreject function
+  const submitUnrejectReason = async () => {
+    if (!research || !sessionId || !unrejectReason.trim()) return;
+    
+    setSubmittingUnreject(true);
+    try {
+      const response = await fetch('/api/research/unreject', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: research.hashed_id,
+          reason: unrejectReason.trim(),
+          supervisor_id: sessionId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to reverse rejection");
+      }
+
+      setSuccess(`Rejection reversed successfully! Reason: ${unrejectReason.trim()}`);
+      // Update the research status locally back to pending
+      setResearch(prev => prev ? {...prev, status: 'Pending'} : null);
+      
+      // Close modal and reset
+      setShowUnrejectModal(false);
+      setUnrejectReason("");
+      
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error reversing rejection:', error);
+      setError(error instanceof Error ? error.message : "Failed to reverse rejection");
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setSubmittingUnreject(false);
     }
   };
 
@@ -857,6 +910,25 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                     Revoke Approval
                   </button>
                 </div>
+              ) : research?.status?.toLowerCase() === 'rejected' ? (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border border-red-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-500 rounded-full">
+                      <AlertTriangle className="text-white" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-red-800">Research Rejected</h3>
+                      <p className="text-sm text-red-600">This research has been rejected by the supervisor</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowUnrejectModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors"
+                  >
+                    <Check size={16} />
+                    Change Mind
+                  </button>
+                </div>
               ) : (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6 sm:mb-8 p-3 sm:p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border">
                   <span className="text-sm font-semibold text-slate-700">Quick Actions:</span>
@@ -928,6 +1000,48 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                         <p className="text-sm font-medium text-amber-800 mb-1">Revocation Reason:</p>
                         <p className="text-sm text-amber-700 italic">"{research.revoke_approval_reason}"</p>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Rejection History Alert */}
+              {research?.rejection_reason && research?.rejected_at && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border border-red-200">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-red-500 rounded-full flex-shrink-0">
+                      <AlertTriangle className="text-white" size={18} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div>
+                          <h4 className="font-semibold text-red-800 mb-1">
+                            Research Previously Rejected
+                          </h4>
+                          <p className="text-sm text-red-700 mb-2">
+                            This research was rejected on{' '}
+                            <span className="font-medium">{formatDate(research.rejected_at)}</span>
+                            {research.rejected_by_supervisor_name && (
+                              <span> by <span className="font-medium">{research.rejected_by_supervisor_name}</span></span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-red-100 rounded-lg p-3 mt-3">
+                        <p className="text-sm font-medium text-red-800 mb-1">Rejection Reason:</p>
+                        <p className="text-sm text-red-700 italic">"{research.rejection_reason}"</p>
+                      </div>
+                      {research.unreject_reason && research.unrejected_at && (
+                        <div className="bg-green-100 rounded-lg p-3 mt-3 border border-green-200">
+                          <p className="text-sm font-medium text-green-800 mb-1">
+                            Later reversed on {formatDate(research.unrejected_at)}
+                            {research.unrejected_by_supervisor_name && (
+                              <span> by {research.unrejected_by_supervisor_name}</span>
+                            )}:
+                          </p>
+                          <p className="text-sm text-green-700 italic">"{research.unreject_reason}"</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1077,6 +1191,31 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                                     <p><strong>Revoked by:</strong> {research.revoker_supervisor_name}</p>
                                   )}
                                   <p><strong>Reason:</strong> <span className="italic">"{research.revoke_approval_reason}"</span></p>
+                                </div>
+                              </div>
+                            )}
+                            {research?.rejection_reason && research?.rejected_at && (
+                              <div className="bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-lg p-4">
+                                <div className="text-center mb-2">
+                                  <div className="text-lg font-bold text-red-600 mb-1">❌</div>
+                                  <p className="text-xs text-red-700 font-medium">Research Rejected</p>
+                                </div>
+                                <div className="text-xs text-red-600 space-y-1">
+                                  <p><strong>Date:</strong> {formatDate(research.rejected_at)}</p>
+                                  {research.rejected_by_supervisor_name && (
+                                    <p><strong>Rejected by:</strong> {research.rejected_by_supervisor_name}</p>
+                                  )}
+                                  <p><strong>Reason:</strong> <span className="italic">"{research.rejection_reason}"</span></p>
+                                  {research.unreject_reason && research.unrejected_at && (
+                                    <div className="mt-2 pt-2 border-t border-red-300">
+                                      <p className="text-green-700 font-medium">Later Reversed:</p>
+                                      <p><strong>Date:</strong> {formatDate(research.unrejected_at)}</p>
+                                      {research.unrejected_by_supervisor_name && (
+                                        <p><strong>Reversed by:</strong> {research.unrejected_by_supervisor_name}</p>
+                                      )}
+                                      <p><strong>Reason:</strong> <span className="italic">"{research.unreject_reason}"</span></p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -1632,6 +1771,73 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                     </>
                   ) : (
                     'Revoke Approval'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unreject Modal */}
+      {showUnrejectModal && (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-green-500 text-white p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Check className="text-green-200" size={24} />
+                  <h3 className="text-lg font-bold">Change Mind - Reverse Rejection</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowUnrejectModal(false);
+                    setUnrejectReason("");
+                  }}
+                  className="p-1 hover:bg-green-600 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                This research was previously rejected. Please provide a reason for reversing the rejection:
+              </p>
+              
+              <textarea
+                value={unrejectReason}
+                onChange={(e) => setUnrejectReason(e.target.value)}
+                placeholder="Enter your reason for reversing the rejection..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
+                rows={4}
+              />
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowUnrejectModal(false);
+                    setUnrejectReason("");
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitUnrejectReason}
+                  disabled={submittingUnreject || !unrejectReason.trim()}
+                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submittingUnreject ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Reversing...
+                    </>
+                  ) : (
+                    'Reverse Rejection'
                   )}
                 </button>
               </div>
