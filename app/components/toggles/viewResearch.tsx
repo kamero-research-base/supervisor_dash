@@ -120,7 +120,6 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
   const [approvingResearch, setApprovingResearch] = useState(false);
   const [rejectingResearch, setRejectingResearch] = useState(false);
   const [holdingResearch, setHoldingResearch] = useState(false);
-  const [reviewingResearch, setReviewingResearch] = useState(false);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
@@ -279,9 +278,6 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       setShowHoldModal(true);
     } else if (action === 'approve') {
       approveResearch();
-    } else if (action === 'review') {
-      // Handle review action if needed
-      console.log('Review action triggered');
     }
   };
 
@@ -747,30 +743,6 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
     }
   };
 
-  const handleReview = async (id: any) => {
-    setReviewingResearch(true);
-    try {
-      const response = await fetch(`/api/research/review`, {
-        method: 'PUT',
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ id: id }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to review");
-      }
-      
-      setSuccess("Request under review!");
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to put under review.");
-    } finally {
-      setReviewingResearch(false);
-    }
-  };
 
   const handleHold = async (id: any) => {
     setHoldingResearch(true);
@@ -1005,22 +977,20 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6 sm:mb-8 p-3 sm:p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border">
                   <span className="text-sm font-semibold text-slate-700">Quick Actions:</span>
                   <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                    {['approve', 'reject', 'hold', 'review'].map((action) => (
+                    {['approve', 'reject', 'hold'].map((action) => (
                       <button
                         key={action}
                         onClick={() => handleAction(action)}
                         disabled={
                           (action === 'approve' && approvingResearch) ||
                           (action === 'reject' && rejectingResearch) ||
-                          (action === 'hold' && holdingResearch) ||
-                          (action === 'review' && reviewingResearch)
+                          (action === 'hold' && holdingResearch)
                         }
                         className={`
                           flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 flex-1 sm:flex-none justify-center
                           ${action === 'approve' ? 'bg-emerald-500 hover:bg-emerald-600 text-white' :
                             action === 'reject' ? 'bg-red-500 hover:bg-red-600 text-white' :
-                            action === 'hold' ? 'bg-orange-500 hover:bg-orange-600 text-white' :
-                            'bg-blue-500 hover:bg-blue-600 text-white'}
+                            'bg-orange-500 hover:bg-orange-600 text-white'}
                         `}
                       >
                         {action === 'approve' && approvingResearch ? (
@@ -1029,14 +999,11 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : action === 'hold' && holdingResearch ? (
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : action === 'review' && reviewingResearch ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : (
                           <>
                             {action === 'approve' && <Check size={16} />}
                             {action === 'reject' && <X size={16} />}
                             {action === 'hold' && <Pause size={16} />}
-                            {action === 'review' && <Eye size={16} />}
                           </>
                         )}
                         {action.charAt(0).toUpperCase() + action.slice(1)}
