@@ -104,6 +104,12 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [holdReason, setHoldReason] = useState("");
+  const [submittingReject, setSubmittingReject] = useState(false);
+  const [submittingHold, setSubmittingHold] = useState(false);
 
   // Ref to handle click outside for dropdowns
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -205,6 +211,135 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+  };
+
+  // Handle quick actions
+  const handleAction = (action: string) => {
+    if (action === 'reject') {
+      setShowRejectModal(true);
+    } else if (action === 'hold') {
+      setShowHoldModal(true);
+    } else if (action === 'approve') {
+      approveResearch();
+    } else if (action === 'review') {
+      // Handle review action if needed
+      console.log('Review action triggered');
+    }
+  };
+
+  // Approve research function
+  const approveResearch = async () => {
+    if (!research || !sessionId) return;
+    
+    setApprovingResearch(true);
+    try {
+      const response = await fetch('/api/research/approve', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: research.hashed_id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to approve");
+      }
+
+      setSuccess("Research approved successfully!");
+      // Update the research status locally
+      setResearch(prev => prev ? {...prev, status: 'Approved'} : null);
+      
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error approving research:', error);
+      setError(error instanceof Error ? error.message : "Failed to approve research");
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setApprovingResearch(false);
+    }
+  };
+
+  // Reject research with reason
+  const submitRejectReason = async () => {
+    if (!research || !sessionId || !rejectReason.trim()) return;
+    
+    setSubmittingReject(true);
+    try {
+      const response = await fetch('/api/research/reject', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: research.hashed_id,
+          reason: rejectReason.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to reject");
+      }
+
+      setSuccess(`Research rejected successfully! Reason: ${rejectReason.trim()}`);
+      // Update the research status locally
+      setResearch(prev => prev ? {...prev, status: 'Rejected'} : null);
+      
+      // Close modal and reset
+      setShowRejectModal(false);
+      setRejectReason("");
+      
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error rejecting research:', error);
+      setError(error instanceof Error ? error.message : "Failed to reject research");
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setSubmittingReject(false);
+    }
+  };
+
+  // Hold research with reason
+  const submitHoldReason = async () => {
+    if (!research || !sessionId || !holdReason.trim()) return;
+    
+    setSubmittingHold(true);
+    try {
+      const response = await fetch('/api/research/hold', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: research.hashed_id,
+          reason: holdReason.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to hold");
+      }
+
+      setSuccess(`Research put on hold successfully! Reason: ${holdReason.trim()}`);
+      // Update the research status locally
+      setResearch(prev => prev ? {...prev, status: 'On hold'} : null);
+      
+      // Close modal and reset
+      setShowHoldModal(false);
+      setHoldReason("");
+      
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error holding research:', error);
+      setError(error instanceof Error ? error.message : "Failed to hold research");
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setSubmittingHold(false);
     }
   };
 
@@ -490,12 +625,6 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
     }
   };
 
-  const handleAction = (action: string) => {
-    if (action === 'approve') handleApprove(research?.hashed_id);
-    if (action === 'reject') handleReject(research?.hashed_id);
-    if (action === 'hold') handleHold(research?.hashed_id);
-    if (action === 'review' && research?.status.toLocaleLowerCase() === 'pending') handleReview(research?.hashed_id);
-  };
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto">
@@ -623,48 +752,62 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
             {/* Content Panel */}
             <div className="flex-1 p-4 sm:p-8 overflow-y-auto max-h-[70vh] sm:max-h-none">
               {/* Quick Actions Bar */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6 sm:mb-8 p-3 sm:p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border">
-                <span className="text-sm font-semibold text-slate-700">Quick Actions:</span>
-                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                  {['approve', 'reject', 'hold', 'review'].map((action) => (
-                    <button
-                      key={action}
-                      onClick={() => handleAction(action)}
-                      disabled={
-                        (action === 'approve' && approvingResearch) ||
-                        (action === 'reject' && rejectingResearch) ||
-                        (action === 'hold' && holdingResearch) ||
-                        (action === 'review' && reviewingResearch)
-                      }
-                      className={`
-                        flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 flex-1 sm:flex-none justify-center
-                        ${action === 'approve' ? 'bg-emerald-500 hover:bg-emerald-600 text-white' :
-                          action === 'reject' ? 'bg-red-500 hover:bg-red-600 text-white' :
-                          action === 'hold' ? 'bg-orange-500 hover:bg-orange-600 text-white' :
-                          'bg-blue-500 hover:bg-blue-600 text-white'}
-                      `}
-                    >
-                      {action === 'approve' && approvingResearch ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : action === 'reject' && rejectingResearch ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : action === 'hold' && holdingResearch ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : action === 'review' && reviewingResearch ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          {action === 'approve' && <Check size={16} />}
-                          {action === 'reject' && <X size={16} />}
-                          {action === 'hold' && <Pause size={16} />}
-                          {action === 'review' && <Eye size={16} />}
-                        </>
-                      )}
-                      {action.charAt(0).toUpperCase() + action.slice(1)}
-                    </button>
-                  ))}
+              {research?.status?.toLowerCase() === 'approved' ? (
+                <div className="flex items-center gap-3 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-500 rounded-full">
+                      <Check className="text-white" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-emerald-800">Research Approved</h3>
+                      <p className="text-sm text-emerald-600">This research has been approved by the supervisor</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6 sm:mb-8 p-3 sm:p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border">
+                  <span className="text-sm font-semibold text-slate-700">Quick Actions:</span>
+                  <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    {['approve', 'reject', 'hold', 'review'].map((action) => (
+                      <button
+                        key={action}
+                        onClick={() => handleAction(action)}
+                        disabled={
+                          (action === 'approve' && approvingResearch) ||
+                          (action === 'reject' && rejectingResearch) ||
+                          (action === 'hold' && holdingResearch) ||
+                          (action === 'review' && reviewingResearch)
+                        }
+                        className={`
+                          flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 flex-1 sm:flex-none justify-center
+                          ${action === 'approve' ? 'bg-emerald-500 hover:bg-emerald-600 text-white' :
+                            action === 'reject' ? 'bg-red-500 hover:bg-red-600 text-white' :
+                            action === 'hold' ? 'bg-orange-500 hover:bg-orange-600 text-white' :
+                            'bg-blue-500 hover:bg-blue-600 text-white'}
+                        `}
+                      >
+                        {action === 'approve' && approvingResearch ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : action === 'reject' && rejectingResearch ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : action === 'hold' && holdingResearch ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : action === 'review' && reviewingResearch ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            {action === 'approve' && <Check size={16} />}
+                            {action === 'reject' && <X size={16} />}
+                            {action === 'hold' && <Pause size={16} />}
+                            {action === 'review' && <Eye size={16} />}
+                          </>
+                        )}
+                        {action.charAt(0).toUpperCase() + action.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Navigation Tabs */}
               <div className="flex gap-1 sm:gap-2 mb-6 p-1 sm:p-2 bg-slate-100 rounded-xl overflow-x-auto">
@@ -1150,6 +1293,144 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
           )}
         </div>
       </div>
+
+      {/* Reject Reason Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-red-500 text-white p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <X className="text-red-200" size={24} />
+                  <h3 className="text-lg font-bold">Reject Research</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectReason("");
+                  }}
+                  className="p-1 hover:bg-red-600 rounded-lg transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Please provide a reason for rejecting this research. This will help the student understand what needs to be improved.
+              </p>
+              
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Enter your reason for rejecting this research..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                rows={4}
+                disabled={submittingReject}
+              />
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectReason("");
+                  }}
+                  disabled={submittingReject}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitRejectReason}
+                  disabled={submittingReject || !rejectReason.trim()}
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submittingReject ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Rejecting...
+                    </>
+                  ) : (
+                    'Reject Research'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hold Reason Modal */}
+      {showHoldModal && (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-orange-500 text-white p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Pause className="text-orange-200" size={24} />
+                  <h3 className="text-lg font-bold">Hold Research</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowHoldModal(false);
+                    setHoldReason("");
+                  }}
+                  className="p-1 hover:bg-orange-600 rounded-lg transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Please provide a reason for putting this research on hold. This will help clarify what needs to be addressed before proceeding.
+              </p>
+              
+              <textarea
+                value={holdReason}
+                onChange={(e) => setHoldReason(e.target.value)}
+                placeholder="Enter your reason for holding this research..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
+                rows={4}
+                disabled={submittingHold}
+              />
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowHoldModal(false);
+                    setHoldReason("");
+                  }}
+                  disabled={submittingHold}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitHoldReason}
+                  disabled={submittingHold || !holdReason.trim()}
+                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submittingHold ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    'Hold Research'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Document Viewer Modal */}
       {showDocumentViewer && research?.document && (

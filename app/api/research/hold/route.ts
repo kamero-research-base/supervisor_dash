@@ -11,17 +11,17 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       } catch (error) {
           return NextResponse.json({ message: "Invalid JSON format in request." }, { status: 400 });
       }
-      const {id} = requestBody;
+      const {id, reason} = requestBody;
       
       if (!id) {
           return NextResponse.json({ message: "Research ID is required." }, { status: 400 });
       }
 
     try {
-      let query = `UPDATE researches SET status = 'On hold' WHERE hashed_id = $1 RETURNING id`;
+      let query = `UPDATE researches SET status = 'On hold', hold_reason = $2 WHERE hashed_id = $1 RETURNING id`;
    
         // Fetch Research details
-        const researchResult = await client.query(query, [id]);
+        const researchResult = await client.query(query, [id, reason || null]);
 
         if (!researchResult) {
             return NextResponse.json({ message: "Research not found." }, { status: 404 });
