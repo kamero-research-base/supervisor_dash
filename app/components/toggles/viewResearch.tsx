@@ -478,7 +478,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <style>{`
         @keyframes slideIn { 
           from { opacity: 0; transform: translateY(-20px); } 
@@ -522,8 +522,8 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       )}
 
       {/* Main Modal */}
-      <div className="w-full max-w-6xl max-h-[95vh] fade-in-scale">
-        <div className="research-card rounded-2xl overflow-hidden">
+      <div className="w-full max-w-6xl min-h-full sm:min-h-0 sm:max-h-[95vh] my-2 sm:my-auto fade-in-scale">
+        <div className="research-card rounded-none sm:rounded-2xl overflow-hidden h-full sm:h-auto">
           
           {/* Header Section */}
           <div className="relative">
@@ -531,16 +531,16 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 via-cyan-400 to-indigo-400"></div>
             
             {/* Header Content */}
-            <div className="bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 text-white p-8">
+            <div className="bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 text-white p-4 sm:p-8">
               {/* Close Button */}
               <button 
                 onClick={onClose}
-                className="absolute top-6 right-6 p-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-all duration-300 hover:rotate-90 group"
+                className="absolute top-3 right-3 sm:top-6 sm:right-6 p-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-all duration-300 hover:rotate-90 group"
               >
                 <X size={22} className="group-hover:scale-110 transition-transform" />
               </button>
 
-              <div className="pr-16">
+              <div className="pr-12 sm:pr-16">
                 {/* Research Type & Status */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -598,14 +598,14 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
           </div>
 
           {/* Main Content Area */}
-          <div className="flex flex-col lg:flex-row min-h-[600px]">
+          <div className="flex flex-col lg:flex-row min-h-0 sm:min-h-[600px]">
             
             {/* Content Panel */}
-            <div className="flex-1 p-8">
+            <div className="flex-1 p-4 sm:p-8 overflow-y-auto max-h-[70vh] sm:max-h-none">
               {/* Quick Actions Bar */}
-              <div className="flex items-center gap-3 mb-8 p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6 sm:mb-8 p-3 sm:p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border">
                 <span className="text-sm font-semibold text-slate-700">Quick Actions:</span>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                   {['approve', 'reject', 'hold', 'review'].map((action) => (
                     <button
                       key={action}
@@ -617,7 +617,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                         (action === 'review' && reviewingResearch)
                       }
                       className={`
-                        flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100
+                        flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 flex-1 sm:flex-none justify-center
                         ${action === 'approve' ? 'bg-emerald-500 hover:bg-emerald-600 text-white' :
                           action === 'reject' ? 'bg-red-500 hover:bg-red-600 text-white' :
                           action === 'hold' ? 'bg-orange-500 hover:bg-orange-600 text-white' :
@@ -647,7 +647,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
               </div>
 
               {/* Navigation Tabs */}
-              <div className="flex gap-2 mb-6 p-2 bg-slate-100 rounded-xl">
+              <div className="flex gap-1 sm:gap-2 mb-6 p-1 sm:p-2 bg-slate-100 rounded-xl overflow-x-auto">
                 {buttons.map((button, index) => {
                   const Icon = button.icon;
                   return (
@@ -655,13 +655,13 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                       key={index}
                       onClick={() => setActiveTab(index)}
                       className={`
-                        flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 flex-1 justify-center
+                        flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all duration-200 flex-1 justify-center whitespace-nowrap
                         ${activeTab === index 
                           ? 'bg-white text-teal-700 shadow-md border border-teal-200' 
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'}
                       `}
                     >
-                      <Icon size={18} />
+                      <Icon size={16} className="sm:w-[18px] sm:h-[18px]" />
                       <span className="capitalize">{button.name}</span>
                       {button.name === 'comments' && comments.length > 0 && (
                         <span className="bg-teal-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[1.5rem] text-center">
@@ -677,91 +677,111 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
               <div className="space-y-6">
                 {/* Overview Tab */}
                 {activeTab === 0 && (
-                  <div className="space-y-8 slide-in">
-                    {/* Abstract Section */}
-                    <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <FileText className="text-blue-600" size={20} />
-                        </div>
-                        <h3 className="text-xl font-semibold text-slate-800">Abstract</h3>
-                      </div>
-                      <div 
-                        className="prose prose-slate max-w-none text-slate-700 leading-relaxed"
-                        id="abstract"
-                        dangerouslySetInnerHTML={{ 
-                          __html: research?.abstract || "<p>No abstract available.</p>" 
-                        }}
-                      />
-                    </div>
-                    
-                    {/* Document Section */}
-                    <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                          <Download className="text-green-600" size={20} />
-                        </div>
-                        <h3 className="text-xl font-semibold text-slate-800">Research Document</h3>
-                      </div>
-                      
-                      {research?.is_public ? (
-                        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 bg-emerald-500 rounded-xl">
-                              <FileText className="text-white" size={24} />
+                  <div className="slide-in">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Left Column - Abstract */}
+                      <div className="space-y-4">
+                        <div className="bg-white rounded-xl p-4 sm:p-6 border border-slate-200 shadow-sm h-fit">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                              <FileText className="text-blue-600" size={18} />
                             </div>
-                            <div className="flex-1">
-                              <Link 
-                                href={research?.document ?? ""} 
-                                className="text-lg font-semibold text-emerald-800 hover:text-emerald-900 hover:underline transition-colors" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                              >
-                                📄 View Research Document
-                              </Link>
-                              <p className="text-sm text-emerald-600 mt-1">
-                                {research?.document_type} • Click to open in new tab
-                              </p>
-                            </div>
-                            <button className="p-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-all duration-200 hover:scale-105">
-                              <Download size={20} />
-                            </button>
+                            <h3 className="text-lg sm:text-xl font-semibold text-slate-800">Abstract</h3>
                           </div>
+                          <div 
+                            className="prose prose-sm sm:prose prose-slate max-w-none text-slate-700 leading-relaxed max-h-80 overflow-y-auto pr-2"
+                            id="abstract"
+                            dangerouslySetInnerHTML={{ 
+                              __html: research?.abstract || "<p>No abstract available.</p>" 
+                            }}
+                          />
                         </div>
-                      ) : (
-                        <div className="bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-xl p-4">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 bg-slate-400 rounded-xl">
-                              <FileText className="text-white" size={24} />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-lg font-semibold text-slate-700">🔒 Private Research Document</p>
-                              <p className="text-sm text-slate-500 mt-1">
-                                This document is not available for public viewing
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Research Metrics */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 text-center">
-                        <div className="text-2xl font-bold text-blue-600 mb-2">{research?.year}</div>
-                        <p className="text-sm text-blue-700 font-medium">Research Year</p>
-                      </div>
-                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6 text-center">
-                        <div className="text-2xl font-bold text-purple-600 mb-2">📚</div>
-                        <p className="text-sm text-purple-700 font-medium">{research?.category}</p>
-                      </div>
-                      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-6 text-center">
-                        <div className="text-2xl font-bold text-emerald-600 mb-2">
-                          {research?.is_public ? '🌐' : '🔒'}
+                      {/* Right Column - Document and Actions */}
+                      <div className="space-y-4">
+                        {/* Document Section */}
+                        <div className="bg-white rounded-xl p-4 sm:p-6 border border-slate-200 shadow-sm">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-green-100 rounded-lg">
+                              <Download className="text-green-600" size={20} />
+                            </div>
+                            <h3 className="text-lg sm:text-xl font-semibold text-slate-800">Research Document</h3>
+                          </div>
+                          
+                          {research?.is_public ? (
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                                  <FileText className="text-red-600" size={20} />
+                                </div>
+                                <div>
+                                  <h4 className="font-medium text-gray-900">
+                                    {research?.title} ({research?.year}) - {research?.author_name}
+                                  </h4>
+                                  <p className="text-sm text-gray-500">
+                                    {research?.document_type}
+                                  </p>
+                                </div>
+                              </div>
+                              <Link
+                                href={research?.document ?? ""}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
+                              >
+                                <Eye size={16} />
+                                View Document
+                              </Link>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                                  <FileText className="text-gray-400" size={20} />
+                                </div>
+                                <div>
+                                  <h4 className="font-medium text-gray-900">
+                                    {research?.title} ({research?.year}) - {research?.author_name}
+                                  </h4>
+                                  <p className="text-sm text-gray-500">
+                                    Private Document
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                disabled
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-500 text-sm font-medium rounded-lg cursor-not-allowed"
+                              >
+                                <Eye size={16} />
+                                View Document
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <p className="text-sm text-emerald-700 font-medium">
-                          {research?.is_public ? 'Public' : 'Private'}
-                        </p>
+
+                        {/* Research Metrics */}
+                        <div className="bg-white rounded-xl p-4 sm:p-6 border border-slate-200 shadow-sm">
+                          <h3 className="text-lg sm:text-xl font-semibold text-slate-800 mb-4">Research Details</h3>
+                          <div className="grid grid-cols-1 gap-3">
+                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 text-center">
+                              <div className="text-xl font-bold text-blue-600 mb-1">{research?.year}</div>
+                              <p className="text-xs text-blue-700 font-medium">Research Year</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4 text-center">
+                              <div className="text-xl font-bold text-purple-600 mb-1">📚</div>
+                              <p className="text-xs text-purple-700 font-medium">{research?.category}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-4 text-center">
+                              <div className="text-xl font-bold text-emerald-600 mb-1">
+                                {research?.is_public ? '🌐' : '🔒'}
+                              </div>
+                              <p className="text-xs text-emerald-700 font-medium">
+                                {research?.is_public ? 'Public' : 'Private'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
