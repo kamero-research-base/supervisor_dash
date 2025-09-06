@@ -20,6 +20,8 @@ interface FormData {
   hashed_id: string;
   is_public: boolean;
   created_at: string;
+  revoke_approval_reason?: string;
+  approval_revoked_at?: string;
 }
 
 // Comment interface
@@ -110,6 +112,9 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
   const [holdReason, setHoldReason] = useState("");
   const [submittingReject, setSubmittingReject] = useState(false);
   const [submittingHold, setSubmittingHold] = useState(false);
+  const [showRevokeModal, setShowRevokeModal] = useState(false);
+  const [revokeReason, setRevokeReason] = useState("");
+  const [submittingRevoke, setSubmittingRevoke] = useState(false);
 
   // Ref to handle click outside for dropdowns
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -196,10 +201,38 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
     }
   }, [research]);
 
+  // Debug: Log research data to see if revocation fields are present
+  useEffect(() => {
+    if (research) {
+      console.log('Research data:', {
+        status: research.status,
+        revoke_approval_reason: research.revoke_approval_reason,
+        approval_revoked_at: research.approval_revoked_at,
+        full_research: research
+      });
+    }
+  }, [research]);
+
   // Helper function to truncate text
   const truncateText = (text: string, maxLength: number): string => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  };
+
+  // Helper function to format date
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateString;
+    }
   };
 
   // Handle download from viewer
@@ -340,6 +373,46 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       setTimeout(() => setError(null), 5000);
     } finally {
       setSubmittingHold(false);
+    }
+  };
+
+  // Revoke approval function
+  const submitRevokeReason = async () => {
+    if (!research || !sessionId || !revokeReason.trim()) return;
+    
+    setSubmittingRevoke(true);
+    try {
+      const response = await fetch('/api/research/revoke', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: research.hashed_id,
+          reason: revokeReason.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to revoke approval");
+      }
+
+      setSuccess(`Approval revoked successfully! Reason: ${revokeReason.trim()}`);
+      // Update the research status locally back to pending
+      setResearch(prev => prev ? {...prev, status: 'Pending'} : null);
+      
+      // Close modal and reset
+      setShowRevokeModal(false);
+      setRevokeReason("");
+      
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error revoking approval:', error);
+      setError(error instanceof Error ? error.message : "Failed to revoke approval");
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setSubmittingRevoke(false);
     }
   };
 
@@ -703,21 +776,31 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                   </div>
                   
                   {/* Status Badge */}
-                  <div 
-                    className="status-badge px-4 py-2 rounded-full text-sm font-semibold shadow-lg"
-                    style={{
-                      '--bg-from': research?.progress_status === 'approved' ? '#10b981' : 
-                                 research?.progress_status === 'under review' ? '#f59e0b' :
-                                 research?.progress_status === 'rejected' ? '#ef4444' : '#6b7280',
-                      '--bg-to': research?.progress_status === 'approved' ? '#059669' : 
-                               research?.progress_status === 'under review' ? '#d97706' :
-                               research?.progress_status === 'rejected' ? '#dc2626' : '#4b5563',
-                      '--border-color': research?.progress_status === 'approved' ? '#10b981' : 
-                                     research?.progress_status === 'under review' ? '#f59e0b' :
-                                     research?.progress_status === 'rejected' ? '#ef4444' : '#6b7280'
-                    } as React.CSSProperties}
-                  >
-                    {research?.progress_status}
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="status-badge px-4 py-2 rounded-full text-sm font-semibold shadow-lg"
+                      style={{
+                        '--bg-from': research?.progress_status === 'approved' ? '#10b981' : 
+                                   research?.progress_status === 'under review' ? '#f59e0b' :
+                                   research?.progress_status === 'rejected' ? '#ef4444' : '#6b7280',
+                        '--bg-to': research?.progress_status === 'approved' ? '#059669' : 
+                                 research?.progress_status === 'under review' ? '#d97706' :
+                                 research?.progress_status === 'rejected' ? '#dc2626' : '#4b5563',
+                        '--border-color': research?.progress_status === 'approved' ? '#10b981' : 
+                                       research?.progress_status === 'under review' ? '#f59e0b' :
+                                       research?.progress_status === 'rejected' ? '#ef4444' : '#6b7280'
+                      } as React.CSSProperties}
+                    >
+                      {research?.progress_status}
+                    </div>
+                    {research?.revoke_approval_reason && research?.approval_revoked_at && (
+                      <div 
+                        className="px-3 py-1 rounded-full text-xs font-semibold shadow-md bg-amber-500 text-white"
+                        title={`Approval revoked: ${research.revoke_approval_reason}`}
+                      >
+                        Revoked
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -753,7 +836,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
             <div className="flex-1 p-4 sm:p-8 overflow-y-auto max-h-[70vh] sm:max-h-none">
               {/* Quick Actions Bar */}
               {research?.status?.toLowerCase() === 'approved' ? (
-                <div className="flex items-center gap-3 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-emerald-500 rounded-full">
                       <Check className="text-white" size={20} />
@@ -763,6 +846,13 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                       <p className="text-sm text-emerald-600">This research has been approved by the supervisor</p>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setShowRevokeModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    <AlertTriangle size={16} />
+                    Revoke Approval
+                  </button>
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6 sm:mb-8 p-3 sm:p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border">
@@ -805,6 +895,34 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                         {action.charAt(0).toUpperCase() + action.slice(1)}
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Revocation History Alert */}
+              {research?.revoke_approval_reason && research?.approval_revoked_at && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-500 rounded-full flex-shrink-0">
+                      <AlertTriangle className="text-white" size={18} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div>
+                          <h4 className="font-semibold text-amber-800 mb-1">
+                            Approval Previously Revoked
+                          </h4>
+                          <p className="text-sm text-amber-700 mb-2">
+                            This research was previously approved but approval was revoked on{' '}
+                            <span className="font-medium">{formatDate(research.approval_revoked_at)}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-amber-100 rounded-lg p-3 mt-3">
+                        <p className="text-sm font-medium text-amber-800 mb-1">Revocation Reason:</p>
+                        <p className="text-sm text-amber-700 italic">"{research.revoke_approval_reason}"</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -941,6 +1059,18 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                                 {research?.is_public ? 'Public' : 'Private'}
                               </p>
                             </div>
+                            {research?.revoke_approval_reason && research?.approval_revoked_at && (
+                              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
+                                <div className="text-center mb-2">
+                                  <div className="text-lg font-bold text-amber-600 mb-1">⚠️</div>
+                                  <p className="text-xs text-amber-700 font-medium">Approval Revoked</p>
+                                </div>
+                                <div className="text-xs text-amber-600 space-y-1">
+                                  <p><strong>Date:</strong> {formatDate(research.approval_revoked_at)}</p>
+                                  <p><strong>Reason:</strong> <span className="italic">"{research.revoke_approval_reason}"</span></p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1424,6 +1554,75 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                     </>
                   ) : (
                     'Hold Research'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revoke Approval Modal */}
+      {showRevokeModal && (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-orange-500 text-white p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="text-orange-200" size={24} />
+                  <h3 className="text-lg font-bold">Revoke Approval</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowRevokeModal(false);
+                    setRevokeReason("");
+                  }}
+                  className="p-1 hover:bg-orange-600 rounded-lg transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Please provide a reason for revoking the approval of this research. This will help document the decision change and inform the student.
+              </p>
+              
+              <textarea
+                value={revokeReason}
+                onChange={(e) => setRevokeReason(e.target.value)}
+                placeholder="Enter your reason for revoking approval..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
+                rows={4}
+                disabled={submittingRevoke}
+              />
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowRevokeModal(false);
+                    setRevokeReason("");
+                  }}
+                  disabled={submittingRevoke}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitRevokeReason}
+                  disabled={submittingRevoke || !revokeReason.trim()}
+                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submittingRevoke ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Revoking...
+                    </>
+                  ) : (
+                    'Revoke Approval'
                   )}
                 </button>
               </div>

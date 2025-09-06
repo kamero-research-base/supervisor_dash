@@ -41,7 +41,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
       }
 
-      // MODIFIED: Added r.is_public to the SELECT statement
+      // First try to get basic research data
       let query = `SELECT 
       r.id,
       r.title,
@@ -72,7 +72,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ message: "Research not found." }, { status: 404 });
         }
 
-        return NextResponse.json(researchResult.rows[0], { status: 200 });
+        let researchData = researchResult.rows[0];
+        
+        // Add author_name field for compatibility
+        researchData.author_name = researchData.researcher;
+
+        // Try to get revocation data separately (in case columns don't exist)
+        try {
+          const revocationQuery = `SELECT revoke_approval_reason, approval_revoked_at FROM researches WHERE CAST(id AS TEXT) = $1`;
+          const revocationResult = await client.query(revocationQuery, [id]);
+          if (revocationResult.rows.length > 0) {
+            researchData.revoke_approval_reason = revocationResult.rows[0].revoke_approval_reason;
+            researchData.approval_revoked_at = revocationResult.rows[0].approval_revoked_at;
+          }
+        } catch (revocationError) {
+          // Revocation columns don't exist yet - that's okay
+          console.log('Revocation columns not found, skipping...');
+          researchData.revoke_approval_reason = null;
+          researchData.approval_revoked_at = null;
+        }
+
+        return NextResponse.json(researchData, { status: 200 });
     } catch (error) {
         console.error("Error retrieving research:", error);
         return NextResponse.json({ message: "Error retrieving Research", error: (error as Error).message }, { status: 500 });
