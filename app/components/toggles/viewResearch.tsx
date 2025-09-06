@@ -1,12 +1,13 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { X, FileText, User, Building2, Check, AlertTriangle, Pause, Eye, Download, MessageCircle, Send, MoreVertical, Edit, Trash2, Reply, Heart, Flag, CheckCircle } from "lucide-react";
+import { X, FileText, User, Building2, Check, AlertTriangle, Pause, Eye, Download, MessageCircle, Send, MoreVertical, Edit, Trash2, Reply, Heart, Flag, CheckCircle, File, BookOpen, ExternalLink } from "lucide-react";
 
 // Interface updated to include the new is_public field
 interface FormData {
   title: string;
   researcher: string;
+  author_name: string;
   category: string;
   institute: string;
   status: string;
@@ -102,6 +103,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
   const [reviewingResearch, setReviewingResearch] = useState(false);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
 
   // Ref to handle click outside for dropdowns
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -187,6 +189,24 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
       }
     }
   }, [research]);
+
+  // Helper function to truncate text
+  const truncateText = (text: string, maxLength: number): string => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
+  // Handle download from viewer
+  const handleDownloadFromViewer = () => {
+    if (research?.document) {
+      const link = document.createElement('a');
+      link.href = research.document;
+      link.download = research.title || 'Research Document';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   // Fetch comments function
   const fetchComments = async () => {
@@ -724,15 +744,13 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                                   </p>
                                 </div>
                               </div>
-                              <Link
-                                href={research?.document ?? ""}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                onClick={() => setShowDocumentViewer(true)}
                                 className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
                               >
                                 <Eye size={16} />
                                 View Document
-                              </Link>
+                              </button>
                             </div>
                           ) : (
                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -1132,6 +1150,191 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
           )}
         </div>
       </div>
+
+      {/* Document Viewer Modal */}
+      {showDocumentViewer && research?.document && (
+        <div className="fixed inset-0 z-[60] bg-white/20 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="relative w-full h-full max-w-7xl max-h-[95vh] bg-white rounded-2xl shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 text-white" style={{ background: 'linear-gradient(to right, #009688, #00695c)' }}>
+              <div className="flex items-center gap-3">
+                {/* Conditional icon based on document type */}
+                {research.document_type?.toLowerCase().includes('pdf') ? (
+                  <File size={24} className="text-red-100" />
+                ) : research.document_type?.toLowerCase().includes('word') || research.document_type?.toLowerCase().includes('docx') ? (
+                  <BookOpen size={24} className="text-blue-100" />
+                ) : (
+                  <FileText size={24} />
+                )}
+                <div>
+                  <h3 className="font-bold text-lg">
+                    {(() => {
+                      if (!research?.title) return "Research Document";
+                      const year = research.year ? ` (${research.year})` : '';
+                      const researcher = research.researcher ? ` - ${research.researcher.split(' ')[0]}` : '';
+                      const cleanTitle = research.title
+                        .replace(/[^\w\s-]/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                      const documentName = `${cleanTitle}${year}${researcher}`;
+                      return truncateText(documentName, 50);
+                    })()}
+                  </h3>
+                  <p className="text-sm text-white/80">{research.document_type || 'PDF Document'}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Show download button for DOCX files */}
+                {(research.document_type?.toLowerCase().includes('word') || research.document_type?.toLowerCase().includes('docx')) && (
+                  <button
+                    onClick={handleDownloadFromViewer}
+                    className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                    aria-label="Download document"
+                  >
+                    <Download size={18} />
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowDocumentViewer(false)}
+                  className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                  aria-label="Close viewer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Document Content */}
+            <div className="w-full h-full bg-gray-100 relative">
+              {research.document_type?.toLowerCase().includes('pdf') ? (
+                // PDF Viewer with fallback options
+                <div className="w-full h-full">
+                  <embed
+                    src={`${research.document}#toolbar=1&navpanes=1&scrollbar=1`}
+                    type="application/pdf"
+                    className="w-full h-full"
+                    title="Research Document"
+                    onError={() => {
+                      // Show fallback options if embed fails
+                      const embed = document.querySelector('embed[title="Research Document"]') as HTMLEmbedElement;
+                      const fallback = document.getElementById('pdf-fallback');
+                      if (embed && fallback) {
+                        embed.style.display = 'none';
+                        fallback.classList.remove('hidden');
+                      }
+                    }}
+                  />
+                  {/* Fallback message - only show if document fails to load */}
+                  <div className="absolute inset-0 hidden" id="pdf-fallback">
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-white">
+                    <FileText size={48} className="text-gray-400 mb-4" />
+                    <p className="text-gray-600 text-center mb-4 max-w-md">
+                      Unable to display the document. Try these options:
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => window.open(research.document, '_blank')}
+                        className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
+                        style={{ backgroundColor: '#009688' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#00695c'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#009688'}
+                      >
+                        <ExternalLink size={16} />
+                        Open in New Tab
+                      </button>
+                      <button
+                        onClick={handleDownloadFromViewer}
+                        className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
+                        style={{ backgroundColor: '#009688' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#00695c'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#009688'}
+                      >
+                        <Download size={16} />
+                        Download PDF
+                      </button>
+                    </div>
+                    </div>
+                  </div>
+                </div>
+              ) : research.document_type?.toLowerCase().includes('word') || research.document_type?.toLowerCase().includes('docx') ? (
+                // For DOCX/Word documents - use Office 365 viewer
+                <div className="w-full h-full relative">
+                  {/* Loading state */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-white" id="docx-loading">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto mb-2"></div>
+                      <p className="text-gray-600">Loading document...</p>
+                    </div>
+                  </div>
+                  
+                  <iframe
+                    src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(research.document)}`}
+                    className="w-full h-full border-0"
+                    title="Research Document"
+                    onLoad={() => {
+                      // Hide loading state once iframe loads
+                      const loading = document.getElementById('docx-loading');
+                      if (loading) loading.style.display = 'none';
+                    }}
+                    onError={() => {
+                      // Show fallback options if viewer fails
+                      const loading = document.getElementById('docx-loading');
+                      const fallback = document.getElementById('docx-fallback');
+                      if (loading) loading.style.display = 'none';
+                      if (fallback) {
+                        fallback.classList.remove('hidden');
+                        fallback.style.display = 'flex';
+                      }
+                    }}
+                  />
+                  
+                  {/* Fallback message for DOCX files */}
+                  <div className="absolute inset-0 hidden items-center justify-center bg-white" id="docx-fallback">
+                    <div className="text-center max-w-md px-4">
+                      <FileText size={48} className="text-gray-400 mb-4 mx-auto" />
+                      <h3 className="text-lg font-semibold text-gray-800 mb-2">Document Viewer Unavailable</h3>
+                      <p className="text-gray-600 text-center mb-6">
+                        The online document viewer couldn't load this Word document. You can still access it using the options below:
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <button
+                          onClick={() => window.open(`https://docs.google.com/gview?url=${encodeURIComponent(research.document)}`, '_blank')}
+                          className="flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
+                          style={{ backgroundColor: '#009688' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#00695c'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#009688'}
+                        >
+                          <ExternalLink size={16} />
+                          Google Viewer
+                        </button>
+                        <button
+                          onClick={() => window.open(research.document, '_blank')}
+                          className="flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
+                          style={{ backgroundColor: '#009688' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#00695c'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#009688'}
+                        >
+                          <Download size={16} />
+                          Download
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // For other document types
+                <iframe
+                  src={research.document}
+                  className="w-full h-full border-0"
+                  title="Research Document"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
