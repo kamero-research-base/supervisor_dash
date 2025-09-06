@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { X, FileText, User, Building2, Check, AlertTriangle, Pause, Eye, Download, MessageCircle, Send, MoreVertical, Edit, Trash2, Reply, Heart, Flag } from "lucide-react";
+import { X, FileText, User, Building2, Check, AlertTriangle, Pause, Eye, Download, MessageCircle, Send, MoreVertical, Edit, Trash2, Reply, Heart, Flag, CheckCircle } from "lucide-react";
 
 // Interface updated to include the new is_public field
 interface FormData {
@@ -478,539 +478,639 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-slate-400 backdrop-blur-sm bg-opacity-40"
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <style>{`
+        @keyframes slideIn { 
+          from { opacity: 0; transform: translateY(-20px); } 
+          to { opacity: 1; transform: translateY(0); } 
+        }
+        @keyframes fadeInScale { 
+          from { opacity: 0; transform: scale(0.95); } 
+          to { opacity: 1; transform: scale(1); } 
+        }
+        .slide-in { animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .fade-in-scale { animation: fadeInScale 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .research-card { 
+          background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(148, 163, 184, 0.2);
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .status-badge {
+          background: linear-gradient(135deg, var(--bg-from), var(--bg-to));
+          border: 1px solid var(--border-color);
+        }
+      `}</style>
+
+      {/* Success/Error Notifications */}
+      {success && (
+        <div className="fixed top-6 right-6 z-60 slide-in">
+          <div className="bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+            <CheckCircle size={20} />
+            <span className="font-medium">{success}</span>
+          </div>
+        </div>
+      )}
       
-      {/* Modal */}
-      <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-        
-        {/* Header */}
-        <div className="relative bg-slate-700 p-6">
-          <button
-            onClick={() => {onClose(); handleAction("review")}}
-            className="absolute top-4 right-4 p-1.5 text-teal-50 hover:text-white hover:bg-teal-500 rounded-full transition-all"
-          >
-            <X size={20} />
-          </button>
+      {error && (
+        <div className="fixed top-6 right-6 z-60 slide-in">
+          <div className="bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+            <AlertTriangle size={20} />
+            <span className="font-medium">{error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Main Modal */}
+      <div className="w-full max-w-6xl max-h-[95vh] fade-in-scale">
+        <div className="research-card rounded-2xl overflow-hidden">
           
-          <div className="pr-12">
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="text-slate-300" size={18} />
-              <span className="text-slate-300 text-xs font-medium uppercase tracking-wider">Research Paper</span>
-            </div>
-            <h1 className="text-xl font-bold text-white leading-tight mb-3">
-              {research?.title}
-            </h1>
-            <div className="flex items-center gap-4 text-slate-300 text-sm">
-              <span className="flex items-center gap-1">
-                <User size={14} />
-                {research?.researcher}
-              </span>
-              <span className="flex items-center gap-1">
-                <Building2 size={14} />
-                {research?.institute}
-              </span>
-            </div>
-          </div>
-        </div>
+          {/* Header Section */}
+          <div className="relative">
+            {/* Status Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 via-cyan-400 to-indigo-400"></div>
+            
+            {/* Header Content */}
+            <div className="bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 text-white p-8">
+              {/* Close Button */}
+              <button 
+                onClick={onClose}
+                className="absolute top-6 right-6 p-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-all duration-300 hover:rotate-90 group"
+              >
+                <X size={22} className="group-hover:scale-110 transition-transform" />
+              </button>
 
-        {/* Success Message */}
-        {success && (
-          <div className="bg-green-100 border-l-4 border-green-300 p-3">
-            <div className="flex items-center gap-2 text-green-500 text-sm">
-              <Check size={16} />
-              {success}
-            </div>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-100 border-l-4 border-red-300 p-3">
-            <div className="flex items-center gap-2 text-red-500 text-sm">
-              <AlertTriangle size={16} />
-              {error}
-            </div>
-          </div>
-        )}
-
-        {/* Navigation */}
-        <div className="bg-slate-50 border-b px-6">
-          <div className="flex space-x-6">
-            {buttons.map((button, index) => {
-              const Icon = button.icon;
-              return (
-                <button
-                  key={index}
-                  onClick={() => setActiveTab(index)}
-                  className={`flex items-center gap-2 py-3 text-sm font-medium capitalize transition-colors border-b-2 ${
-                    activeTab === index
-                      ? 'border-teal-500 text-teal-600'
-                      : 'border-transparent text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Icon size={16} />
-                  {button.name}
-                  {button.name === 'comments' && comments.length > 0 && (
-                    <span className="bg-teal-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.2rem] text-center">
-                      {comments.length}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex h-96">
-          {/* Main Content */}
-          <div className="flex-1 p-6 overflow-y-auto">
-            {activeTab === 0 && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-slate-800 mb-2">Abstract</h3>
+              <div className="pr-16">
+                {/* Research Type & Status */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-teal-500/20 rounded-lg">
+                      <FileText size={24} className="text-teal-400" />
+                    </div>
+                    <div>
+                      <p className="text-teal-300 text-sm font-medium uppercase tracking-wider">Research Paper</p>
+                      <p className="text-white/60 text-xs">{research?.category}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Status Badge */}
                   <div 
-                    className="text-slate-700 text-sm leading-relaxed bg-slate-50 p-4 rounded-lg"
-                    id="abstract"
-                  ></div>
-                </div>
-                
-                <div>
-                  <h3 className="font-semibold text-slate-800 mb-2">Document</h3>
-                  {research?.is_public ? (
-                    <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-lg border border-teal-200">
-                      <FileText className="text-teal-600" size={20} />
-                      <div className="flex-1">
-                        <Link 
-                          href={research?.document ?? ""} 
-                          className="text-sm font-medium text-teal-900 hover:underline" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                        >
-                          {truncateText(research?.document ?? "", 60)}
-                        </Link>
-                        <p className="text-xs text-teal-600">{research?.document_type}</p>
-                      </div>
-                      <button className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors">
-                        <Download size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="p-2 bg-gray-100 rounded-lg">
-                        <FileText className="text-gray-400" size={20} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-600">This research is private</p>
-                        <p className="text-xs text-gray-500">Document not available for public view</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 1 && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-slate-800 mb-3">Research Details</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs text-slate-500 uppercase tracking-wide">Category</label>
-                        <p className="text-sm font-medium text-slate-700">{research?.category}</p>
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-500 uppercase tracking-wide">Year</label>
-                        <p className="text-sm font-medium text-slate-700">{research?.year}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs text-slate-500 uppercase tracking-wide">School</label>
-                        <p className="text-sm font-medium text-slate-700">{research?.school}</p>
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-500 uppercase tracking-wide">Uploaded</label>
-                        <p className="text-sm font-medium text-slate-700">{formatDate(research?.created_at)}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Enhanced Comments Tab */}
-            {activeTab === 2 && (
-              <div className="space-y-4 h-full flex flex-col">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-800">Comments</h3>
-                  <span className="text-xs text-slate-500">{comments.length} comment{comments.length !== 1 ? 's' : ''}</span>
-                </div>
-
-                {/* Add Comment Form */}
-                <div className="bg-slate-50 p-4 rounded-lg border">
-                  <div className="space-y-3">
-                    <textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Add a comment as supervisor..."
-                      className="w-full p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
-                      rows={3}
-                      disabled={postingComment}
-                    />
-                    <div className="flex justify-end">
-                      <button
-                        onClick={handlePostComment}
-                        disabled={!newComment.trim() || postingComment}
-                        className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:bg-slate-300 text-white text-sm font-medium rounded-lg transition-colors"
-                      >
-                        {postingComment ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                        ) : (
-                          <Send size={16} />
-                        )}
-                        {postingComment ? 'Posting...' : 'Post Comment'}
-                      </button>
-                    </div>
+                    className="status-badge px-4 py-2 rounded-full text-sm font-semibold shadow-lg"
+                    style={{
+                      '--bg-from': research?.progress_status === 'approved' ? '#10b981' : 
+                                 research?.progress_status === 'under review' ? '#f59e0b' :
+                                 research?.progress_status === 'rejected' ? '#ef4444' : '#6b7280',
+                      '--bg-to': research?.progress_status === 'approved' ? '#059669' : 
+                               research?.progress_status === 'under review' ? '#d97706' :
+                               research?.progress_status === 'rejected' ? '#dc2626' : '#4b5563',
+                      '--border-color': research?.progress_status === 'approved' ? '#10b981' : 
+                                     research?.progress_status === 'under review' ? '#f59e0b' :
+                                     research?.progress_status === 'rejected' ? '#ef4444' : '#6b7280'
+                    } as React.CSSProperties}
+                  >
+                    {research?.progress_status}
                   </div>
                 </div>
 
-                {/* Comments List */}
-                <div className="flex-1 space-y-3 overflow-y-auto">
-                  {commentsLoading ? (
-                    <div className="flex items-center justify-center h-32">
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-teal-500 border-t-transparent"></div>
+                {/* Title */}
+                <h1 className="text-3xl font-bold mb-4 leading-tight">
+                  {research?.title}
+                </h1>
+
+                {/* Research Info */}
+                <div className="flex flex-wrap items-center gap-6 text-white/80">
+                  <div className="flex items-center gap-2">
+                    <User size={18} />
+                    <span className="font-medium">{research?.researcher}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Building2 size={18} />
+                    <span>{research?.institute}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm bg-white/10 px-3 py-1 rounded-full">
+                      📅 {research?.year}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content Area */}
+          <div className="flex flex-col lg:flex-row min-h-[600px]">
+            
+            {/* Content Panel */}
+            <div className="flex-1 p-8">
+              {/* Quick Actions Bar */}
+              <div className="flex items-center gap-3 mb-8 p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border">
+                <span className="text-sm font-semibold text-slate-700">Quick Actions:</span>
+                <div className="flex gap-2">
+                  {['approve', 'reject', 'hold', 'review'].map((action) => (
+                    <button
+                      key={action}
+                      onClick={() => handleAction(action)}
+                      disabled={
+                        (action === 'approve' && approvingResearch) ||
+                        (action === 'reject' && rejectingResearch) ||
+                        (action === 'hold' && holdingResearch) ||
+                        (action === 'review' && reviewingResearch)
+                      }
+                      className={`
+                        flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100
+                        ${action === 'approve' ? 'bg-emerald-500 hover:bg-emerald-600 text-white' :
+                          action === 'reject' ? 'bg-red-500 hover:bg-red-600 text-white' :
+                          action === 'hold' ? 'bg-orange-500 hover:bg-orange-600 text-white' :
+                          'bg-blue-500 hover:bg-blue-600 text-white'}
+                      `}
+                    >
+                      {action === 'approve' && approvingResearch ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : action === 'reject' && rejectingResearch ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : action === 'hold' && holdingResearch ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : action === 'review' && reviewingResearch ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          {action === 'approve' && <Check size={16} />}
+                          {action === 'reject' && <X size={16} />}
+                          {action === 'hold' && <Pause size={16} />}
+                          {action === 'review' && <Eye size={16} />}
+                        </>
+                      )}
+                      {action.charAt(0).toUpperCase() + action.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="flex gap-2 mb-6 p-2 bg-slate-100 rounded-xl">
+                {buttons.map((button, index) => {
+                  const Icon = button.icon;
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => setActiveTab(index)}
+                      className={`
+                        flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 flex-1 justify-center
+                        ${activeTab === index 
+                          ? 'bg-white text-teal-700 shadow-md border border-teal-200' 
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'}
+                      `}
+                    >
+                      <Icon size={18} />
+                      <span className="capitalize">{button.name}</span>
+                      {button.name === 'comments' && comments.length > 0 && (
+                        <span className="bg-teal-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[1.5rem] text-center">
+                          {comments.length}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Tab Content */}
+              <div className="space-y-6">
+                {/* Overview Tab */}
+                {activeTab === 0 && (
+                  <div className="space-y-8 slide-in">
+                    {/* Abstract Section */}
+                    <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <FileText className="text-blue-600" size={20} />
+                        </div>
+                        <h3 className="text-xl font-semibold text-slate-800">Abstract</h3>
+                      </div>
+                      <div 
+                        className="prose prose-slate max-w-none text-slate-700 leading-relaxed"
+                        id="abstract"
+                        dangerouslySetInnerHTML={{ 
+                          __html: research?.abstract || "<p>No abstract available.</p>" 
+                        }}
+                      />
                     </div>
-                  ) : comments.length === 0 ? (
-                    <div className="text-center text-slate-500 py-8">
-                      <MessageCircle size={32} className="mx-auto mb-2 text-slate-300" />
-                      <p className="text-sm">No comments yet</p>
-                      <p className="text-xs mt-1">Be the first to comment on this research</p>
-                    </div>
-                  ) : (
-                    comments
-                      .filter(comment => !comment.parent_id)
-                      .map((comment) => (
-                        <div key={comment.id} className="bg-white rounded-lg border">
-                          <div className="p-4">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center">
-                                  <User size={14} className="text-teal-600" />
-                                </div>
-                                <span className="text-sm font-medium text-slate-700">
-                                  {comment.first_name ? `${comment.first_name} ${comment.last_name}` : `${research?.researcher}`}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-slate-500">
-                                  {formatDate(comment.created_at)}
-                                  {comment.is_edited && <span className="ml-1">(edited)</span>}
-                                </span>
-                                {/* Actions Dropdown */}
-                                <div className="relative" ref={dropdownRef}>
-                                  <button
-                                    onClick={() => setShowActionsId(showActionsId === comment.id ? null : comment.id)}
-                                    className="p-1 hover:bg-slate-100 rounded transition-colors"
-                                  >
-                                    <MoreVertical size={14} className="text-slate-400" />
-                                  </button>
-                                  {showActionsId === comment.id && (
-                                    <div className="absolute right-0 top-6 bg-white rounded-lg shadow-lg border py-1 z-10 min-w-[120px]">
-                                      <button
-                                        onClick={() => startReply(comment.id)}
-                                        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                      >
-                                        <Reply size={14} />
-                                        Reply
-                                      </button>
-                                      <button
-                                        onClick={() => startEdit(comment)}
-                                        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                      >
-                                        <Edit size={14} />
-                                        Edit
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteComment(comment.id)}
-                                        disabled={deletingComment === comment.id}
-                                        className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50"
-                                      >
-                                        {deletingComment === comment.id ? (
-                                          <div className="animate-spin rounded-full h-3 w-3 border border-red-600 border-t-transparent"></div>
-                                        ) : (
-                                          <Trash2 size={14} />
-                                        )}
-                                        {deletingComment === comment.id ? 'Deleting...' : 'Delete'}
-                                      </button>
-                                      <hr className="my-1" />
-                                      <button
-                                        onClick={() => setShowActionsId(null)}
-                                        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                      >
-                                        <Flag size={14} />
-                                        Report
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
+                    
+                    {/* Document Section */}
+                    <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <Download className="text-green-600" size={20} />
+                        </div>
+                        <h3 className="text-xl font-semibold text-slate-800">Research Document</h3>
+                      </div>
+                      
+                      {research?.is_public ? (
+                        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 bg-emerald-500 rounded-xl">
+                              <FileText className="text-white" size={24} />
                             </div>
-
-                            {/* Comment Content */}
-                            <div className="ml-8">
-                              {editingCommentId === comment.id ? (
-                                <div className="space-y-2">
-                                  <textarea
-                                    value={editingContent}
-                                    onChange={(e) => setEditingContent(e.target.value)}
-                                    className="w-full p-2 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                                    rows={2}
-                                    disabled={editingComment}
-                                  />
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={() => handleEditComment(comment.id, editingContent)}
-                                      disabled={editingComment || !editingContent.trim()}
-                                      className="flex items-center gap-1 px-3 py-1 bg-teal-500 text-white text-xs rounded hover:bg-teal-600 disabled:opacity-50"
-                                    >
-                                      {editingComment ? (
-                                        <>
-                                          <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
-                                          Saving...
-                                        </>
-                                      ) : (
-                                        'Save'
-                                      )}
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setEditingCommentId(null);
-                                        setEditingContent("");
-                                      }}
-                                      disabled={editingComment}
-                                      className="px-3 py-1 bg-slate-300 text-slate-700 text-xs rounded hover:bg-slate-400 disabled:opacity-50"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-sm text-slate-700 leading-relaxed">
-                                  {comment.is_deleted ? (
-                                    <em className="text-slate-400">This comment has been deleted</em>
-                                  ) : (
-                                    comment.content
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Reply Form */}
-                              {replyingToId === comment.id && (
-                                <div className="mt-3 space-y-2">
-                                  <textarea
-                                    value={replyContent}
-                                    onChange={(e) => setReplyContent(e.target.value)}
-                                    placeholder={`Reply to ${comment.first_name || 'user'}...`}
-                                    className="w-full p-2 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                                    rows={2}
-                                    disabled={postingReply}
-                                  />
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={() => handleReplyToComment(comment.id)}
-                                      disabled={postingReply || !replyContent.trim()}
-                                      className="flex items-center gap-1 px-3 py-1 bg-teal-500 text-white text-xs rounded hover:bg-teal-600 disabled:opacity-50"
-                                    >
-                                      {postingReply ? (
-                                        <>
-                                          <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
-                                          Replying...
-                                        </>
-                                      ) : (
-                                        'Reply'
-                                      )}
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setReplyingToId(null);
-                                        setReplyContent("");
-                                      }}
-                                      disabled={postingReply}
-                                      className="px-3 py-1 bg-slate-300 text-slate-700 text-xs rounded hover:bg-slate-400 disabled:opacity-50"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Action Buttons */}
-                              <div className="flex items-center gap-3 mt-2 text-xs">
-                                <button 
-                                  onClick={() => startReply(comment.id)}
-                                  className="text-slate-500 hover:text-teal-600 flex items-center gap-1"
-                                >
-                                  <Reply size={12} />
-                                  Reply
-                                </button>
-                                <button 
-                                  onClick={() => setLikingComment(comment.id)}
-                                  disabled={likingComment === comment.id}
-                                  className="text-slate-500 hover:text-red-500 flex items-center gap-1 disabled:opacity-50"
-                                >
-                                  {likingComment === comment.id ? (
-                                    <div className="animate-spin rounded-full h-3 w-3 border border-red-500 border-t-transparent"></div>
-                                  ) : (
-                                    <Heart size={12} />
-                                  )}
-                                  Like
-                                </button>
-                              </div>
+                            <div className="flex-1">
+                              <Link 
+                                href={research?.document ?? ""} 
+                                className="text-lg font-semibold text-emerald-800 hover:text-emerald-900 hover:underline transition-colors" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                              >
+                                📄 View Research Document
+                              </Link>
+                              <p className="text-sm text-emerald-600 mt-1">
+                                {research?.document_type} • Click to open in new tab
+                              </p>
+                            </div>
+                            <button className="p-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-all duration-200 hover:scale-105">
+                              <Download size={20} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-xl p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 bg-slate-400 rounded-xl">
+                              <FileText className="text-white" size={24} />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-lg font-semibold text-slate-700">🔒 Private Research Document</p>
+                              <p className="text-sm text-slate-500 mt-1">
+                                This document is not available for public viewing
+                              </p>
                             </div>
                           </div>
+                        </div>
+                      )}
+                    </div>
 
-                          {/* Show nested replies */}
-                          {comments.filter(reply => reply.parent_id === comment.id).length > 0 && (
-                            <div className="pl-10 pb-4 space-y-2">
-                              {comments
-                                .filter(reply => reply.parent_id === comment.id)
-                                .map(reply => (
-                                  <div key={reply.id} className="bg-slate-50 p-3 rounded border-l-2 border-teal-200">
-                                    <div className="flex items-center justify-between mb-1">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-5 h-5 bg-teal-100 rounded-full flex items-center justify-center">
-                                          <User size={12} className="text-teal-600" />
-                                        </div>
-                                        <span className="text-xs font-medium text-slate-700">
-                                          {reply.first_name ? `${reply.first_name} ${reply.last_name}` : `User ${reply.user_id}`}
-                                        </span>
+                    {/* Research Metrics */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 text-center">
+                        <div className="text-2xl font-bold text-blue-600 mb-2">{research?.year}</div>
+                        <p className="text-sm text-blue-700 font-medium">Research Year</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6 text-center">
+                        <div className="text-2xl font-bold text-purple-600 mb-2">📚</div>
+                        <p className="text-sm text-purple-700 font-medium">{research?.category}</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-6 text-center">
+                        <div className="text-2xl font-bold text-emerald-600 mb-2">
+                          {research?.is_public ? '🌐' : '🔒'}
+                        </div>
+                        <p className="text-sm text-emerald-700 font-medium">
+                          {research?.is_public ? 'Public' : 'Private'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Details Tab */}
+                {activeTab === 1 && (
+                  <div className="space-y-6 slide-in">
+                    <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 bg-indigo-100 rounded-lg">
+                          <FileText className="text-indigo-600" size={20} />
+                        </div>
+                        <h3 className="text-xl font-semibold text-slate-800">Research Information</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Left Column */}
+                        <div className="space-y-6">
+                          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                            <label className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2 block">
+                              📚 Research Category
+                            </label>
+                            <p className="text-lg font-semibold text-blue-800">{research?.category}</p>
+                          </div>
+                          
+                          <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                            <label className="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-2 block">
+                              📅 Publication Year
+                            </label>
+                            <p className="text-lg font-semibold text-purple-800">{research?.year}</p>
+                          </div>
+                          
+                          <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-200">
+                            <label className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2 block">
+                              👤 Lead Researcher
+                            </label>
+                            <p className="text-lg font-semibold text-emerald-800">{research?.researcher}</p>
+                          </div>
+                        </div>
+                        
+                        {/* Right Column */}
+                        <div className="space-y-6">
+                          <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
+                            <label className="text-xs font-semibold text-orange-600 uppercase tracking-wider mb-2 block">
+                              🏫 Academic Institution
+                            </label>
+                            <p className="text-lg font-semibold text-orange-800">{research?.school}</p>
+                          </div>
+                          
+                          <div className="p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200">
+                            <label className="text-xs font-semibold text-cyan-600 uppercase tracking-wider mb-2 block">
+                              🕒 Upload Date
+                            </label>
+                            <p className="text-lg font-semibold text-cyan-800">{formatDate(research?.created_at)}</p>
+                          </div>
+                          
+                          <div className="p-4 bg-gradient-to-r from-rose-50 to-pink-50 rounded-lg border border-rose-200">
+                            <label className="text-xs font-semibold text-rose-600 uppercase tracking-wider mb-2 block">
+                              🔍 Current Status
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full"
+                                style={{
+                                  backgroundColor: research?.progress_status === 'approved' ? '#10b981' : 
+                                                 research?.progress_status === 'under review' ? '#f59e0b' :
+                                                 research?.progress_status === 'rejected' ? '#ef4444' : '#6b7280'
+                                }}
+                              />
+                              <p className="text-lg font-semibold text-rose-800">{research?.progress_status}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Comments Tab */}
+                {activeTab === 2 && (
+                  <div className="space-y-6 slide-in">
+                    <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-pink-100 rounded-lg">
+                            <MessageCircle className="text-pink-600" size={20} />
+                          </div>
+                          <h3 className="text-xl font-semibold text-slate-800">Discussion & Comments</h3>
+                        </div>
+                        <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-sm font-medium">
+                          {comments.length} comment{comments.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      {/* Add Comment Form */}
+                      <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-6 rounded-xl border border-slate-200 mb-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full flex items-center justify-center">
+                            <User size={20} className="text-white" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800">Add your comment as supervisor</p>
+                            <p className="text-sm text-slate-500">Share your feedback on this research</p>
+                          </div>
+                        </div>
+                        <textarea
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          placeholder="Write your feedback, suggestions, or questions about this research..."
+                          className="w-full p-4 border border-slate-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-white"
+                          rows={4}
+                          disabled={postingComment}
+                        />
+                        <div className="flex justify-end mt-4">
+                          <button
+                            onClick={handlePostComment}
+                            disabled={!newComment.trim() || postingComment}
+                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 disabled:from-slate-300 disabled:to-slate-400 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
+                          >
+                            {postingComment ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                Posting...
+                              </>
+                            ) : (
+                              <>
+                                <Send size={16} />
+                                Post Comment
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Comments List */}
+                      <div className="space-y-4">
+                        {commentsLoading ? (
+                          <div className="flex items-center justify-center py-12">
+                            <div className="text-center">
+                              <div className="animate-spin rounded-full h-8 w-8 border-4 border-teal-500 border-t-transparent mx-auto mb-3"></div>
+                              <p className="text-slate-500 font-medium">Loading comments...</p>
+                            </div>
+                          </div>
+                        ) : comments.length === 0 ? (
+                          <div className="text-center py-12">
+                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <MessageCircle size={32} className="text-slate-400" />
+                            </div>
+                            <p className="text-lg font-medium text-slate-600 mb-2">No comments yet</p>
+                            <p className="text-sm text-slate-500">Be the first to share your thoughts on this research</p>
+                          </div>
+                        ) : (
+                          comments
+                            .filter(comment => !comment.parent_id)
+                            .map((comment) => (
+                              <div key={comment.id} className="bg-gradient-to-r from-white to-slate-50 rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-start gap-4">
+                                  <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <User size={20} className="text-white" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div>
+                                        <p className="font-semibold text-slate-800">
+                                          {comment.first_name ? `${comment.first_name} ${comment.last_name}` : research?.researcher}
+                                        </p>
+                                        <p className="text-sm text-slate-500">
+                                          {formatDate(comment.created_at)}
+                                          {comment.is_edited && <span className="ml-2 text-xs bg-slate-200 px-2 py-1 rounded-full">edited</span>}
+                                        </p>
                                       </div>
-                                      <span className="text-xs text-slate-500">
-                                        {formatDate(reply.created_at)}
-                                      </span>
+                                      <div className="relative" ref={dropdownRef}>
+                                        <button
+                                          onClick={() => setShowActionsId(showActionsId === comment.id ? null : comment.id)}
+                                          className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+                                        >
+                                          <MoreVertical size={16} className="text-slate-400" />
+                                        </button>
+                                        {showActionsId === comment.id && (
+                                          <div className="absolute right-0 top-10 bg-white rounded-lg shadow-xl border py-2 z-10 min-w-[140px]">
+                                            <button
+                                              onClick={() => startReply(comment.id)}
+                                              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                            >
+                                              <Reply size={14} />
+                                              Reply
+                                            </button>
+                                            <button
+                                              onClick={() => startEdit(comment)}
+                                              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                            >
+                                              <Edit size={14} />
+                                              Edit
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteComment(comment.id)}
+                                              disabled={deletingComment === comment.id}
+                                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50"
+                                            >
+                                              {deletingComment === comment.id ? (
+                                                <div className="animate-spin rounded-full h-3 w-3 border border-red-600 border-t-transparent"></div>
+                                              ) : (
+                                                <Trash2 size={14} />
+                                              )}
+                                              Delete
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
-                                    <div className="text-xs text-slate-700 ml-7">
-                                      {reply.is_deleted ? (
-                                        <em className="text-slate-400">This reply has been deleted</em>
+
+                                    <div className="prose prose-sm max-w-none">
+                                      {editingCommentId === comment.id ? (
+                                        <div className="space-y-3">
+                                          <textarea
+                                            value={editingContent}
+                                            onChange={(e) => setEditingContent(e.target.value)}
+                                            className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                                            rows={3}
+                                            disabled={editingComment}
+                                          />
+                                          <div className="flex gap-2">
+                                            <button
+                                              onClick={() => handleEditComment(comment.id, editingContent)}
+                                              disabled={editingComment || !editingContent.trim()}
+                                              className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 disabled:opacity-50"
+                                            >
+                                              {editingComment ? (
+                                                <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
+                                              ) : (
+                                                <Check size={14} />
+                                              )}
+                                              Save
+                                            </button>
+                                            <button
+                                              onClick={() => {
+                                                setEditingCommentId(null);
+                                                setEditingContent("");
+                                              }}
+                                              disabled={editingComment}
+                                              className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 disabled:opacity-50"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        </div>
                                       ) : (
-                                        reply.content
+                                        <p className="text-slate-700 leading-relaxed">
+                                          {comment.is_deleted ? (
+                                            <em className="text-slate-400">This comment has been deleted</em>
+                                          ) : (
+                                            comment.content
+                                          )}
+                                        </p>
                                       )}
                                     </div>
+
+                                    {/* Reply Form */}
+                                    {replyingToId === comment.id && (
+                                      <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                        <textarea
+                                          value={replyContent}
+                                          onChange={(e) => setReplyContent(e.target.value)}
+                                          placeholder={`Reply to ${comment.first_name || 'this comment'}...`}
+                                          className="w-full p-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                                          rows={3}
+                                          disabled={postingReply}
+                                        />
+                                        <div className="flex gap-2 mt-3">
+                                          <button
+                                            onClick={() => handleReplyToComment(comment.id)}
+                                            disabled={postingReply || !replyContent.trim()}
+                                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                                          >
+                                            {postingReply ? (
+                                              <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
+                                            ) : (
+                                              <Reply size={14} />
+                                            )}
+                                            Reply
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setReplyingToId(null);
+                                              setReplyContent("");
+                                            }}
+                                            disabled={postingReply}
+                                            className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Show replies */}
+                                    {comments.filter(reply => reply.parent_id === comment.id).length > 0 && (
+                                      <div className="mt-4 pl-4 border-l-2 border-slate-200 space-y-3">
+                                        {comments
+                                          .filter(reply => reply.parent_id === comment.id)
+                                          .map(reply => (
+                                            <div key={reply.id} className="bg-white p-4 rounded-lg border border-slate-200">
+                                              <div className="flex items-center gap-3 mb-2">
+                                                <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center">
+                                                  <User size={14} className="text-white" />
+                                                </div>
+                                                <div>
+                                                  <p className="text-sm font-medium text-slate-800">
+                                                    {reply.first_name ? `${reply.first_name} ${reply.last_name}` : 'Anonymous'}
+                                                  </p>
+                                                  <p className="text-xs text-slate-500">{formatDate(reply.created_at)}</p>
+                                                </div>
+                                              </div>
+                                              <p className="text-sm text-slate-700 leading-relaxed">
+                                                {reply.is_deleted ? (
+                                                  <em className="text-slate-400">This reply has been deleted</em>
+                                                ) : (
+                                                  reply.content
+                                                )}
+                                              </p>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    )}
                                   </div>
-                                ))}
-                            </div>
-                          )}
-                        </div>
-                      ))
-                  )}
-                </div>
+                                </div>
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="w-72 bg-slate-50 border-l p-6">
-            <div className="space-y-4">
-              {/* Status */}
+          {/* Loading Overlay */}
+          {loading && (
+            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm flex items-center justify-center rounded-2xl">
               <div className="text-center">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(research?.progress_status ?? "")}`}>
-                  {research?.progress_status}
-                </span>
-              </div>
-
-              {/* Quick Info */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Researcher</span>
-                  <span className="font-medium text-slate-700">{research?.researcher}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Category</span>
-                  <span className="font-medium text-slate-700">{research?.category}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Year</span>
-                  <span className="font-medium text-slate-700">{research?.year}</span>
-                </div>
-              </div>
-
-              <hr className="border-slate-200" />
-
-              {/* Actions */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-slate-700 mb-3">Actions</h4>
-                <button
-                  onClick={() => handleAction('approve')}
-                  disabled={approvingResearch}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {approvingResearch ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Approving...
-                    </>
-                  ) : (
-                    <>
-                      <Check size={16} />
-                      Approve
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => handleAction('reject')}
-                  disabled={rejectingResearch}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-900 hover:bg-amber-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {rejectingResearch ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Rejecting...
-                    </>
-                  ) : (
-                    <>
-                      <X size={16} />
-                      Reject
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => handleAction('hold')}
-                  disabled={holdingResearch}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {holdingResearch ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Holding...
-                    </>
-                  ) : (
-                    <>
-                      <Pause size={16} />
-                      Hold
-                    </>
-                  )}
-                </button>
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-500 border-t-transparent mx-auto mb-4"></div>
+                <p className="text-lg font-semibold text-slate-700 mb-2">Loading research details...</p>
+                <p className="text-sm text-slate-500">Please wait while we fetch the information</p>
               </div>
             </div>
-          </div>
+          )}
         </div>
-
-        {/* Loading Overlay */}
-        {loading && (
-          <div className="absolute inset-0 bg-white/90 flex items-center justify-center">
-            <div className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg shadow-lg border">
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-teal-500 border-t-transparent"></div>
-              <span className="text-slate-700 font-medium text-sm">Processing...</span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

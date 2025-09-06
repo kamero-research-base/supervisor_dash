@@ -903,9 +903,26 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
 
   return (
     <>
-      <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-90vh overflow-hidden z-50">
-          <div>
+      <style jsx>{`
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scale-in { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-fade-in { animation: fade-in 0.4s ease-out; }
+        .animate-scale-in { animation: scale-in 0.3s ease-out; }
+        .glass-effect { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.18); }
+        .gradient-border { background: linear-gradient(135deg, #14b8a6 0%, #0891b2 50%, #6366f1 100%); padding: 2px; border-radius: 1rem; }
+      `}</style>
+
+      {error && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
+            {error}
+          </div>
+        </div>
+      )}
+      
+      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center p-4 animate-fade-in">
+        <div className="gradient-border w-full max-w-6xl max-h-[90vh] animate-scale-in">
+          <div className="glass-effect rounded-2xl overflow-hidden">
             {/* Header */}
             <div className="relative bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 p-6 text-white">
               <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-300 hover:scale-110 z-10" type="button">
@@ -963,9 +980,9 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
             </div>
             
             {/* Content */}
-            <div className="flex flex-col h-[calc(90vh-240px)] bg-white">
+            <div className="flex flex-col max-h-[calc(90vh-200px)] bg-white/95">
               {/* Tab Navigation */}
-              <div className="flex border-b border-gray-200 bg-gray-50">
+              <div className="flex border-b border-gray-200 bg-white/90 backdrop-blur-sm">
                 <button
                   onClick={() => setActiveTab('overview')}
                   className={`px-6 py-3 font-medium text-sm transition-colors ${
@@ -1032,9 +1049,9 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
               </div>
 
               {/* Tab Content */}
-              <div className="flex-1 overflow-y-auto p-6 bg-white">
+              <div className="flex-1 overflow-y-auto p-6 bg-white/95 backdrop-blur-sm">
                 {activeTab === 'overview' && (
-                  <div className="space-y-6 animate-fade-in">
+                  <div className="space-y-6 animate-fade-in duration-300">
                     {/* Assignment Info */}
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-4">
@@ -1137,7 +1154,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                 )}
 
                 {activeTab === 'submissions' && (
-                  <div className="animate-fade-in h-full">
+                  <div className="animate-fade-in duration-300 h-full">
                     {assignmentDetail.submissions.length > 0 ? (
                       <div className="flex gap-6 h-[calc(90vh-280px)]">
                         {/* Left Panel - Submissions List */}
@@ -1343,7 +1360,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                 )}
 
                 {activeTab === 'students' && (
-                  <div className="animate-fade-in">
+                  <div className="animate-fade-in duration-300">
                     {assignmentDetail.invitations && assignmentDetail.invitations.length > 0 ? (
                       <div className="space-y-3">
                         <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1401,7 +1418,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                 )}
 
                 {activeTab === 'groups' && assignmentDetail.assignment_type === 'group' && (
-                  <div className="animate-fade-in space-y-6">
+                  <div className="animate-fade-in duration-300 space-y-6">
                     {/* Group Statistics */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
@@ -1516,7 +1533,7 @@ const ViewAssignment: React.FC<ViewAssignmentProps> = ({ assignment, onClose }) 
                 )}
 
                 {activeTab === 'download' && (
-                  <div className="animate-fade-in space-y-6">
+                  <div className="animate-fade-in duration-300 space-y-6">
                     {!isDownloadAllowed() ? (
                       <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-6">
                         <div className="flex items-start gap-4">
