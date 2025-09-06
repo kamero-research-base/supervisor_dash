@@ -179,7 +179,7 @@ export default function App() {
 
       const userSession: UserSession = JSON.parse(userSessionData);
       
-      const response = await fetch(`/api/researches/list`, {
+      const response = await fetch(`/api/research`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,10 +189,11 @@ export default function App() {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.data && data.data.researches) {
+        // The API now returns an array directly, not nested in data.data.researches
+        if (Array.isArray(data)) {
           setStats(prev => ({
             ...prev,
-            researchProjects: data.data.researches.length
+            researchProjects: data.length
           }));
         }
       }
@@ -244,9 +245,9 @@ export default function App() {
         console.error("Error fetching recent assignments:", error);
       }
 
-      // Fetch recent research
+      // Fetch recent research from assigned students
       try {
-        const researchResponse = await fetch(`/api/researches/list`, {
+        const researchResponse = await fetch(`/api/research`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -256,9 +257,10 @@ export default function App() {
 
         if (researchResponse.ok) {
           const researchData = await researchResponse.json();
-          if (researchData.success && researchData.data && researchData.data.researches) {
-            // Get the 5 most recent research projects
-            const researches = researchData.data.researches
+          // The API now returns an array directly
+          if (Array.isArray(researchData)) {
+            // Get the 5 most recent research projects from students
+            const researches = researchData
               .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
               .slice(0, 5)
               .map((research: any) => ({
@@ -272,7 +274,7 @@ export default function App() {
           }
         }
       } catch (error) {
-        console.error("Error fetching recent research:", error);
+        console.error("Error fetching recent student research:", error);
       }
 
       // Sort all items by creation date and take the most recent 10

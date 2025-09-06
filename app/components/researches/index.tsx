@@ -94,7 +94,7 @@ const Header = ({}: ResearchHeaderProps) => {
     <div className="space-y-4">
       {/* Header Section */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-medium text-gray-700">Research Materials {"("}{analytics?.total_researches || 0}{")"}</h1>
+        <h1 className="text-xl font-medium text-gray-700">Student Research Materials {"("}{analytics?.total_researches || 0}{")"}</h1>
         <div className="flex items-center gap-2">
           <button 
             className="flex items-center justify-center w-9 h-9 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -289,13 +289,14 @@ const ResearchList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
-  // Fetch all researches once
+  // Fetch research materials from assigned students only
   useEffect(() => {
     const fetchResearches = async () => {
       try {
         setLoading(true);
         const userSession = JSON.parse(localStorage.getItem("supervisorSession") || "{}");
         setUserInfo(userSession);
+        // This API call fetches research materials from students assigned to the current supervisor
         const response = await fetch(`/api/research`, {
           method: 'POST',
           headers: {
@@ -303,7 +304,7 @@ const ResearchList = () => {
           },
           body: JSON.stringify({ supervisor_id: userSession.id })
         });
-        if (!response.ok) throw new Error("Failed to fetch researches");
+        if (!response.ok) throw new Error("Failed to fetch student research");
         const data = await response.json();
         
         // Handle both paginated and non-paginated API responses
@@ -313,7 +314,7 @@ const ResearchList = () => {
           setAllResearches(data.researches || data);
         }
       } catch (error) {
-        setError("An error occurred while fetching researches.");
+        setError("An error occurred while fetching student research materials.");
       } finally {
         setLoading(false);
       }
@@ -510,7 +511,8 @@ const ResearchList = () => {
             <div className="img w-[150px] h-[150px]">
               <img src="/delete.png" alt="" className="w-full h-full object-contain"/>
             </div>
-            <i>No researches found</i>
+            <i>No student research found</i>
+            <p className="text-sm text-gray-500 mt-2">Your assigned students haven't uploaded any research materials yet.</p>
           </div>
         </div>
       ) : (
@@ -612,7 +614,8 @@ const ResearchList = () => {
                   <div className="img w-[150px] h-[150px]">
                     <img src="/delete.png" alt="" className="w-full h-full object-contain"/>
                   </div>
-                  <i>No researches found</i>
+                  <i>No student research found</i>
+            <p className="text-sm text-gray-500 mt-2">Your assigned students haven't uploaded any research materials yet.</p>
                 </div>
               </td>
             </tr>
