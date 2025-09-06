@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import AddAssignment from "../components/toggles/addAssignment";
 import ViewAssignment from "../components/toggles/viewAssignment";
+import ViewResearch from "../components/toggles/viewResearch";
 
 interface DashboardStats {
   totalStudents: number;
@@ -85,6 +86,8 @@ export default function App() {
   const [showAddAssignment, setShowAddAssignment] = useState(false);
   const [showViewAssignment, setShowViewAssignment] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<any | null>(null);
+  const [showViewResearch, setShowViewResearch] = useState(false);
+  const [selectedResearchId, setSelectedResearchId] = useState<string | null>(null);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [recentSubmissions, setRecentSubmissions] = useState<RecentSubmission[]>([]);
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
@@ -681,6 +684,83 @@ export default function App() {
     setSelectedAssignment(null);
   }
 
+  // Function to handle assignment item clicks
+  const handleAssignmentClick = async (assignmentId: number) => {
+    try {
+      // Fetch assignment details to pass to the ViewAssignment component
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession = JSON.parse(userSessionData);
+      
+      const response = await fetch(`/api/assignments/list`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data && data.data.assignments) {
+          const assignment = data.data.assignments.find((a: any) => a.id === assignmentId);
+          if (assignment) {
+            setSelectedAssignment(assignment);
+            setShowViewAssignment(true);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching assignment details:", error);
+    }
+  }
+
+  // Function to handle research item clicks
+  const handleResearchClick = async (researchId: number) => {
+    try {
+      // The ViewResearch component expects the regular ID, not hashed_id
+      // Let's verify this research belongs to one of our students first
+      const userSessionData = localStorage.getItem("supervisorSession");
+      if (!userSessionData) return;
+
+      const userSession = JSON.parse(userSessionData);
+      const response = await fetch(`/api/research`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+      });
+
+      if (response.ok) {
+        const researches = await response.json();
+        const selectedResearch = researches.find((r: any) => r.id === researchId);
+        if (selectedResearch) {
+          // Pass the regular ID as a string to ViewResearch
+          setSelectedResearchId(researchId.toString());
+          setShowViewResearch(true);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching research details:", error);
+    }
+  }
+
+  const closeViewResearch = () => {
+    setShowViewResearch(false);
+    setSelectedResearchId(null);
+  }
+
+  // General handler for recent items table clicks
+  const handleRecentItemClick = (item: RecentItem) => {
+    if (item.type === 'assignment') {
+      handleAssignmentClick(item.id);
+    } else if (item.type === 'research') {
+      handleResearchClick(item.id);
+    }
+  }
+
 
   if (isLoading) {
     return (
@@ -723,6 +803,13 @@ export default function App() {
         <ViewAssignment 
           assignment={selectedAssignment}
           onClose={closeViewAssignment}
+        />
+      )}
+
+      {showViewResearch && selectedResearchId && (
+        <ViewResearch 
+          ResearchId={selectedResearchId}
+          onClose={closeViewResearch}
         />
       )}
        {/* Welcome Section with Time-Based Greeting */}
@@ -830,7 +917,11 @@ export default function App() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {recentItems.map((item) => (
-                      <tr key={`${item.type}-${item.id}`} className="hover:bg-gray-50 transition-colors">
+                      <tr 
+                        key={`${item.type}-${item.id}`} 
+                        className="hover:bg-blue-50 transition-colors cursor-pointer group"
+                        onClick={() => handleRecentItemClick(item)}
+                      >
                         <td className="py-3 px-2">
                           <div className="flex items-center space-x-3">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -840,7 +931,7 @@ export default function App() {
                                 item.type === 'assignment' ? 'bi-clipboard-check text-blue-600' : 'bi-journal-text text-purple-600'
                               } text-sm`}></i>
                             </div>
-                            <span className="text-sm font-medium text-gray-900 truncate max-w-xs" title={item.title}>
+                            <span className="text-sm font-medium text-gray-900 group-hover:text-blue-600 truncate max-w-xs transition-colors" title={item.title}>
                               {item.title}
                             </span>
                           </div>

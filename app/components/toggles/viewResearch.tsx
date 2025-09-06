@@ -146,13 +146,18 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
     const fetchResearch = async () => {
       setLoading(true);
       try {
+        // Get supervisor session for access control
+        const userSession = JSON.parse(localStorage.getItem("supervisorSession") || "{}");
         const response = await fetch(`/api/research/view`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ id: ResearchId }),
+          body: JSON.stringify({ 
+            id: ResearchId,
+            supervisor_id: userSession.id 
+          }),
         });
         if (!response.ok) throw new Error("Failed to fetch research");
         const data = await response.json();
