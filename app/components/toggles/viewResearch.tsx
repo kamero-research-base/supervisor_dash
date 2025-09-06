@@ -62,6 +62,7 @@ interface Comment {
 const buttons = [
   { name: "overview", icon: Eye },
   { name: "details", icon: FileText },
+  { name: "history", icon: AlertTriangle },
   { name: "comments", icon: MessageCircle },
 ];
 
@@ -209,7 +210,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
 
   // Fetch Comments when comments tab is active
   useEffect(() => {
-    if (activeTab === 2 && research) {
+    if (activeTab === 3 && research) {
       fetchComments();
     }
   }, [activeTab, research]);
@@ -935,44 +936,6 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                     Revoke Approval
                   </button>
                 </div>
-              ) : research?.status?.toLowerCase() === 'rejected' ? (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border border-red-200">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-500 rounded-full">
-                      <AlertTriangle className="text-white" size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-red-800">Research Rejected</h3>
-                      <p className="text-sm text-red-600">This research has been rejected by the supervisor</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowUnrejectModal(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors"
-                  >
-                    <Check size={16} />
-                    Change Mind
-                  </button>
-                </div>
-              ) : research?.status?.toLowerCase() === 'on hold' ? (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-200">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-yellow-500 rounded-full">
-                      <Pause className="text-white" size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-yellow-800">Research On Hold</h3>
-                      <p className="text-sm text-yellow-600">This research has been put on hold by the supervisor</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowUnholdModal(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors"
-                  >
-                    <Check size={16} />
-                    Change Mind
-                  </button>
-                </div>
               ) : (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6 sm:mb-8 p-3 sm:p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border">
                   <span className="text-sm font-semibold text-slate-700">Quick Actions:</span>
@@ -1009,121 +972,6 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                         {action.charAt(0).toUpperCase() + action.slice(1)}
                       </button>
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Revocation History Alert */}
-              {research?.revoke_approval_reason && research?.approval_revoked_at && (
-                <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-amber-500 rounded-full flex-shrink-0">
-                      <AlertTriangle className="text-white" size={18} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <div>
-                          <h4 className="font-semibold text-amber-800 mb-1">
-                            Approval Previously Revoked
-                          </h4>
-                          <p className="text-sm text-amber-700 mb-2">
-                            This research was previously approved but approval was revoked on{' '}
-                            <span className="font-medium">{formatDate(research.approval_revoked_at)}</span>
-                            {research.revoker_supervisor_name && (
-                              <span> by <span className="font-medium">{research.revoker_supervisor_name}</span></span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="bg-amber-100 rounded-lg p-3 mt-3">
-                        <p className="text-sm font-medium text-amber-800 mb-1">Revocation Reason:</p>
-                        <p className="text-sm text-amber-700 italic">"{research.revoke_approval_reason}"</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Rejection History Alert */}
-              {research?.rejection_reason && research?.rejected_at && (
-                <div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border border-red-200">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-red-500 rounded-full flex-shrink-0">
-                      <AlertTriangle className="text-white" size={18} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <div>
-                          <h4 className="font-semibold text-red-800 mb-1">
-                            Research Previously Rejected
-                          </h4>
-                          <p className="text-sm text-red-700 mb-2">
-                            This research was rejected on{' '}
-                            <span className="font-medium">{formatDate(research.rejected_at)}</span>
-                            {research.rejected_by_supervisor_name && (
-                              <span> by <span className="font-medium">{research.rejected_by_supervisor_name}</span></span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="bg-red-100 rounded-lg p-3 mt-3">
-                        <p className="text-sm font-medium text-red-800 mb-1">Rejection Reason:</p>
-                        <p className="text-sm text-red-700 italic">"{research.rejection_reason}"</p>
-                      </div>
-                      {research.unreject_reason && research.unrejected_at && (
-                        <div className="bg-green-100 rounded-lg p-3 mt-3 border border-green-200">
-                          <p className="text-sm font-medium text-green-800 mb-1">
-                            Later reversed on {formatDate(research.unrejected_at)}
-                            {research.unrejected_by_supervisor_name && (
-                              <span> by {research.unrejected_by_supervisor_name}</span>
-                            )}:
-                          </p>
-                          <p className="text-sm text-green-700 italic">"{research.unreject_reason}"</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Hold History Alert */}
-              {research?.hold_reason && research?.held_at && (
-                <div className="mb-6 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-200">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-yellow-500 rounded-full flex-shrink-0">
-                      <Pause className="text-white" size={18} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <div>
-                          <h4 className="font-semibold text-yellow-800 mb-1">
-                            Research Previously Put On Hold
-                          </h4>
-                          <p className="text-sm text-yellow-700 mb-2">
-                            This research was put on hold on{' '}
-                            <span className="font-medium">{formatDate(research.held_at)}</span>
-                            {research.held_by_supervisor_name && (
-                              <span> by <span className="font-medium">{research.held_by_supervisor_name}</span></span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="bg-yellow-100 rounded-lg p-3 mt-3">
-                        <p className="text-sm font-medium text-yellow-800 mb-1">Hold Reason:</p>
-                        <p className="text-sm text-yellow-700 italic">"{research.hold_reason}"</p>
-                      </div>
-                      {research.unhold_reason && research.unheld_at && (
-                        <div className="bg-green-100 rounded-lg p-3 mt-3 border border-green-200">
-                          <p className="text-sm font-medium text-green-800 mb-1">
-                            Later reversed on {formatDate(research.unheld_at)}
-                            {research.unheld_by_supervisor_name && (
-                              <span> by {research.unheld_by_supervisor_name}</span>
-                            )}:
-                          </p>
-                          <p className="text-sm text-green-700 italic">"{research.unhold_reason}"</p>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               )}
@@ -1171,7 +1019,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                             <h3 className="text-lg sm:text-xl font-semibold text-slate-800">Abstract</h3>
                           </div>
                           <div 
-                            className="prose prose-sm sm:prose prose-slate max-w-none text-slate-700 leading-relaxed max-h-80 overflow-y-auto pr-2"
+                            className="prose prose-sm sm:prose prose-slate max-w-none text-slate-700 leading-relaxed max-h-[48rem] overflow-y-auto pr-2"
                             id="abstract"
                             dangerouslySetInnerHTML={{ 
                               __html: research?.abstract || "<p>No abstract available.</p>" 
@@ -1260,71 +1108,6 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                                 {research?.is_public ? 'Public' : 'Private'}
                               </p>
                             </div>
-                            {research?.revoke_approval_reason && research?.approval_revoked_at && (
-                              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
-                                <div className="text-center mb-2">
-                                  <div className="text-lg font-bold text-amber-600 mb-1">⚠️</div>
-                                  <p className="text-xs text-amber-700 font-medium">Approval Revoked</p>
-                                </div>
-                                <div className="text-xs text-amber-600 space-y-1">
-                                  <p><strong>Date:</strong> {formatDate(research.approval_revoked_at)}</p>
-                                  {research.revoker_supervisor_name && (
-                                    <p><strong>Revoked by:</strong> {research.revoker_supervisor_name}</p>
-                                  )}
-                                  <p><strong>Reason:</strong> <span className="italic">"{research.revoke_approval_reason}"</span></p>
-                                </div>
-                              </div>
-                            )}
-                            {research?.rejection_reason && research?.rejected_at && (
-                              <div className="bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-lg p-4">
-                                <div className="text-center mb-2">
-                                  <div className="text-lg font-bold text-red-600 mb-1">❌</div>
-                                  <p className="text-xs text-red-700 font-medium">Research Rejected</p>
-                                </div>
-                                <div className="text-xs text-red-600 space-y-1">
-                                  <p><strong>Date:</strong> {formatDate(research.rejected_at)}</p>
-                                  {research.rejected_by_supervisor_name && (
-                                    <p><strong>Rejected by:</strong> {research.rejected_by_supervisor_name}</p>
-                                  )}
-                                  <p><strong>Reason:</strong> <span className="italic">"{research.rejection_reason}"</span></p>
-                                  {research.unreject_reason && research.unrejected_at && (
-                                    <div className="mt-2 pt-2 border-t border-red-300">
-                                      <p className="text-green-700 font-medium">Later Reversed:</p>
-                                      <p><strong>Date:</strong> {formatDate(research.unrejected_at)}</p>
-                                      {research.unrejected_by_supervisor_name && (
-                                        <p><strong>Reversed by:</strong> {research.unrejected_by_supervisor_name}</p>
-                                      )}
-                                      <p><strong>Reason:</strong> <span className="italic">"{research.unreject_reason}"</span></p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            {research?.hold_reason && research?.held_at && (
-                              <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-4">
-                                <div className="text-center mb-2">
-                                  <div className="text-lg font-bold text-yellow-600 mb-1">⏸️</div>
-                                  <p className="text-xs text-yellow-700 font-medium">Research On Hold</p>
-                                </div>
-                                <div className="text-xs text-yellow-600 space-y-1">
-                                  <p><strong>Date:</strong> {formatDate(research.held_at)}</p>
-                                  {research.held_by_supervisor_name && (
-                                    <p><strong>Put on hold by:</strong> {research.held_by_supervisor_name}</p>
-                                  )}
-                                  <p><strong>Reason:</strong> <span className="italic">"{research.hold_reason}"</span></p>
-                                  {research.unhold_reason && research.unheld_at && (
-                                    <div className="mt-2 pt-2 border-t border-yellow-300">
-                                      <p className="text-green-700 font-medium">Later Reversed:</p>
-                                      <p><strong>Date:</strong> {formatDate(research.unheld_at)}</p>
-                                      {research.unheld_by_supervisor_name && (
-                                        <p><strong>Reversed by:</strong> {research.unheld_by_supervisor_name}</p>
-                                      )}
-                                      <p><strong>Reason:</strong> <span className="italic">"{research.unhold_reason}"</span></p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -1406,8 +1189,168 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                   </div>
                 )}
 
-                {/* Comments Tab */}
+                {/* History Tab */}
                 {activeTab === 2 && (
+                  <div className="space-y-6 slide-in">
+                    <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 bg-amber-500 rounded-full">
+                          <AlertTriangle className="text-white" size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-semibold text-slate-800">Action History & Tracking</h3>
+                          <p className="text-sm text-slate-600">Complete audit trail of all supervisor actions on this research</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        {/* Revocation History */}
+                        {research?.revoke_approval_reason && research?.approval_revoked_at && (
+                          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-6">
+                            <div className="flex items-start gap-4">
+                              <div className="p-2 bg-amber-500 rounded-full flex-shrink-0">
+                                <AlertTriangle className="text-white" size={18} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                                  <div>
+                                    <h4 className="font-semibold text-amber-800 mb-1">
+                                      Approval Revocation
+                                    </h4>
+                                    <p className="text-sm text-amber-700">
+                                      Revoked on <span className="font-medium">{formatDate(research.approval_revoked_at)}</span>
+                                      {research.revoker_supervisor_name && (
+                                        <span> by <span className="font-medium">{research.revoker_supervisor_name}</span></span>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="bg-amber-100 rounded-lg p-4">
+                                  <p className="text-sm font-medium text-amber-800 mb-2">Reason:</p>
+                                  <p className="text-sm text-amber-700 italic">"{research.revoke_approval_reason}"</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Rejection History */}
+                        {research?.rejection_reason && research?.rejected_at && (
+                          <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border border-red-200 p-6">
+                            <div className="flex items-start gap-4">
+                              <div className="p-2 bg-red-500 rounded-full flex-shrink-0">
+                                <AlertTriangle className="text-white" size={18} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                                  <div>
+                                    <h4 className="font-semibold text-red-800 mb-1">
+                                      Research Rejection
+                                    </h4>
+                                    <p className="text-sm text-red-700">
+                                      Rejected on <span className="font-medium">{formatDate(research.rejected_at)}</span>
+                                      {research.rejected_by_supervisor_name && (
+                                        <span> by <span className="font-medium">{research.rejected_by_supervisor_name}</span></span>
+                                      )}
+                                    </p>
+                                  </div>
+                                  {research.status === 'Rejected' && (
+                                    <button
+                                      onClick={() => setShowUnrejectModal(true)}
+                                      className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors duration-200 flex-shrink-0"
+                                    >
+                                      <CheckCircle size={16} />
+                                      Change Mind
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="bg-red-100 rounded-lg p-4">
+                                  <p className="text-sm font-medium text-red-800 mb-2">Reason:</p>
+                                  <p className="text-sm text-red-700 italic">"{research.rejection_reason}"</p>
+                                </div>
+                                {research.unreject_reason && research.unrejected_at && (
+                                  <div className="bg-green-100 rounded-lg p-4 mt-4 border border-green-200">
+                                    <p className="text-sm font-medium text-green-800 mb-2">
+                                      Later Reversed on {formatDate(research.unrejected_at)}
+                                      {research.unrejected_by_supervisor_name && (
+                                        <span> by {research.unrejected_by_supervisor_name}</span>
+                                      )}
+                                    </p>
+                                    <p className="text-sm text-green-700 italic">"{research.unreject_reason}"</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Hold History */}
+                        {research?.hold_reason && research?.held_at && (
+                          <div className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-200 p-6">
+                            <div className="flex items-start gap-4">
+                              <div className="p-2 bg-yellow-500 rounded-full flex-shrink-0">
+                                <AlertTriangle className="text-white" size={18} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                                  <div>
+                                    <h4 className="font-semibold text-yellow-800 mb-1">
+                                      Research Hold
+                                    </h4>
+                                    <p className="text-sm text-yellow-700">
+                                      Put on hold on <span className="font-medium">{formatDate(research.held_at)}</span>
+                                      {research.held_by_supervisor_name && (
+                                        <span> by <span className="font-medium">{research.held_by_supervisor_name}</span></span>
+                                      )}
+                                    </p>
+                                  </div>
+                                  {research.status === 'On hold' && (
+                                    <button
+                                      onClick={() => setShowUnholdModal(true)}
+                                      className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors duration-200 flex-shrink-0"
+                                    >
+                                      <CheckCircle size={16} />
+                                      Change Mind
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="bg-yellow-100 rounded-lg p-4">
+                                  <p className="text-sm font-medium text-yellow-800 mb-2">Reason:</p>
+                                  <p className="text-sm text-yellow-700 italic">"{research.hold_reason}"</p>
+                                </div>
+                                {research.unhold_reason && research.unheld_at && (
+                                  <div className="bg-green-100 rounded-lg p-4 mt-4 border border-green-200">
+                                    <p className="text-sm font-medium text-green-800 mb-2">
+                                      Later Reversed on {formatDate(research.unheld_at)}
+                                      {research.unheld_by_supervisor_name && (
+                                        <span> by {research.unheld_by_supervisor_name}</span>
+                                      )}
+                                    </p>
+                                    <p className="text-sm text-green-700 italic">"{research.unhold_reason}"</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* No History Message */}
+                        {!research?.revoke_approval_reason && !research?.rejection_reason && !research?.hold_reason && (
+                          <div className="text-center py-12">
+                            <div className="p-4 bg-slate-100 rounded-full inline-block mb-4">
+                              <CheckCircle className="text-slate-400" size={32} />
+                            </div>
+                            <p className="text-slate-600 font-medium">No action history available</p>
+                            <p className="text-sm text-slate-500">This research has not been subject to any supervisor actions yet.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Comments Tab */}
+                {activeTab === 3 && (
                   <div className="space-y-6 slide-in">
                     <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
                       <div className="flex items-center justify-between mb-6">
