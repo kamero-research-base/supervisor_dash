@@ -70,6 +70,7 @@ interface ViewResearchProps {
   ResearchId: string;
   onClose: () => void;
   sessionId?: string;
+  userType?: 'student' | 'supervisor';
 }
 
 function formatDate(dateString: any) {
@@ -93,7 +94,7 @@ function truncateText(text: string, maxLength: number) {
   return text;
 }
 
-const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
+const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose, userType = 'supervisor' }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -916,8 +917,10 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
             
             {/* Content Panel */}
             <div className="flex-1 p-4 sm:p-8 overflow-y-auto max-h-[70vh] sm:max-h-none">
-              {/* Quick Actions Bar */}
-              {research?.status?.toLowerCase() === 'approved' ? (
+              {/* Quick Actions Bar - Only for Supervisors */}
+              {userType === 'supervisor' && (
+                <>
+                  {research?.status?.toLowerCase() === 'approved' ? (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-emerald-500 rounded-full">
@@ -974,6 +977,8 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                     ))}
                   </div>
                 </div>
+                  )}
+                </>
               )}
 
               {/* Navigation Tabs */}
@@ -1199,7 +1204,12 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                         </div>
                         <div>
                           <h3 className="text-xl font-semibold text-slate-800">Action History & Tracking</h3>
-                          <p className="text-sm text-slate-600">Complete audit trail of all supervisor actions on this research</p>
+                          <p className="text-sm text-slate-600">
+                            {userType === 'student' 
+                              ? 'View the complete history of actions taken on your research'
+                              : 'Complete audit trail of all supervisor actions on this research'
+                            }
+                          </p>
                         </div>
                       </div>
 
@@ -1254,7 +1264,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                                       )}
                                     </p>
                                   </div>
-                                  {research.status === 'Rejected' && (
+                                  {research.status === 'Rejected' && userType === 'supervisor' && (
                                     <button
                                       onClick={() => setShowUnrejectModal(true)}
                                       className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors duration-200 flex-shrink-0"
@@ -1304,7 +1314,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                                       )}
                                     </p>
                                   </div>
-                                  {research.status === 'On hold' && (
+                                  {research.status === 'On hold' && userType === 'supervisor' && (
                                     <button
                                       onClick={() => setShowUnholdModal(true)}
                                       className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors duration-200 flex-shrink-0"
@@ -1365,8 +1375,9 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                         </span>
                       </div>
 
-                      {/* Add Comment Form */}
-                      <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-6 rounded-xl border border-slate-200 mb-6">
+                      {/* Add Comment Form - Only for Supervisors */}
+                      {userType === 'supervisor' && (
+                        <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-6 rounded-xl border border-slate-200 mb-6">
                         <div className="flex items-center gap-3 mb-4">
                           <div className="w-10 h-10 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full flex items-center justify-center">
                             <User size={20} className="text-white" />
@@ -1404,6 +1415,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose }) => {
                           </button>
                         </div>
                       </div>
+                      )}
 
                       {/* Comments List */}
                       <div className="space-y-4">
