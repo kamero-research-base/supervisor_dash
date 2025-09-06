@@ -3,11 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import ViewResearch from "../toggles/viewResearch";
-import EditResearch from "../toggles/editResearch";
-
-interface ResearchHeaderProps {
-  onAddResearchClick: () => void;
-}
+interface ResearchHeaderProps {}
 
 interface Analytics {
   total_researches: number;
@@ -46,7 +42,7 @@ interface Research {
   visibility?: string;
 }
 
-const Header = ({ onAddResearchClick }: ResearchHeaderProps) => {
+const Header = ({}: ResearchHeaderProps) => {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
 
   useEffect(() => {
@@ -107,15 +103,6 @@ const Header = ({ onAddResearchClick }: ResearchHeaderProps) => {
             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
             </svg>
-          </button>
-          <button 
-            onClick={onAddResearchClick}
-            className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Add Research
           </button>
         </div>
       </div>
@@ -296,8 +283,6 @@ const ResearchList = () => {
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editingResearch, setEditingResearch] = useState<Research | null>(null);
   const [userInfo, setUserInfo] = useState<any | null>(null);
 
   // Pagination states
@@ -477,45 +462,10 @@ const ResearchList = () => {
     setDropdownOpen(dropdownOpen === id ? null : id);
   };
 
-  const handleEdit = (research: Research) => {
-    setEditingResearch(research);
-    setEditModalOpen(true);
-    setDropdownOpen(null);
-  };
-
-  const handleCloseEdit = () => {
-    setEditModalOpen(false);
-    setEditingResearch(null);
-  };
-
-  const handleSaveEdit = (research: Research) => {
-    // Update the research in the state
-    setAllResearches(prev =>
-      prev.map(r => (r.id === research.id ? research : r))
-    );
-    handleCloseEdit();
-  };
-
   // Function to handle research view
   const handleResearchView = (hashedId: string) => {
     setView(hashedId);
     setDropdownOpen(null);
-  };
-
-  // Function to handle research deletion
-  const handleDeleteResearch = async (researchId: number) => {
-    if (window.confirm('Are you sure you want to delete this research?')) {
-      try {
-        // Add your delete API call here
-        // const response = await fetch(`/api/research/${researchId}`, { method: 'DELETE' });
-        // if (response.ok) {
-          setAllResearches(prev => prev.filter(r => r.id !== researchId));
-          setDropdownOpen(null);
-        // }
-      } catch (error) {
-        console.error('Error deleting research:', error);
-      }
-    }
   };
 
   // Pagination handlers
@@ -592,24 +542,6 @@ const ResearchList = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                         View Details
-                      </button>
-                      <button 
-                        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => handleEdit(research)}
-                      >
-                        <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Edit
-                      </button>
-                      <button 
-                        className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                        onClick={() => handleDeleteResearch(research.id)}
-                      >
-                        <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Delete
                       </button>
                     </div>
                   </div>
@@ -734,24 +666,6 @@ const ResearchList = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                           View Details
-                        </button>
-                        <button 
-                          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                          onClick={() => handleEdit(research)}
-                        >
-                          <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Edit
-                        </button>
-                        <button 
-                          className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                          onClick={() => handleDeleteResearch(research.id)}
-                        >
-                          <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete
                         </button>
                       </div>
                     </div>
@@ -927,14 +841,6 @@ const ResearchList = () => {
         )}
       </div>
 
-      {/* Edit Modal */}
-      {editModalOpen && editingResearch && (
-        <EditResearch
-          research={editingResearch}
-          onClose={handleCloseEdit}
-          onSave={handleSaveEdit}
-        />
-      )}
     </>
   );
 };

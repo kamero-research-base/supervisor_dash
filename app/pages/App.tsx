@@ -2,7 +2,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import AddResearch from "../components/toggles/addResearch";
 import AddAssignment from "../components/toggles/addAssignment";
 import ViewAssignment from "../components/toggles/viewAssignment";
 
@@ -83,7 +82,6 @@ export default function App() {
   });
   
   const [assignmentAnalytics, setAssignmentAnalytics] = useState<AssignmentAnalytics | null>(null);
-  const [showAddResearch, setShowAddResearch] = useState(false);
   const [showAddAssignment, setShowAddAssignment] = useState(false);
   const [showViewAssignment, setShowViewAssignment] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<any | null>(null);
@@ -532,13 +530,6 @@ export default function App() {
     });
   };
 
-  const toggleAddResearch = () => {
-    setShowAddResearch(true);
-  }
-  
-  const closeAddResearch = () => {
-    setShowAddResearch(false);
-  }
 
   // Skeleton Components
   const WelcomeSkeleton = () => (
@@ -718,10 +709,6 @@ export default function App() {
 
   return (
     <div className="space-y-6">
-      {showAddResearch && (
-        <AddResearch onClose={closeAddResearch} />
-      )}
-
        {showAddAssignment && (
         <AddAssignment 
           assignment={null} 
@@ -759,10 +746,6 @@ export default function App() {
             >
               <i className="bi bi-plus-lg"></i>
               New Assignment
-            </button>
-            <button className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2" onClick={toggleAddResearch}>
-              <i className="bi bi-plus-circle text-lg"></i>
-              New Research
             </button>
           </div>
         </div>
