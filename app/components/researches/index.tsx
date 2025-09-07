@@ -582,93 +582,146 @@ const ResearchList = () => {
 
   // Table View Component  
   const TableView = () => (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead className="bg-gray-50 border-b border-gray-200">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Researcher</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {paginatedResearches.length === 0 ? (
-            <tr>
-              <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                <div className="flex flex-col justify-center items-center opacity-65">
-                  <div className="img w-[150px] h-[150px]">
-                    <img src="/delete.png" alt="" className="w-full h-full object-contain"/>
-                  </div>
-                  <i>No student research found</i>
-            <p className="text-sm text-gray-500 mt-2">Your assigned students haven't uploaded any research materials yet.</p>
-                </div>
-              </td>
-            </tr>
-          ) : (
-            paginatedResearches.map((research) => (
-              <tr key={research.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-3">
-                  {getStatusBadge(research.status)}
-                </td>
-                <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-xs">
-                  <div className="truncate" title={research.title}>
-                    {research.title}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  {research.researcher}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  {research.year}
-                </td>
-                <td className="px-4 py-3">
-                  {getProgressBadge(research.progress_status)}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  {research.department || userInfo?.department_name}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  {timeAgo(research.created_at)}
-                </td>
-                <td className="px-4 py-3 text-center relative">
-                  <button
-                    className="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                    onClick={() => toggleDropdown(research.id)}
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                      <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                      <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-                    </svg>
-                  </button>
+    <div className="space-y-4">
+      {paginatedResearches.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="relative">
+            <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-purple-100 to-indigo-200 rounded-full flex items-center justify-center shadow-lg">
+              <svg className="w-16 h-16 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <div className="absolute -top-1 -right-1 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-md">
+                <svg className="w-5 h-5 text-yellow-800" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Ready for Research!</h3>
+            <p className="text-gray-600 max-w-md mx-auto">
+              Your assigned students haven't submitted any research materials yet. Once they do, you'll see them beautifully organized here.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {paginatedResearches.map((research, index) => (
+            <div
+              key={research.id}
+              className="group relative bg-white rounded-2xl border border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer overflow-hidden"
+              onClick={() => handleResearchView(""+research.id)}
+            >
+              {/* Gradient accent bar */}
+              <div className={`absolute top-0 left-0 right-0 h-1 ${
+                research.status?.toLowerCase() === 'approved' ? 'bg-gradient-to-r from-green-400 to-emerald-500' :
+                research.status?.toLowerCase() === 'rejected' ? 'bg-gradient-to-r from-red-400 to-rose-500' :
+                research.status?.toLowerCase() === 'on hold' ? 'bg-gradient-to-r from-yellow-400 to-amber-500' :
+                'bg-gradient-to-r from-blue-400 to-indigo-500'
+              }`} />
+              
+              {/* Card content */}
+              <div className="p-6">
+                <div className="flex items-start justify-between">
                   
-                  {dropdownOpen === research.id && (
-                    <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                      <div className="py-1">
-                        <button 
-                          className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" 
-                          onClick={() => handleResearchView(""+research.id)}
-                        >
-                          <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          View Details
-                        </button>
+                  {/* Left side - Main content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-3">
+                      {/* Status badge */}
+                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                        research.status?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-700 ring-1 ring-green-600/20' :
+                        research.status?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-700 ring-1 ring-red-600/20' :
+                        research.status?.toLowerCase() === 'on hold' ? 'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-600/20' :
+                        'bg-blue-100 text-blue-700 ring-1 ring-blue-600/20'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                          research.status?.toLowerCase() === 'approved' ? 'bg-green-600' :
+                          research.status?.toLowerCase() === 'rejected' ? 'bg-red-600' :
+                          research.status?.toLowerCase() === 'on hold' ? 'bg-yellow-600' :
+                          'bg-blue-600'
+                        }`} />
+                        {research.status || 'Pending'}
+                      </div>
+                      
+                      {/* Progress badge */}
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        {research.progress_status || 'In Progress'}
+                      </div>
+                      
+                      {/* Time indicator */}
+                      <div className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md">
+                        {timeAgo(research.created_at)}
                       </div>
                     </div>
-                  )}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+                    
+                    {/* Title */}
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                      {research.title}
+                    </h3>
+                    
+                    {/* Metadata */}
+                    <div className="flex items-center gap-6 text-sm text-gray-600">
+                      <div className="flex items-center gap-1.5">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span className="font-medium">{research.researcher}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m0 0l-2 2m-6-2L6 9m12 0h3a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1V10a1 1 0 011-1h3" />
+                        </svg>
+                        <span>{research.department || userInfo?.department_name}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4M6 7h12v10a2 2 0 01-2 2H8a2 2 0 01-2-2V7z" />
+                        </svg>
+                        <span className="font-medium">{research.year}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Right side - Action area */}
+                  <div className="flex items-center gap-3 ml-6">
+                    {/* Priority indicator - shows based on how long it's been pending */}
+                    {research.status?.toLowerCase() === 'pending' && (
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+                        <span className="text-xs text-orange-600 font-medium">Review</span>
+                      </div>
+                    )}
+                    
+                    {/* View button */}
+                    <button
+                      className="group/btn flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 transform group-hover/btn:scale-105 shadow-lg hover:shadow-xl"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleResearchView(""+research.id);
+                      }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      <span className="font-medium">Review</span>
+                      <svg className="w-3 h-3 transform group-hover/btn:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Hover overlay effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 to-purple-600/0 group-hover:from-indigo-500/5 group-hover:to-purple-600/5 transition-all duration-300 pointer-events-none rounded-2xl" />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 
