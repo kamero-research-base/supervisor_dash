@@ -368,7 +368,7 @@ const UserOverview: React.FC<UserOverviewProps> = ({ userId, onClose }) => {
                         <div>
                           <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Student ID</label>
                           <p className="text-sm font-medium text-gray-900 mt-1 font-mono">
-                            {student?.unique_id || student?.hashed_id || student?.id || 'N/A'}
+                            {student?.unique_id || 'N/A'}
                           </p>
                         </div>
                         <div>
@@ -548,7 +548,7 @@ const UserOverview: React.FC<UserOverviewProps> = ({ userId, onClose }) => {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">Student ID</span>
                     <span className="font-mono font-medium text-gray-900">
-                      {student?.unique_id || student?.hashed_id || student?.id || 'N/A'}
+                      {student?.unique_id || 'N/A'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">

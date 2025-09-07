@@ -109,13 +109,8 @@ const VerifyOtpForm = ({ hashed, email, type }: Props) => {
         setIsVerified(true); // Set verification state to true
         setLoading(false);
         
-        // Update localStorage with the new session
-        const existingSession = localStorage.getItem('userSession');
-        if (existingSession) {
-          const sessionData = JSON.parse(existingSession);
-          sessionData.session_id = hashed;
-          localStorage.setItem('userSession', JSON.stringify(sessionData));
-        }
+        // The JWT token is now stored as an HTTP-only cookie by the server
+        // No need to store anything in localStorage for authentication
         
         // If not forgotten password, redirect after a short delay
         if (type !== 'forgotten-password') {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import client from "../../utils/db";
+import jwt from 'jsonwebtoken';
 
 // Define types for the verify request
 type VerifyRequest = {
@@ -36,11 +37,45 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     /*if (expirationTime >= new Date()) {
       return NextResponse.json({ error: "Verification code expired" }, { status: 406 });
     }*/
-    // Check if the code exists in the database
-    const updateQuery = `UPDATE supervisors SET status ='Active', verification_code='NULL' WHERE hashed_id = $1`;
+    
+    const user = checkResult.rows[0];
+    
+    // Clear the verification code
+    const updateQuery = `UPDATE supervisors SET verification_code='NULL', last_login = NOW() WHERE hashed_id = $1`;
     await client.query(updateQuery, [verifyData.hashed_id]);
+
+    // Generate JWT token
+    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+    const token = jwt.sign(
+      { 
+        userId: user.id,
+        email: user.email,
+        name: `${user.first_name} ${user.last_name}`
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' } // Token expires in 7 days
+    );
+
+    // Create the response with the token
+    const response = NextResponse.json({ 
+      message: "Verified successfully",
+      token: token,
+      user: {
+        id: user.id,
+        name: `${user.first_name} ${user.last_name}`,
+        email: user.email
+      }
+    }, { status: 200 });
+
+    // Set the token as an HTTP-only cookie for additional security
+    response.cookies.set('session_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 7 // 7 days
+    });
   
-    return NextResponse.json({ message: "Verified successfully" }, { status: 200 });
+    return response;
   } catch (error) {
     console.error("Error during verification:", error);
     return NextResponse.json({ message: "Verification failed", error: (error as Error).message }, { status: 500 });
