@@ -149,20 +149,20 @@ export default function App() {
 
       const userSession: UserSession = JSON.parse(userSessionData);
       
-      const response = await fetch(`/api/students`, {
-        method: 'POST',
+      const response = await fetch(`/api/students?supervisor_id=${parseInt(userSession.id)}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ supervisor_id: parseInt(userSession.id) })
+        }
       });
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.students) {
+        // The API returns students array directly
+        if (Array.isArray(data)) {
           setStats(prev => ({
             ...prev,
-            totalStudents: data.students.length
+            totalStudents: data.length
           }));
         }
       }
