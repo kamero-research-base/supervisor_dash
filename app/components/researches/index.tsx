@@ -1,8 +1,15 @@
 //supervisor researches listings
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, createContext, useContext } from "react";
 import ViewResearch from "../toggles/viewResearch";
+
+// Loading Context
+const LoadingContext = createContext({
+  isHeaderLoading: true,
+  isResearchLoading: true,
+  isCompletelyLoaded: false
+});
 interface ResearchHeaderProps {}
 
 interface Analytics {
@@ -44,8 +51,87 @@ interface Research {
   visibility?: string;
 }
 
+// Skeleton Loading Component
+const SkeletonLoader = () => {
+  return (
+    <div className="space-y-6 animate-pulse">
+      {/* Header Skeleton */}
+      <div className="flex items-center justify-between">
+        <div className="h-6 bg-gray-200 rounded w-72"></div>
+        <div className="w-9 h-9 bg-gray-200 rounded-lg"></div>
+      </div>
+
+      {/* Analytics Cards Skeleton */}
+      <div className="grid grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((item) => (
+          <div key={item} className="bg-white border border-gray-200 rounded-lg">
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
+                <div className="space-y-1">
+                  <div className="h-4 bg-gray-200 rounded w-16"></div>
+                  <div className="h-3 bg-gray-200 rounded w-24"></div>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="h-8 bg-gray-200 rounded w-8"></div>
+                <div className="h-3 bg-gray-200 rounded w-32"></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Research List Section Skeleton */}
+      <div className="space-y-4">
+        <div className="h-5 bg-gray-200 rounded w-24"></div>
+        
+        {/* Tabs Skeleton */}
+        <div className="flex gap-2 p-2 bg-gray-100 rounded-xl">
+          {[1, 2, 3, 4, 5, 6].map((tab) => (
+            <div key={tab} className="h-8 bg-gray-200 rounded-lg flex-1"></div>
+          ))}
+        </div>
+
+        {/* Search and Filters Skeleton */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="h-10 bg-gray-200 rounded-lg flex-1"></div>
+          <div className="h-10 bg-gray-200 rounded-lg w-32"></div>
+          <div className="flex gap-2">
+            <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
+            <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
+          </div>
+        </div>
+
+        {/* Table Header Skeleton */}
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="grid grid-cols-7 gap-4 p-4 border-b border-gray-200">
+            {[1, 2, 3, 4, 5, 6, 7].map((col) => (
+              <div key={col} className="h-4 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+
+          {/* Table Rows Skeleton */}
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((row) => (
+            <div key={row} className="grid grid-cols-7 gap-4 p-4 border-b border-gray-200">
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Header = ({}: ResearchHeaderProps) => {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -67,6 +153,8 @@ const Header = ({}: ResearchHeaderProps) => {
         }
       } catch (error) {
         console.log("An error occurred while fetching analytics.");
+      } finally {
+        setLoading(false);
       }
     };
     fetchAnalytics();
@@ -753,4 +841,4 @@ const ResearchList = () => {
 // Main Component
 export default Header;
 
-export { ResearchList };
+export { ResearchList, SkeletonLoader };
