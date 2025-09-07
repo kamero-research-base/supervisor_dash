@@ -920,7 +920,7 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose, userTy
               {/* Quick Actions Bar - Only for Supervisors */}
               {userType === 'supervisor' && (
                 <>
-                  {research?.status?.toLowerCase() === 'approved' ? (
+                  {(research?.status?.toLowerCase() === 'approved' || research?.progress_status?.toLowerCase() === 'approved') ? (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-emerald-500 rounded-full">
@@ -937,6 +937,44 @@ const ViewResearch: React.FC<ViewResearchProps> = ({ ResearchId, onClose, userTy
                   >
                     <AlertTriangle size={16} />
                     Revoke Approval
+                  </button>
+                </div>
+              ) : (research?.status?.toLowerCase() === 'rejected' || research?.progress_status?.toLowerCase() === 'rejected') ? (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border border-red-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-500 rounded-full">
+                      <X className="text-white" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-red-800">Research Rejected</h3>
+                      <p className="text-sm text-red-600">This research has been rejected by the supervisor</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowUnrejectModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors"
+                  >
+                    <CheckCircle size={16} />
+                    Change Mind
+                  </button>
+                </div>
+              ) : (research?.status?.toLowerCase() === 'on hold' || research?.progress_status?.toLowerCase() === 'on hold') ? (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-500 rounded-full">
+                      <AlertTriangle className="text-white" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-yellow-800">Research On Hold</h3>
+                      <p className="text-sm text-yellow-600">This research has been put on hold by the supervisor</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowUnholdModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors"
+                  >
+                    <CheckCircle size={16} />
+                    Change Mind
                   </button>
                 </div>
               ) : (
