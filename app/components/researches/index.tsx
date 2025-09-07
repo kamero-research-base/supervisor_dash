@@ -62,7 +62,7 @@ const SkeletonLoader = () => {
       </div>
 
       {/* Analytics Cards Skeleton */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map((item) => (
           <div key={item} className="bg-white border border-gray-200 rounded-lg">
             <div className="p-4 space-y-3">
@@ -164,8 +164,8 @@ const Header = ({}: ResearchHeaderProps) => {
   return (
     <div className="space-y-4">
       {/* Header Section */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-medium text-gray-700">Student Research Materials {"("}{analytics?.total_researches || 0}{")"}</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h1 className="text-lg sm:text-xl font-medium text-gray-700">Student Research Materials <span className="text-gray-500">({analytics?.total_researches || 0})</span></h1>
         <div className="flex items-center gap-2">
           <button 
             className="flex items-center justify-center w-9 h-9 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -178,8 +178,8 @@ const Header = ({}: ResearchHeaderProps) => {
         </div>
       </div>
 
-      {/* Analytics Cards - Grid for 4 cards */}
-      <div className="grid grid-cols-4 gap-3">
+      {/* Analytics Cards - Responsive Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 
         {/* Approved Card */}
         <div className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
@@ -624,9 +624,9 @@ const ResearchList = () => {
                   
                   {/* Left side - Main content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
                       {/* Status badge */}
-                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                      <div className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium ${
                         research.status?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-700 ring-1 ring-green-600/20' :
                         research.status?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-700 ring-1 ring-red-600/20' :
                         research.status?.toLowerCase() === 'on hold' ? 'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-600/20' :
@@ -641,8 +641,8 @@ const ResearchList = () => {
                         {research.status || 'Pending'}
                       </div>
                       
-                      {/* Progress badge */}
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                      {/* Progress badge - hidden on very small screens */}
+                      <div className="hidden sm:inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
@@ -656,12 +656,12 @@ const ResearchList = () => {
                     </div>
                     
                     {/* Title */}
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">
                       {research.title}
                     </h3>
                     
-                    {/* Metadata */}
-                    <div className="flex items-center gap-6 text-sm text-gray-600">
+                    {/* Metadata - responsive layout */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-sm text-gray-600">
                       <div className="flex items-center gap-1.5">
                         <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -669,35 +669,38 @@ const ResearchList = () => {
                         <span className="font-medium">{research.researcher}</span>
                       </div>
                       
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m0 0l-2 2m-6-2L6 9m12 0h3a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1V10a1 1 0 011-1h3" />
-                        </svg>
-                        <span>{research.department || userInfo?.department_name}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4M6 7h12v10a2 2 0 01-2 2H8a2 2 0 01-2-2V7z" />
-                        </svg>
-                        <span className="font-medium">{research.year}</span>
+                      <div className="flex items-center gap-4 sm:gap-6">
+                        <div className="flex items-center gap-1.5">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m0 0l-2 2m-6-2L6 9m12 0h3a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1V10a1 1 0 011-1h3" />
+                          </svg>
+                          <span className="hidden sm:inline">{research.department || userInfo?.department_name}</span>
+                          <span className="sm:hidden">{(research.department || userInfo?.department_name)?.substring(0, 15)}...</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1.5">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4M6 7h12v10a2 2 0 01-2 2H8a2 2 0 01-2-2V7z" />
+                          </svg>
+                          <span className="font-medium">{research.year}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                   
                   {/* Right side - Action area */}
-                  <div className="flex items-center gap-3 ml-6">
+                  <div className="flex items-center gap-2 sm:gap-3 ml-3 sm:ml-6">
                     {/* Priority indicator - shows based on how long it's been pending */}
                     {research.status?.toLowerCase() === 'pending' && (
                       <div className="flex flex-col items-center gap-1">
                         <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-                        <span className="text-xs text-orange-600 font-medium">Review</span>
+                        <span className="text-xs text-orange-600 font-medium hidden sm:block">Review</span>
                       </div>
                     )}
                     
                     {/* View button */}
                     <button
-                      className="group/btn flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 transform group-hover/btn:scale-105 shadow-lg hover:shadow-xl"
+                      className="group/btn flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg sm:rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 transform group-hover/btn:scale-105 shadow-lg hover:shadow-xl"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleResearchView(""+research.id);
@@ -707,8 +710,9 @@ const ResearchList = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
-                      <span className="font-medium">Review</span>
-                      <svg className="w-3 h-3 transform group-hover/btn:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span className="font-medium text-sm hidden sm:inline">Review</span>
+                      <span className="font-medium text-xs sm:hidden">View</span>
+                      <svg className="w-3 h-3 transform group-hover/btn:translate-x-0.5 transition-transform hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                       </svg>
                     </button>
@@ -743,7 +747,7 @@ const ResearchList = () => {
       <div className="bg-white border border-gray-200 rounded-lg mt-4">
         {/* Table Header */}
         <div className="px-4 py-3 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h4 className="text-base font-medium text-gray-800">Research List</h4>
             
             {/* View Mode Toggle */}
@@ -751,59 +755,63 @@ const ResearchList = () => {
               <div className="flex items-center bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('table')}
-                  className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  className={`flex items-center px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                     viewMode === 'table'
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                   </svg>
-                  Table
+                  <span className="hidden sm:inline">Table</span>
                 </button>
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  className={`flex items-center px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                     viewMode === 'grid'
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                   </svg>
-                  Grid
+                  <span className="hidden sm:inline">Grid</span>
                 </button>
               </div>
             </div>
           </div>
           
           {/* Filters and Search */}
-          <div className="flex items-center justify-between mt-3">
-            <div className="flex items-center gap-1">
-              {buttons.map((btn) => (
-                <button 
-                  key={btn.id} 
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                    activeId === btn.id 
-                      ? 'bg-gray-100 border-gray-300 text-gray-700' 
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`} 
-                  onClick={() => handleActive(btn.id, btn.name)}
-                >
-                  {btn.name === "" ? 'All' : btn.name}
-                </button>
-              ))}
+          <div className="flex flex-col gap-3 mt-3">
+            {/* Filter buttons - scrollable on mobile */}
+            <div className="flex overflow-x-auto gap-1 pb-2 sm:pb-0">
+              <div className="flex items-center gap-1 min-w-max">
+                {buttons.map((btn) => (
+                  <button 
+                    key={btn.id} 
+                    className={`px-2 sm:px-3 py-1.5 text-xs font-medium rounded-md border transition-colors whitespace-nowrap ${
+                      activeId === btn.id 
+                        ? 'bg-gray-100 border-gray-300 text-gray-700' 
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`} 
+                    onClick={() => handleActive(btn.id, btn.name)}
+                  >
+                    {btn.name === "" ? 'All' : btn.name}
+                  </button>
+                ))}
+              </div>
             </div>
             
-            <div className="flex items-center gap-2">
+            {/* Search and Sort controls */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-end">
               {/* Sort dropdown */}
               <div className="relative">
                 <select 
                   value={sort} 
                   onChange={(e) => handleSort(e.target.value)}
-                  className="flex items-center justify-center w-auto h-8 px-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors text-xs bg-white"
+                  className="w-full sm:w-auto h-8 px-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors text-xs bg-white"
                 >
                   <option value="">Sort by</option>
                   <option value="title_asc">Title (A-Z)</option>
@@ -817,6 +825,7 @@ const ResearchList = () => {
                 </select>
               </div>
               
+              {/* Search input */}
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -829,7 +838,7 @@ const ResearchList = () => {
                   value={search}
                   onChange={handleSearch}
                   placeholder="Search researches..." 
-                  className="pl-10 pr-4 py-2 w-64 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="pl-10 pr-4 py-2 w-full sm:w-64 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
             </div>
