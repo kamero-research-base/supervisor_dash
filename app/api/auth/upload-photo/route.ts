@@ -1,32 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import client from "../../utils/db";
-import { v2 as cloudinary } from 'cloudinary';
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+import uploadDocumentToSupabase from "../../utils/supabase";
 
 // POST - Upload profile photo
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const formData = await req.formData();
     const photo = formData.get('photo') as File;
-    const userId = formData.get('userId') as string;
+    const userIdString = formData.get('userId') as string;
+
+    // Validation
+    const userId = parseInt(userIdString, 10);
+    if (isNaN(userId)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid User ID in form data. Must be a number." },
+        { status: 400 }
+      );
+    }
+
+    // Check if supervisor exists
+    const userCheckSql = "SELECT id, email, first_name, last_name, phone FROM supervisors WHERE id = $1";
+    const userResult = await client.query(userCheckSql, [userId]);
+
+    if (userResult.rows.length === 0) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: "Supervisor not found" 
+        },
+        { status: 404 }
+      );
+    }
+
+    const supervisor = userResult.rows[0];
 
     // Validate inputs
     if (!photo) {
       return NextResponse.json(
         { success: false, message: "No photo file provided" },
-        { status: 400 }
-      );
-    }
-
-    if (!userId || isNaN(Number(userId))) {
-      return NextResponse.json(
-        { success: false, message: "Invalid user ID" },
         { status: 400 }
       );
     }
@@ -49,32 +60,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Convert file to buffer
-    const bytes = await photo.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Create filename using ID and timestamp format (similar to student_dash)
+    const timestamp = Date.now();
+    const fileExtension = photo.type === 'image/jpeg' || photo.type === 'image/jpg' ? 'jpg' : 
+                         photo.type === 'image/png' ? 'png' : 'webp';
+    const fileName = `supervisor-${supervisor.id}_${timestamp}.${fileExtension}`;
 
     try {
-      // Upload to Cloudinary
-      const uploadResult = await new Promise((resolve, reject) => {
-        cloudinary.uploader.upload_stream(
-          {
-            resource_type: 'image',
-            folder: 'supervisor-profiles',
-            public_id: `supervisor-${userId}-${Date.now()}`,
-            transformation: [
-              { width: 400, height: 400, crop: 'fill', gravity: 'face' },
-              { quality: 'auto', fetch_format: 'auto' }
-            ]
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        ).end(buffer);
-      });
-
-      const cloudinaryResult = uploadResult as any;
-      const photoUrl = cloudinaryResult.secure_url;
+      // Upload to Supabase (like student_dash)
+      const photoUrl = await uploadDocumentToSupabase(photo, fileName, 'profile_pictures');
 
       // Update supervisor profile picture in database
       const updateSql = `
@@ -95,20 +89,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       const updatedSupervisor = result.rows[0];
 
+      // Log the successful upload (similar to student_dash)
+      const logContent = `Profile picture updated for ${supervisor.email} - ${supervisor.first_name} ${supervisor.last_name}`;
+      try {
+        // Simple logging without complex session tracking
+        console.log("Profile picture upload:", logContent);
+      } catch (logError) {
+        console.warn("Failed to log profile picture update:", logError);
+      }
+
       return NextResponse.json(
         { 
           success: true, 
           photo_url: photoUrl,
-          supervisor: updatedSupervisor,
-          message: "Profile photo updated successfully"
+          message: "Profile picture uploaded successfully"
         },
         { status: 200 }
       );
 
-    } catch (cloudinaryError) {
-      console.error("Cloudinary upload error:", cloudinaryError);
+    } catch (uploadError) {
+      console.error("Supabase upload error:", uploadError);
       return NextResponse.json(
-        { success: false, message: "Failed to upload image. Please try again." },
+        { success: false, message: "Failed to upload photo: " + (uploadError instanceof Error ? uploadError.message : "Unknown upload error") },
         { status: 500 }
       );
     }

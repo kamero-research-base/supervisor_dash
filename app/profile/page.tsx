@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Editor } from "@tinymce/tinymce-react";
 
 interface SupervisorProfile {
   id: number;
@@ -18,7 +19,7 @@ interface SupervisorProfile {
   college_name?: string;
   institution_id?: number;
   institution_name?: string;
-  bio?: string;
+  biography?: string;
   created_at: string;
   updated_at: string;
   last_login?: string;
@@ -32,19 +33,184 @@ interface UserInfo {
   email: string;
 }
 
+
+// Self-hosted TinyMCE Editor Component - moved outside to prevent re-creation
+const SelfHostedTinyMCEEditor = ({ value, onChange, placeholder, id, editorRef }: { 
+  value: string; 
+  onChange: (content: string) => void; 
+  placeholder: string;
+  id: string;
+  editorRef: React.MutableRefObject<any>;
+}) => {
+  const [isTinyMCELoaded, setIsTinyMCELoaded] = useState(false);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
+  const [editorInitialized, setEditorInitialized] = useState(false);
+
+  useEffect(() => {
+    const loadTinyMCE = async () => {
+      try {
+        // Check if TinyMCE is already loaded
+        if (typeof window !== 'undefined' && (window as any).tinymce) {
+          setIsTinyMCELoaded(true);
+          return;
+        }
+
+        // Dynamically load TinyMCE script
+        const script = document.createElement('script');
+        script.src = '/tinymce/tinymce.min.js';
+        script.async = true;
+        
+        script.onload = () => {
+          // Wait a bit for TinyMCE to initialize
+          setTimeout(() => {
+            if ((window as any).tinymce) {
+              setIsTinyMCELoaded(true);
+            } else {
+              setLoadingError('TinyMCE failed to initialize');
+            }
+          }, 100);
+        };
+        
+        script.onerror = () => {
+          setLoadingError('Failed to load TinyMCE script. Please check if /tinymce/tinymce.min.js exists.');
+        };
+        
+        document.head.appendChild(script);
+        
+        // Cleanup function
+        return () => {
+          if (document.head.contains(script)) {
+            document.head.removeChild(script);
+          }
+        };
+      } catch (error) {
+        setLoadingError('Error loading TinyMCE: ' + (error as Error).message);
+      }
+    };
+
+    loadTinyMCE();
+  }, []);
+
+  // Update editor content when value changes (for initial load and updates)
+  useEffect(() => {
+    if (editorRef.current && editorInitialized && value !== undefined) {
+      const currentContent = editorRef.current.getContent();
+      if (currentContent !== value) {
+        editorRef.current.setContent(value || '', { format: 'html' });
+      }
+    }
+  }, [value, editorInitialized]);
+
+  if (loadingError) {
+    return (
+      <div className="w-full h-[300px] border-2 border-red-200 rounded-lg flex items-center justify-center bg-red-50">
+        <div className="text-red-600 text-center">
+          <p className="font-medium">Editor Loading Error</p>
+          <p className="text-sm mt-1">{loadingError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isTinyMCELoaded) {
+    return (
+      <div className="w-full h-[300px] border-2 border-gray-200 rounded-lg flex items-center justify-center">
+        <div className="text-gray-500 flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin"></div>
+          Loading editor...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <Editor
+        licenseKey="gpl"
+        onInit={(_evt, editor) => {
+          editorRef.current = editor;
+          // Set initial content without triggering onChange
+          editor.setContent(value || '', { format: 'html' });
+          setEditorInitialized(true);
+        }}
+        init={{
+          height: 300,
+          menubar: false,
+          branding: false,
+          plugins: [
+            'anchor', 'autolink', 'charmap', 'code', 'fullscreen', 'help',
+            'image', 'insertdatetime', 'link', 'lists', 'preview',
+            'searchreplace', 'table', 'visualblocks', 'wordcount'
+          ],
+          toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | link image table | align lineheight | checklist numlist bullist indent outdent | charmap | removeformat',
+          content_style: `
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+              font-size: 14px;
+              line-height: 1.4;
+              margin: 1rem;
+            }
+          `,
+          placeholder: placeholder,
+          browser_spellcheck: true,
+          contextmenu: false,
+          skin: 'oxide',
+          content_css: 'default',
+          // Specify the base URL for TinyMCE assets
+          base_url: '/tinymce',
+          suffix: '.min',
+          setup: (editor: any) => {
+            editor.on('focus', () => {
+              const container = editor.getContainer();
+              if (container) {
+                container.style.borderColor = '#14b8a6';
+              }
+            });
+            
+            editor.on('blur', () => {
+              const container = editor.getContainer();
+              if (container) {
+                container.style.borderColor = '#e5e7eb';
+              }
+            });
+
+            // Handle content changes properly
+            editor.on('input', () => {
+              const content = editor.getContent();
+              onChange(content);
+            });
+
+            editor.on('change', () => {
+              const content = editor.getContent();
+              onChange(content);
+            });
+          }
+        }}
+      />
+    </div>
+  );
+};
+
 export default function ProfilePage() {
   const [supervisorProfile, setSupervisorProfile] = useState<SupervisorProfile | null>(null);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
     phone: '',
-    bio: ''
+    biography: ''
   });
+  const editorRef = useRef<any>(null);
+
 
   useEffect(() => {
     const fetchSupervisorProfile = async () => {
@@ -67,7 +233,7 @@ export default function ProfilePage() {
               first_name: result.supervisor.first_name || '',
               last_name: result.supervisor.last_name || '',
               phone: result.supervisor.phone || '',
-              bio: result.supervisor.bio || ''
+              biography: result.supervisor.biography || ''
             });
           } else {
             // User not authenticated, redirect to login
@@ -96,7 +262,7 @@ export default function ProfilePage() {
           const demoProfile = createProfileFromUserInfo(demoUserInfo);
           setSupervisorProfile({
             ...demoProfile,
-            bio: "Experienced academic supervisor with over 10 years in research supervision. Specialized in computer science, artificial intelligence, and educational technology. Passionate about guiding students through their academic journey and fostering innovative research.",
+            biography: "Experienced academic supervisor with over 10 years in research supervision. Passionate about guiding students through their academic journey and fostering innovative research.",
             department_name: "Computer Science",
             school_name: "School of Technology",
             college_name: "College of Science and Technology",
@@ -106,7 +272,7 @@ export default function ProfilePage() {
             first_name: demoProfile.first_name,
             last_name: demoProfile.last_name,
             phone: "+250 788 123 456",
-            bio: "Experienced academic supervisor with over 10 years in research supervision. Specialized in computer science, artificial intelligence, and educational technology. Passionate about guiding students through their academic journey and fostering innovative research."
+            biography: "Experienced academic supervisor with over 10 years in research supervision. Passionate about guiding students through their academic journey and fostering innovative research."
           });
         }
       } catch (err) {
@@ -125,7 +291,7 @@ export default function ProfilePage() {
         const demoProfile = createProfileFromUserInfo(demoUserInfo);
         setSupervisorProfile({
           ...demoProfile,
-          bio: "Experienced academic supervisor with over 10 years in research supervision. Specialized in computer science, artificial intelligence, and educational technology. Passionate about guiding students through their academic journey and fostering innovative research.",
+          biography: "Experienced academic supervisor with over 10 years in research supervision. Passionate about guiding students through their academic journey and fostering innovative research.",
           department_name: "Computer Science",
           school_name: "School of Technology", 
           college_name: "College of Science and Technology",
@@ -135,7 +301,7 @@ export default function ProfilePage() {
           first_name: demoProfile.first_name,
           last_name: demoProfile.last_name,
           phone: "+250 788 123 456",
-          bio: "Experienced academic supervisor with over 10 years in research supervision. Specialized in computer science, artificial intelligence, and educational technology. Passionate about guiding students through their academic journey and fostering innovative research."
+          biography: "Experienced academic supervisor with over 10 years in research supervision. Passionate about guiding students through their academic journey and fostering innovative research."
         });
       } finally {
         setIsLoading(false);
@@ -155,7 +321,7 @@ export default function ProfilePage() {
       phone: '',
       profile_picture: userInfo.profile,
       status: 'Active',
-      bio: 'Dedicated supervisor committed to academic excellence and student success.',
+      biography: 'Dedicated supervisor committed to academic excellence and student success.',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -164,6 +330,79 @@ export default function ProfilePage() {
   const stripHtmlTags = (html: string | null | undefined): string => {
     if (!html) return '';
     return html.replace(/<[^>]*>/g, '');
+  };
+
+  const getInitials = (firstName: string, lastName: string): string => {
+    return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('File size must be less than 5MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file');
+        return;
+      }
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      setError(null);
+    }
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!selectedFile || !supervisorProfile) return;
+
+    setIsUploading(true);
+    setError(null);
+    setUploadSuccess(null);
+
+    const uploadFormData = new FormData();
+    uploadFormData.append('photo', selectedFile);
+    uploadFormData.append('userId', supervisorProfile.id.toString());
+
+    try {
+      const response = await fetch('/api/auth/upload-photo', {
+        method: 'POST',
+        credentials: 'include',
+        body: uploadFormData,
+      });
+
+      if (response.status === 401) {
+        setError("Session expired. Please log in again.");
+        setTimeout(() => {
+          window.location.href = '/auth/login';
+        }, 2000);
+        return;
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setSupervisorProfile({
+          ...supervisorProfile,
+          profile_picture: result.photo_url
+        });
+        setUploadSuccess('Photo uploaded successfully!');
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        
+        setTimeout(() => setUploadSuccess(null), 3000);
+      } else {
+        setError(result.message || 'Failed to upload photo');
+      }
+    } catch (err) {
+      setError('Error uploading photo. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -189,13 +428,21 @@ export default function ProfilePage() {
     setError(null);
 
     try {
+      // Get content from TinyMCE editor if it exists
+      const biographyContent = editorRef.current ? editorRef.current.getContent() : formData.biography;
+      
+      const dataToSave = {
+        ...formData,
+        biography: biographyContent
+      };
+
       const response = await fetch(`/api/auth/supervisor-profile/${supervisorProfile.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include', // Important for including cookies
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSave),
       });
 
       if (response.status === 401) {
@@ -215,7 +462,7 @@ export default function ProfilePage() {
           updated_at: new Date().toISOString()
         });
         setIsEditing(false);
-        alert('Profile updated successfully!');
+        setShowSuccessModal(true);
       } else {
         setError(result.message || 'Failed to update profile');
       }
@@ -307,7 +554,13 @@ export default function ProfilePage() {
                   
                   {/* Profile Picture */}
                   <div className="relative mb-6">
-                    {supervisorProfile.profile_picture ? (
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="w-28 h-28 rounded-full mx-auto border-4 border-white/30 shadow-2xl object-cover"
+                      />
+                    ) : supervisorProfile.profile_picture ? (
                       <img
                         src={supervisorProfile.profile_picture}
                         alt={`${supervisorProfile.first_name} ${supervisorProfile.last_name}`}
@@ -323,6 +576,61 @@ export default function ProfilePage() {
                     <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-400 border-4 border-white rounded-full flex items-center justify-center">
                       <i className="bi bi-check text-white text-sm"></i>
                     </div>
+                    
+                    {/* Photo Upload Controls */}
+                    {isEditing && (
+                      <div className="mt-4">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          id="photo-upload"
+                        />
+                        <label
+                          htmlFor="photo-upload"
+                          className="cursor-pointer inline-flex items-center px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 rounded-lg text-white text-sm font-medium transition-all"
+                        >
+                          <i className="bi bi-camera mr-1.5"></i>
+                          Change Photo
+                        </label>
+                        {selectedFile && (
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={handlePhotoUpload}
+                              disabled={isUploading}
+                              className={`px-3 py-1.5 text-white text-sm rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+                                isUploading 
+                                  ? 'bg-gray-400 cursor-not-allowed' 
+                                  : 'bg-green-500 hover:bg-green-600'
+                              }`}
+                            >
+                              {isUploading && (
+                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              )}
+                              {isUploading ? 'Uploading...' : 'Upload'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedFile(null);
+                                setPreviewUrl(null);
+                              }}
+                              disabled={isUploading}
+                              className={`px-3 py-1.5 text-white text-sm rounded-lg font-medium transition-colors ${
+                                isUploading 
+                                  ? 'bg-gray-400 cursor-not-allowed' 
+                                  : 'bg-red-500 hover:bg-red-600'
+                              }`}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                        {uploadSuccess && (
+                          <p className="text-green-300 text-xs mt-1">{uploadSuccess}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -427,20 +735,26 @@ export default function ProfilePage() {
 
                 <div className="mt-6">
                   <label className="block text-gray-700 text-sm font-semibold mb-2">
-                    Bio
+                    Biography
                   </label>
-                  <textarea
-                    value={isEditing ? (formData.bio || '') : (stripHtmlTags(supervisorProfile.bio) || 'No bio provided')}
-                    onChange={(e) => handleInputChange('bio', e.target.value)}
-                    disabled={!isEditing}
-                    rows={4}
-                    placeholder={isEditing ? 'Tell us about yourself and your expertise' : ''}
-                    className={`w-full border rounded-xl px-4 py-3 transition-all resize-none ${
-                      isEditing 
-                        ? 'bg-white focus:outline-none focus:ring-2 focus:border-transparent border-teal-500' 
-                        : 'bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed'
-                    }`}
-                  />
+                  {isEditing ? (
+                    <div className="border border-teal-500 rounded-xl overflow-hidden">
+                      <SelfHostedTinyMCEEditor
+                        id="biography-editor"
+                        value={formData.biography || ''}
+                        onChange={(content) => handleInputChange('biography', content)}
+                        placeholder="Enter your biography..."
+                        editorRef={editorRef}
+                      />
+                    </div>
+                  ) : (
+                    <div 
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-600 min-h-[100px]"
+                      dangerouslySetInnerHTML={{
+                        __html: supervisorProfile.biography || 'No biography provided'
+                      }}
+                    />
+                  )}
                 </div>
 
                 {isEditing && (
@@ -615,6 +929,32 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-6">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl border border-green-100/50 w-full max-w-md mx-4">
+            <div className="bg-gradient-to-r rounded-t-2xl from-green-600 to-emerald-600 p-6 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center">
+                <i className="bi bi-check-circle text-white text-2xl"></i>
+              </div>
+              <h2 className="text-2xl font-bold text-white">Success!</h2>
+              <p className="text-white/90 mt-1">Your profile has been updated</p>
+            </div>
+
+            <div className="p-6 text-center">
+              <p className="text-gray-700 mb-6">Profile updated successfully!</p>
+              
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-emerald-700 font-medium transition-all"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

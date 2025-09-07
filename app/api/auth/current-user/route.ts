@@ -18,7 +18,7 @@ interface SupervisorProfile {
   college_name?: string;
   institution_id?: number;
   institution_name?: string;
-  bio?: string;
+  biography?: string;
   created_at: string;
   updated_at: string;
   last_login?: string;
@@ -126,7 +126,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       college_name: supervisor.college_name,
       institution_id: supervisor.institution_id,
       institution_name: supervisor.institution_name,
-      bio: supervisor.biography,
+      biography: supervisor.biography,
       created_at: supervisor.created_at,
       updated_at: supervisor.updated_at,
       last_login: supervisor.last_login,

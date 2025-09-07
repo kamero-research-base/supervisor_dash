@@ -17,8 +17,7 @@ interface SupervisorProfile {
   college_name?: string;
   institution_id?: number;
   institution_name?: string;
-  bio?: string;
-  specialization?: string;
+  biography?: string;
   created_at: string;
   updated_at: string;
   last_login?: string;
@@ -51,7 +50,6 @@ export async function GET(
         s.profile_picture, 
         s.status,
         s.biography,
-        s.specialization,
         s.created_at,
         s.updated_at,
         s.last_login,
@@ -99,8 +97,7 @@ export async function GET(
       college_name: supervisor.college_name,
       institution_id: supervisor.institution_id,
       institution_name: supervisor.institution_name,
-      bio: supervisor.bio,
-      specialization: supervisor.specialization || 'Research Supervision',
+      biography: supervisor.biography,
       created_at: supervisor.created_at,
       updated_at: supervisor.updated_at,
       last_login: supervisor.last_login,
@@ -144,7 +141,7 @@ export async function PUT(
 
   try {
     const requestBody = await req.json();
-    const { first_name, last_name, phone, bio, specialization } = requestBody;
+    const { first_name, last_name, phone, biography } = requestBody;
 
     // Validate required fields
     if (!first_name || !last_name) {
@@ -161,19 +158,17 @@ export async function PUT(
         first_name = $1,
         last_name = $2,
         phone = $3,
-        bio = $4,
-        specialization = $5,
+        biography = $4,
         updated_at = NOW()
-      WHERE id = $6
-      RETURNING id, first_name, last_name, email, phone, bio, specialization, updated_at
+      WHERE id = $5
+      RETURNING id, first_name, last_name, email, phone, biography, updated_at
     `;
 
     const updateResult = await client.query(updateSql, [
       first_name,
       last_name,
       phone || '',
-      bio || '',
-      specialization || 'Research Supervision',
+      biography || '',
       supervisorId
     ]);
 
