@@ -59,146 +59,122 @@ const Header = ({ onAddStudentClick }: StudentHeaderProps) => {
     fetchSupervisors();
   }, []);
 
+  const getActivePercentage = () => {
+    if (!analytics?.total_students || analytics.total_students === 0) return 0;
+    return Math.round((analytics.total_active / analytics.total_students) * 100);
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header Section */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-medium text-gray-700">Students</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-gray-900">Students Overview</h1>
+          <p className="text-sm text-gray-600">Manage and monitor your students' progress</p>
+        </div>
+        <div className="flex items-center gap-3">
           <button 
-            className="flex items-center justify-center w-9 h-9 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            title="Download Student summary"
+            className="flex items-center justify-center w-10 h-10 border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm"
+            title="Export student data"
           >
-            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
             </svg>
           </button>
           <button 
             onClick={onAddStudentClick}
-            className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-teal-700 text-white text-sm font-semibold rounded-xl hover:from-teal-700 hover:to-teal-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            Add Student
+            <span className="hidden sm:inline">Add Student</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
       </div>
 
-      {/* Analytics Cards */}
-      <div className="grid grid-cols-5 gap-3">
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-orange-100 border border-orange-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+      {/* Main Statistics Card */}
+      <div className="bg-gradient-to-br from-teal-50 via-white to-blue-50 border border-teal-100 rounded-2xl p-6 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Primary Metric */}
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-teal-100 rounded-2xl">
+                <User className="w-8 h-8 text-teal-600" />
               </div>
-              <span className="text-sm font-medium text-gray-700">Total Students</span>
+              <div>
+                <h2 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Total Students Enrolled</h2>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold text-gray-900">{analytics?.total_students || 0}</span>
+                  <span className="text-sm text-gray-500">students</span>
+                </div>
+              </div>
             </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
+            
+            {/* Active Rate Progress */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-700">Active Participation Rate</span>
+                <span className="text-sm font-semibold text-teal-600">{getActivePercentage()}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-teal-500 to-teal-600 h-2 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${getActivePercentage()}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>{analytics?.total_active || 0} active</span>
+                <span>{(analytics?.total_students || 0) - (analytics?.total_active || 0)} inactive</span>
+              </div>
+            </div>
           </div>
-          <div className="p-3">
-            <div className="text-2xl font-semibold text-gray-800">{analytics?.total_students}</div>
-          </div>
-        </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-teal-100 border border-teal-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-teal-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+          {/* Quick Stats */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Quick Stats</h3>
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+              <div className="bg-white rounded-xl p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">Active</span>
+                  </div>
+                  <span className="font-semibold text-gray-900">{analytics?.total_active || 0}</span>
+                </div>
               </div>
-              <span className="text-sm font-medium text-gray-700">Active</span>
-            </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-3">
-            <div className="text-2xl font-semibold text-gray-800">{analytics?.total_active}</div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-red-100 border border-red-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92z" />
-                </svg>
+              
+              <div className="bg-white rounded-xl p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">Pending</span>
+                  </div>
+                  <span className="font-semibold text-gray-900">{analytics?.total_pending || 0}</span>
+                </div>
               </div>
-              <span className="text-sm font-medium text-gray-700">Unverified</span>
-            </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-3">
-            <div className="text-2xl font-semibold text-gray-800">{analytics?.total_unverified}</div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-gray-100 border border-gray-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
+              
+              <div className="bg-white rounded-xl p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">Unverified</span>
+                  </div>
+                  <span className="font-semibold text-gray-900">{analytics?.total_unverified || 0}</span>
+                </div>
               </div>
-              <span className="text-sm font-medium text-gray-700">Inactive</span>
-            </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-3">
-            <div className="text-2xl font-semibold text-gray-800">{analytics?.total_inactive}</div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-yellow-100 border border-yellow-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
+              
+              <div className="bg-white rounded-xl p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <span className="text-sm text-gray-600">Inactive</span>
+                  </div>
+                  <span className="font-semibold text-gray-900">{analytics?.total_inactive || 0}</span>
+                </div>
               </div>
-              <span className="text-sm font-medium text-gray-700">Pending</span>
             </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-3">
-            <div className="text-2xl font-semibold text-gray-800">{analytics?.total_pending}</div>
           </div>
         </div>
       </div>
@@ -208,7 +184,6 @@ const Header = ({ onAddStudentClick }: StudentHeaderProps) => {
 
 const StudentList = () => {
   const [activeId, setActiveId] = useState(1);
-  const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<string | null>(null);
@@ -346,8 +321,37 @@ const StudentList = () => {
       'Inactive': 'bg-gray-50 text-gray-700 border-gray-200'
     };
     
+    const statusIcons = {
+      'Active': (
+        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+      ),
+      'Pending': (
+        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+        </svg>
+      ),
+      'Locked': (
+        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+      ),
+      'Unverified': (
+        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+      ),
+      'Inactive': (
+        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        </svg>
+      )
+    };
+    
     return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${statusStyles[status as keyof typeof statusStyles] || statusStyles.Inactive}`}>
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${statusStyles[status as keyof typeof statusStyles] || statusStyles.Inactive}`}>
+        {statusIcons[status as keyof typeof statusIcons]}
         {status}
       </span>
     );
@@ -369,9 +373,6 @@ const StudentList = () => {
     setCurrentPage(1); // Reset to first page when sort changes
   };
 
-  const toggleDropdown = (id: number) => {
-    setDropdownOpen(dropdownOpen === id ? null : id);
-  };
 
   // Pagination handlers
   const handlePageChange = (page: number) => {
@@ -415,21 +416,26 @@ const StudentList = () => {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg mt-4">
+    <div className="bg-white border border-gray-200 rounded-2xl mt-6 shadow-sm overflow-hidden">
       {/* Table Header */}
-      <div className="px-4 py-3 border-b border-gray-200">
-        <h4 className="text-base font-medium text-gray-800">Student List</h4>
+      <div className="px-4 sm:px-6 py-4 bg-gray-50 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900">Student Directory</h4>
+            <p className="text-sm text-gray-600 mt-1">Total: {totalCount} students</p>
+          </div>
+        </div>
         
         {/* Filters and Search */}
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-1">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-4">
+          <div className="flex flex-wrap items-center gap-2">
             {buttons.map((btn) => (
               <button 
                 key={btn.id} 
-                className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                className={`px-4 py-2 text-sm font-medium rounded-xl border transition-all duration-200 ${
                   activeId === btn.id 
-                    ? 'bg-gray-100 border-gray-300 text-gray-700' 
-                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    ? 'bg-teal-100 border-teal-300 text-teal-700 shadow-sm' 
+                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
                 }`} 
                 onClick={() => handleActive(btn.id, btn.name)}
               >
@@ -438,13 +444,13 @@ const StudentList = () => {
             ))}
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {/* Sort dropdown */}
             <div className="relative">
               <select 
                 value={sort} 
                 onChange={(e) => handleSort(e.target.value)}
-                className="flex items-center justify-center w-auto h-8 px-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors text-xs bg-white"
+                className="w-full sm:w-auto px-3 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="">Sort by</option>
                 <option value="name_asc">Name (A-Z)</option>
@@ -468,90 +474,87 @@ const StudentList = () => {
                 value={search}
                 onChange={handleSearch}
                 placeholder="Search students..." 
-                className="pl-10 pr-4 py-2 w-64 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="pl-10 pr-4 py-2 w-full sm:w-64 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent hover:border-gray-300 transition-colors"
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="">
+      {/* Mobile Card View / Desktop Table */}
+      <div className="hidden lg:block">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-white border-b border-gray-100">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profile</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Student</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Department</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Joined</th>
+              <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-gray-100">
             {paginatedStudents.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                  No students found
+                <td colSpan={6} className="px-6 py-12 text-center">
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                      <User className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500 font-medium">No students found</p>
+                    <p className="text-sm text-gray-400 mt-1">Try adjusting your search or filters</p>
+                  </div>
                 </td>
               </tr>
             ) : (
               paginatedStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="w-8 h-8 rounded-full border border-gray-200 overflow-hidden">
-                      <img 
-                        src={student.profile_picture} 
-                        alt="Profile" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {getStatusBadge(student.status)}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                    {student.first_name} {student.last_name}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {student.email}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {student.department}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {student.phone}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {timeAgo(student.created_at)}
-                  </td>
-                  <td className="px-4 py-3 text-center relative">
-                    <button
-                      className="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                      onClick={() => toggleDropdown(student.id)}
-                    >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                        <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                        <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-                      </svg>
-                    </button>
-                    
-                    {dropdownOpen === student.id && (
-                      <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                        <div className="py-1">
-                          <button className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setView(""+student.id)}>
-                            <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            View Details
-                          </button>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl border-2 border-gray-200 overflow-hidden bg-gray-50">
+                        <img 
+                          src={student.profile_picture} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          {student.first_name} {student.last_name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          ID: {student.hashed_id}
                         </div>
                       </div>
-                    )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    {getStatusBadge(student.status)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="space-y-1">
+                      <div className="text-sm text-gray-900">{student.email}</div>
+                      <div className="text-xs text-gray-500">{student.phone}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {student.department}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {timeAgo(student.created_at)}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <button
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-teal-600 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 hover:border-teal-300 transition-all duration-200"
+                      onClick={() => setView(""+student.id)}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      <span className="hidden sm:inline">View</span>
+                    </button>
                   </td>
                 </tr>
               ))
@@ -560,46 +563,105 @@ const StudentList = () => {
         </table>
       </div>
 
+      {/* Mobile Card View */}
+      <div className="lg:hidden divide-y divide-gray-100">
+        {paginatedStudents.length === 0 ? (
+          <div className="px-4 py-12 text-center">
+            <div className="flex flex-col items-center justify-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <User className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 font-medium">No students found</p>
+              <p className="text-sm text-gray-400 mt-1">Try adjusting your search or filters</p>
+            </div>
+          </div>
+        ) : (
+          paginatedStudents.map((student) => (
+            <div key={student.id} className="p-4 hover:bg-gray-50 transition-colors">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-xl border-2 border-gray-200 overflow-hidden bg-gray-50 flex-shrink-0">
+                  <img 
+                    src={student.profile_picture} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-gray-900 truncate">
+                        {student.first_name} {student.last_name}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">{student.department}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 ml-2">
+                      {getStatusBadge(student.status)}
+                      <button
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-teal-600 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 hover:border-teal-300 transition-all duration-200"
+                        onClick={() => setView(""+student.id)}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-gray-600">{student.email}</p>
+                    <p className="text-xs text-gray-600">{student.phone}</p>
+                    <p className="text-xs text-gray-500">Joined {timeAgo(student.created_at)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-          <div className="flex items-center text-sm text-gray-700">
+        <div className="flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50">
+          <div className="flex items-center text-sm text-gray-700 mb-3 sm:mb-0">
             <span>
               Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} results
             </span>
           </div>
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-2">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors duration-200"
+              className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white hover:border-gray-400 transition-all duration-200 bg-white"
             >
               Previous
             </button>
             
-            {getPaginationRange().map((page, index) => (
-              <span key={index}>
-                {page === '...' ? (
-                  <span className="px-3 py-2 text-sm text-gray-500">...</span>
-                ) : (
-                  <button
-                    onClick={() => handlePageChange(page as number)}
-                    className={`px-3 py-2 text-sm border rounded-lg transition-colors duration-200 ${
-                      currentPage === page
-                        ? 'bg-teal-600 text-white border-teal-600'
-                        : 'border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                )}
-              </span>
-            ))}
+            <div className="hidden sm:flex items-center space-x-1">
+              {getPaginationRange().map((page, index) => (
+                <span key={index}>
+                  {page === '...' ? (
+                    <span className="px-3 py-2 text-sm text-gray-500">...</span>
+                  ) : (
+                    <button
+                      onClick={() => handlePageChange(page as number)}
+                      className={`px-3 py-2 text-sm font-medium border rounded-xl transition-all duration-200 ${
+                        currentPage === page
+                          ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+                          : 'border-gray-300 hover:bg-white hover:border-gray-400 bg-white'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
             
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors duration-200"
+              className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white hover:border-gray-400 transition-all duration-200 bg-white"
             >
               Next
             </button>
