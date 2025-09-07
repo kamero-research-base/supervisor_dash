@@ -4,9 +4,7 @@ import { User } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import UserOverview from "../toggles/viewUser";
 
-interface StudentHeaderProps{
-  onAddStudentClick: () => void;
-}
+interface StudentHeaderProps{}
 
 interface Analytics {
   total_students: number;
@@ -31,7 +29,7 @@ interface Student {
   department: string;
 }
 
-const Header = ({ onAddStudentClick }: StudentHeaderProps) => {
+const Header = ({}: StudentHeaderProps) => {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   
   useEffect(() => {
@@ -80,16 +78,6 @@ const Header = ({ onAddStudentClick }: StudentHeaderProps) => {
             <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
             </svg>
-          </button>
-          <button 
-            onClick={onAddStudentClick}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-teal-700 text-white text-sm font-semibold rounded-xl hover:from-teal-700 hover:to-teal-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            <span className="hidden sm:inline">Add Student</span>
-            <span className="sm:hidden">Add</span>
           </button>
         </div>
       </div>
