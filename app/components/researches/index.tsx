@@ -8,6 +8,7 @@ interface ResearchHeaderProps {}
 interface Analytics {
   total_researches: number;
   pending_researches: number;
+  total_approved: number;
   total_rejected: number;
   total_onhold: number;
   total_published: number;
@@ -17,6 +18,7 @@ interface Analytics {
   percentage_change: {
     total_researches: number;
     pending_researches: number;
+    total_approved: number;
     total_rejected: number;
     total_onhold: number;
     total_published: number;
@@ -70,25 +72,6 @@ const Header = ({}: ResearchHeaderProps) => {
     fetchAnalytics();
   }, []);
 
-  // Helper function to render percentage change
-  const renderPercentageChange = (value: number) => {
-    if (value === 0) return null;
-    const isPositive = value > 0;
-    return (
-      <div className={`text-xs font-medium flex items-center gap-1 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-        {isPositive ? (
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-          </svg>
-        ) : (
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-          </svg>
-        )}
-        {Math.abs(value)}%
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-4">
@@ -107,166 +90,85 @@ const Header = ({}: ResearchHeaderProps) => {
         </div>
       </div>
 
-      {/* Analytics Cards - Updated grid for 7 cards */}
-      <div className="grid grid-cols-6 gap-3">
-        {/* My Uploads Card */}
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-purple-100 border border-purple-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <span className="text-sm font-medium text-gray-700">My Uploads</span>
-            </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="text-2xl font-semibold text-gray-800">{analytics?.my_uploads || 0}</div>
-              {analytics && renderPercentageChange(analytics.percentage_change.my_uploads)}
-            </div>
-          </div>
-        </div>
+      {/* Analytics Cards - Grid for 4 cards */}
+      <div className="grid grid-cols-4 gap-3">
 
-        {/* Students Card */}
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-indigo-100 border border-indigo-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+        {/* Approved Card */}
+        <div className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-green-100 border border-green-200 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
               </div>
-              <span className="text-sm font-medium text-gray-700">Students</span>
-            </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-3">
-            <div className="text-2xl font-semibold text-gray-800">{analytics?.students_count || 0}</div>
-          </div>
-        </div>
-
-        {/* Published Card */}
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-teal-100 border border-teal-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-teal-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Approved</h3>
+                <p className="text-xs text-gray-500">Ready for publication</p>
               </div>
-              <span className="text-sm font-medium text-gray-700">Published</span>
             </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="text-2xl font-semibold text-gray-800">{analytics?.total_published || 0}</div>
-              {analytics && renderPercentageChange(analytics.percentage_change.total_published)}
-            </div>
+            <div className="text-2xl font-bold text-green-600 mb-1">{analytics?.total_approved || 0}</div>
+            <p className="text-xs text-gray-500">research materials approved</p>
           </div>
         </div>
 
         {/* Pending Card */}
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-yellow-100 border border-yellow-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+        <div className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-yellow-100 border border-yellow-200 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                 </svg>
               </div>
-              <span className="text-sm font-medium text-gray-700">Pending</span>
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Pending</h3>
+                <p className="text-xs text-gray-500">Awaiting your review</p>
+              </div>
             </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
+            <div className="text-2xl font-bold text-yellow-600 mb-1">{analytics?.pending_researches || 0}</div>
+            <p className="text-xs text-gray-500">research materials to review</p>
           </div>
-          <div className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="text-2xl font-semibold text-gray-800">{(analytics?.pending_researches || 0) + (analytics?.total_onhold || 0)}</div>
-              {analytics && renderPercentageChange(analytics.percentage_change.pending_researches)}
+        </div>
+
+        {/* On Hold Card */}
+        <div className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-orange-100 border border-orange-200 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a1 1 0 011 1v3a1 1 0 11-2 0V6a1 1 0 011-1zM9 13a1 1 0 112 0 1 1 0 01-2 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">On Hold</h3>
+                <p className="text-xs text-gray-500">Paused by you</p>
+              </div>
             </div>
+            <div className="text-2xl font-bold text-orange-600 mb-1">{analytics?.total_onhold || 0}</div>
+            <p className="text-xs text-gray-500">research materials paused</p>
           </div>
         </div>
 
         {/* Rejected Card */}
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-red-100 border border-red-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+        <div className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-red-100 border border-red-200 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
-              <span className="text-sm font-medium text-gray-700">Rejected</span>
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Rejected</h3>
+                <p className="text-xs text-gray-500">Needs improvement</p>
+              </div>
             </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="text-2xl font-semibold text-gray-800">{analytics?.total_rejected || 0}</div>
-              {analytics && renderPercentageChange(analytics.percentage_change.total_rejected)}
-            </div>
+            <div className="text-2xl font-bold text-red-600 mb-1">{analytics?.total_rejected || 0}</div>
+            <p className="text-xs text-gray-500">research materials rejected</p>
           </div>
         </div>
 
-        {/* Downloads Card */}
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between p-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-blue-100 border border-blue-200 rounded flex items-center justify-center">
-                <svg className="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-                </svg>
-              </div>
-              <span className="text-sm font-medium text-gray-700">Downloads</span>
-            </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 4a2 2 0 100-4 2 2 0 000 4z" />
-                <path d="M10 20a2 2 0 100-4 2 2 0 000 4z" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="text-2xl font-semibold text-gray-800">{analytics?.total_downloads?.toLocaleString() || '0'}</div>
-              {analytics && renderPercentageChange(analytics.percentage_change.total_downloads)}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

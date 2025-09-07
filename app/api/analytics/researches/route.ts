@@ -18,28 +18,62 @@ export async function POST(req: Request) {
     const currentYear = new Date().getFullYear();
     const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
-    // Get the students array from supervisor table
-    const supervisorQuery = `SELECT students FROM supervisors WHERE id = $1;`;
+    // First, verify supervisor exists
+    const supervisorQuery = `SELECT id FROM supervisors WHERE id = $1;`;
     const supervisorResult = await client.query(supervisorQuery, [supervisor_id]);
     
     if (supervisorResult.rows.length === 0) {
       return NextResponse.json({ message: "Supervisor not found" }, { status: 404 });
     }
 
-    const students = supervisorResult.rows[0].students || [];
-    const allUserIds = [supervisor_id, ...students];
+    // Get students assigned to this supervisor using the supervisor_id field in students table
+    const studentsQuery = `SELECT id FROM students WHERE supervisor_id = $1;`;
+    const studentsQueryResult = await client.query(studentsQuery, [supervisor_id]);
+    
+    const studentIds = studentsQueryResult.rows.map((student: any) => student.id.toString());
+    console.log(`🔍 [ANALYTICS API] Supervisor ${supervisor_id} has ${studentIds.length} assigned students:`, studentIds);
+
+    // Handle case where supervisor has no students assigned
+    if (!studentIds.length) {
+      console.log(`❌ [ANALYTICS API] No students found for supervisor ${supervisor_id}`);
+      // Return empty analytics
+      const emptyAnalytics = {
+        total_researches: 0,
+        pending_researches: 0,
+        total_approved: 0,
+        total_rejected: 0,
+        total_onhold: 0,
+        total_published: 0,
+        total_downloads: 0,
+        my_uploads: 0,
+        students_count: 0,
+        percentage_change: {
+          total_researches: 0,
+          pending_researches: 0,
+          total_approved: 0,
+          total_rejected: 0,
+          total_onhold: 0,
+          total_published: 0,
+          total_downloads: 0,
+          my_uploads: 0,
+          students_count: 0,
+        }
+      };
+      return NextResponse.json({ success: true, data: emptyAnalytics }, { status: 200 });
+    }
 
     // Query for TOTAL statistics (all time)
     const queryTotal = `
       SELECT 
         COUNT(*) AS total_researches,
         SUM(CASE WHEN r.status = 'Pending' OR r.status = 'Under review' THEN 1 ELSE 0 END) AS pending_researches,
+        SUM(CASE WHEN r.status = 'Approved' THEN 1 ELSE 0 END) AS total_approved,
         SUM(CASE WHEN r.status = 'Rejected' THEN 1 ELSE 0 END) AS total_rejected,
         SUM(CASE WHEN r.status = 'On hold' THEN 1 ELSE 0 END) AS total_onhold,
-        SUM(CASE WHEN r.status = 'Published' OR r.status ='Approved' THEN 1 ELSE 0 END) AS total_published,
+        SUM(CASE WHEN r.status = 'Published' THEN 1 ELSE 0 END) AS total_published,
         SUM(r.downloads) AS total_downloads
       FROM researches r
-      WHERE r.user_id = ANY($1)
+      WHERE r.user_id = ANY($1::text[])
     `;
 
     // Query for supervisor's own uploads (all time)
@@ -72,12 +106,13 @@ export async function POST(req: Request) {
       SELECT 
         COUNT(*) AS total_researches,
         SUM(CASE WHEN r.status = 'Pending' OR r.status = 'Under review' THEN 1 ELSE 0 END) AS pending_researches,
+        SUM(CASE WHEN r.status = 'Approved' THEN 1 ELSE 0 END) AS total_approved,
         SUM(CASE WHEN r.status = 'Rejected' THEN 1 ELSE 0 END) AS total_rejected,
         SUM(CASE WHEN r.status = 'On hold' THEN 1 ELSE 0 END) AS total_onhold,
-        SUM(CASE WHEN r.status = 'Published' OR r.status ='Approved' THEN 1 ELSE 0 END) AS total_published,
+        SUM(CASE WHEN r.status = 'Published' THEN 1 ELSE 0 END) AS total_published,
         SUM(r.downloads) AS total_downloads
       FROM researches r
-      WHERE r.user_id = ANY($1) AND EXTRACT(MONTH FROM CAST(r.created_at AS DATE)) = $2 
+      WHERE r.user_id = ANY($1::text[]) AND EXTRACT(MONTH FROM CAST(r.created_at AS DATE)) = $2 
       AND EXTRACT(YEAR FROM CAST(r.created_at AS DATE)) = $3
     `;
 
@@ -86,12 +121,13 @@ export async function POST(req: Request) {
       SELECT 
         COUNT(*) AS total_researches,
         SUM(CASE WHEN r.status = 'Pending' OR r.status = 'Under review' THEN 1 ELSE 0 END) AS pending_researches,
+        SUM(CASE WHEN r.status = 'Approved' THEN 1 ELSE 0 END) AS total_approved,
         SUM(CASE WHEN r.status = 'Rejected' THEN 1 ELSE 0 END) AS total_rejected,
         SUM(CASE WHEN r.status = 'On hold' THEN 1 ELSE 0 END) AS total_onhold,
-        SUM(CASE WHEN r.status = 'Published' OR r.status ='Approved' THEN 1 ELSE 0 END) AS total_published,
+        SUM(CASE WHEN r.status = 'Published' THEN 1 ELSE 0 END) AS total_published,
         SUM(r.downloads) AS total_downloads
       FROM researches r
-      WHERE r.user_id = ANY($1) AND EXTRACT(MONTH FROM CAST(r.created_at AS DATE)) = $2 
+      WHERE r.user_id = ANY($1::text[]) AND EXTRACT(MONTH FROM CAST(r.created_at AS DATE)) = $2 
         AND EXTRACT(YEAR FROM CAST(r.created_at AS DATE)) = $3
     `;
 
@@ -104,12 +140,12 @@ export async function POST(req: Request) {
       currentMonthResult,
       lastMonthResult
     ] = await Promise.all([
-      client.query(queryTotal, [allUserIds]),
+      client.query(queryTotal, [studentIds]),
       client.query(queryMyUploads, [supervisor_id]),
       client.query(queryMyUploadsCurrentMonth, [supervisor_id, currentMonth, currentYear]),
       client.query(queryMyUploadsLastMonth, [supervisor_id, lastMonth, lastMonthYear]),
-      client.query(queryCurrentMonth, [allUserIds, currentMonth, currentYear]),
-      client.query(queryLastMonth, [allUserIds, lastMonth, lastMonthYear])
+      client.query(queryCurrentMonth, [studentIds, currentMonth, currentYear]),
+      client.query(queryLastMonth, [studentIds, lastMonth, lastMonthYear])
     ]);
 
     const total = totalResult.rows[0];
@@ -119,23 +155,19 @@ export async function POST(req: Request) {
     const currentMonthData = currentMonthResult.rows[0];
     const lastMonthData = lastMonthResult.rows[0];
 
-    // Updated percentage calculation using total sum
+    // Standard percentage calculation
     const calculatePercentageChange = (current: number, previous: number) => {
       // Handle edge cases
       if (previous === 0 && current === 0) return 0;
-      if (previous === 0 && current > 0) return null; // Indicate "new" rather than percentage
+      if (previous === 0 && current > 0) return 100; // 100% increase when starting from 0
       if (current === 0 && previous > 0) return -100; // 100% decrease
       
-      // Calculate percentage increase based on total sum (current + previous)
-      const totalSum = current + previous;
-      if (totalSum === 0) return 0;
+      // Standard percentage change formula: ((new - old) / old) * 100
+      const percentage = ((current - previous) / previous) * 100;
       
-      // Percentage increase relative to total sum
-      const percentage = ((current - previous) / totalSum) * 100;
-      
-      // Cap increases at 50% and decreases at -50% since max possible is ±50% when using total sum
-      if (percentage > 50) return 50;
-      if (percentage < -50) return -50;
+      // Cap at reasonable limits
+      if (percentage > 999) return 999;
+      if (percentage < -100) return -100;
       
       return parseFloat(percentage.toFixed(1));
     };
@@ -144,17 +176,19 @@ export async function POST(req: Request) {
       // Total counts (all time)
       total_researches: parseInt(total.total_researches) || 0,
       pending_researches: parseInt(total.pending_researches) || 0,
+      total_approved: parseInt(total.total_approved) || 0,
       total_rejected: parseInt(total.total_rejected) || 0,
       total_onhold: parseInt(total.total_onhold) || 0,
       total_published: parseInt(total.total_published) || 0,
       total_downloads: parseInt(total.total_downloads) || 0,
       my_uploads: parseInt(myUploads.my_uploads) || 0,
-      students_count: students.length,
+      students_count: studentIds.length,
 
       // Monthly data for context
       current_month_data: {
         total_researches: parseInt(currentMonthData.total_researches) || 0,
         pending_researches: parseInt(currentMonthData.pending_researches) || 0,
+        total_approved: parseInt(currentMonthData.total_approved) || 0,
         total_rejected: parseInt(currentMonthData.total_rejected) || 0,
         total_onhold: parseInt(currentMonthData.total_onhold) || 0,
         total_published: parseInt(currentMonthData.total_published) || 0,
@@ -165,6 +199,7 @@ export async function POST(req: Request) {
       last_month_data: {
         total_researches: parseInt(lastMonthData.total_researches) || 0,
         pending_researches: parseInt(lastMonthData.pending_researches) || 0,
+        total_approved: parseInt(lastMonthData.total_approved) || 0,
         total_rejected: parseInt(lastMonthData.total_rejected) || 0,
         total_onhold: parseInt(lastMonthData.total_onhold) || 0,
         total_published: parseInt(lastMonthData.total_published) || 0,
@@ -181,6 +216,10 @@ export async function POST(req: Request) {
         pending_researches: calculatePercentageChange(
           parseInt(currentMonthData.pending_researches) || 0,
           parseInt(lastMonthData.pending_researches) || 0
+        ),
+        total_approved: calculatePercentageChange(
+          parseInt(currentMonthData.total_approved) || 0,
+          parseInt(lastMonthData.total_approved) || 0
         ),
         total_rejected: calculatePercentageChange(
           parseInt(currentMonthData.total_rejected) || 0,
