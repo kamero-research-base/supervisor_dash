@@ -1,4 +1,3 @@
-//app/api/auth/change-password/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import client from '../../utils/db';
 import { sendChangePasswordConfirmationEmail } from "../../utils/config";

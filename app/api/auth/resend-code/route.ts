@@ -1,4 +1,3 @@
-//app/api/auth/resend-code/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import client from "../../utils/db";
 import { sendVerificationEmail } from "../../utils/config";

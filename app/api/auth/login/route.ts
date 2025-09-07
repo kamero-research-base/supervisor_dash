@@ -1,4 +1,3 @@
-//app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import client from "../../utils/db";
 import crypto from "crypto";

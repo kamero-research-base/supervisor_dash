@@ -1,4 +1,3 @@
-//app/pages/navBar.tsx
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -23,54 +22,25 @@ const NavBar = ({ onNavigate }: NavBarProps) => {
   const pathname = usePathname();
   const router = useRouter();
 
-  // MODIFIED: This effect now loads user info and listens for updates
   useEffect(() => {
-    const loadAndSetUserInfo = () => {
-      if (typeof window !== "undefined") {
-        const userInfoData = localStorage.getItem('supervisorSession');
-        if (userInfoData && userInfoData !== '{}') {
-          try {
-            setUserInfo(JSON.parse(userInfoData));
-          } catch (error) {
-            console.error('Error parsing user info in NavBar:', error);
-            router.push("/auth/login");
-          }
-        } else {
-          router.push("/auth/login");
+    if (typeof window !== "undefined") {
+      setCurrentPath(window.location.pathname);
+      
+      // Get user info from localStorage (adjust this based on your auth system)
+      const userInfoData = JSON.parse(localStorage.getItem('supervisorSession') || '{}');
+
+      if (userInfoData) {
+        try {
+          const parsedUserInfo = userInfoData;
+          setUserInfo(parsedUserInfo);
+        } catch (error) {
+          console.error('Error parsing user info:', error);
         }
+      } else {
+        router.push("/auth/login");
       }
-    };
-
-    // Set initial path and load user info
-    setCurrentPath(pathname);
-    loadAndSetUserInfo();
-
-    // Listen for profile updates dispatched from other components (e.g., ProfilePage)
-    const handleProfileUpdate = (event: CustomEvent) => {
-      console.log('NavBar received profile update:', event.detail);
-      setUserInfo(prevInfo => ({
-        ...(prevInfo || {}),
-        ...event.detail,
-      } as UserInfo));
-    };
-
-    // Listen for storage changes to sync data across browser tabs
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'supervisorSession') {
-        loadAndSetUserInfo();
-      }
-    };
-
-    window.addEventListener('supervisorProfileUpdated', handleProfileUpdate as EventListener);
-    window.addEventListener('storage', handleStorageChange);
-
-    // Cleanup listeners when the component unmounts
-    return () => {
-      window.removeEventListener('supervisorProfileUpdated', handleProfileUpdate as EventListener);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [pathname, router]);
-
+    }
+  }, []);
 
   // Auto-hide navbar on mobile when user scrolls or touches outside
   useEffect(() => {
